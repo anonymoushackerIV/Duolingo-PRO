@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Duolingo PRO
 // @namespace    http://duolingopro.net
-// @version      3.1BETA.02.1
+// @version      3.1BETA.02.2
 // @description  The fastest Duolingo XP gainer, working as of October 2025.
 // @author       anonymousHackerIV
 // @match        https://*.duolingo.com/*
@@ -5848,7 +5848,7 @@ function One() {
                             'X-Chat-Key': `${storageLocal.chatKey[0]}`
                         }
                         : {
-                            'Authorization': `Bearer ${storageLocal.chatKey[0]}`
+                            'X-Chat-Key': `${storageLocal.chatKey[0]}`
                         },
                         body: formData
                     });
@@ -6326,7 +6326,8 @@ function One() {
             '[data-test="story-start"]',
             '._3bBpU._1x5JY._1M9iF._36g4N._2YF0P.T7I0c._2EnxW.MYehf',
             '._2V6ug._1ursp._7jW2t._28UWu._3h0lA._1S2uf._1E9sc', // No Thanks Legendary Button
-            '._1rcV8._1VYyp._1ursp._7jW2t._1gKir' // Language Score
+            '._1rcV8._1VYyp._1ursp._7jW2t._1gKir', // Language Score
+			'._2V6ug._1ursp._7jW2t._3zgLG' // Create Profile Later
         ];
         selectorsForSkip.forEach(selector => {
             const element = document.querySelector(selector);
