@@ -1,8 +1,8 @@
 // ==UserScript==
 // @name         Duolingo PRO
-// @namespace    http://duolingopro.net
-// @version      3.1BETA.02.2
-// @description  The fastest Duolingo XP gainer, working as of October 2025.
+// @namespace    https://duolingopro.net
+// @version      3.1BETA.03
+// @description  The fastest Duolingo XP gainer, working as of November 2025.
 // @author       anonymousHackerIV
 // @match        https://*.duolingo.com/*
 // @match        https://*.duolingo.cn/*
@@ -12,12 +12,12 @@
 
 let storageLocal;
 let storageSession;
-let versionNumber = "02.1";
-let storageLocalVersion = "06";
-let storageSessionVersion = "06";
-let versionName = "BETA.02.1";
-let versionFull = "3.1BETA.02.1";
-let versionFormal = "3.1 BETA.02.1";
+let versionNumber = "05";
+let storageLocalVersion = "05";
+let storageSessionVersion = "05";
+let versionName = "BETA.03";
+let versionFull = "3.1BETA.03";
+let versionFormal = "3.1 BETA.03";
 let serverURL = "https://www.duolingopro.net";
 let apiURL = "https://api.duolingopro.net";
 let greasyfork = true;
@@ -36,43 +36,138 @@ let reactTraverseUp = 1;
 const debug = false;
 const flag01 = false;
 const flag02 = false;
+const flag03 = false;
 
-let temporaryRandom16 = Array.from({ length: 16 }, () => 'abcdefghijklmnopqrstuvwxyz0123456789'[Math.floor(Math.random() * 36)]).join('');
+// USAGE OR MODIFICATION OF THIS SCRIPT IMPLIES YOU AGREE TO THE TERMS AND CONDITIONS PRESENTED IN THE SCRIPT. IF YOU DO NOT AGREE, DO NOT USE OR MODIFY THIS SCRIPT.
 
-if (localStorage.getItem("DLP_Local_Storage") == null || JSON.parse(localStorage.getItem("DLP_Local_Storage")).storageVersion !== storageLocalVersion) {
-    localStorage.setItem("DLP_Local_Storage", JSON.stringify({
-        "version": versionNumber,
-        "terms": "00",
-        "random16": temporaryRandom16,
-        "pins": {
-            "home": ["DLP_Get_XP_1_ID", "DLP_Get_GEMS_1_ID"],
-            "legacy": ["DLP_Get_PATH_1_ID", "DLP_Get_PRACTICE_1_ID"]
+(function buildOrMigrateStorageLocal() {
+    let tempRandom16 = Array.from({ length: 16 }, () => 'abcdefghijklmnopqrstuvwxyz0123456789'[Math.floor(Math.random() * 36)]).join('');
+    let tempTimestamp = Date.now();
+
+    const DEFAULTS = {
+        version: versionNumber,
+        terms: "00",
+        random16: tempRandom16,
+        pins: {
+            home: ["DLP_Get_XP_1_ID", "DLP_Get_GEM_1_ID"],
+            legacy: ["DLP_Get_PATH_1_ID", "DLP_Get_PRACTICE_1_ID"]
         },
-        "settings": {
-            "autoUpdate": !greasyfork,
-            "showSolveButtons": true,
-            "showAutoServerButton": alpha,
-            "muteLessons": false,
-            "anonymousUsageData": alpha,
-            "solveSpeed": 0.9
+        settings: {
+            autoUpdate: !greasyfork,
+            showSolveButtons: true,
+            showAutoServerButton: alpha,
+            muteLessons: false,
+            anonymousUsageData: alpha,
+            solveSpeed: 0.9
         },
-        "chats": [],
-        "notifications": [
-            {
-                "id": "0001"
+        stats: {
+            modern: {
+                xp: 0,
+                gem: 0,
+                streak: 0,
+                super: 0,
+                heart_refill: 0,
+                streak_freeze: 0,
+                double_xp_boost: 0
+            },
+            legacy: {
+                path: {
+                    lessons: 0,
+                    questions: 0
+                },
+                practice: {
+                    lessons: 0,
+                    questions: 0
+                },
+                listen: {
+                    lessons: 0,
+                    questions: 0
+                },
+                lesson: {
+                    lessons: 0,
+                    questions: 0
+                }
+            },
+            tracking_since: tempTimestamp
+        },
+        chats: [],
+        notifications: [{ id: "0000" }],
+        tips: { seeMore1: false },
+        languagePackVersion: "00",
+        onboarding: false,
+        storageVersion: storageLocalVersion
+    };
+
+    function isPlainObject(v) {
+        return Object.prototype.toString.call(v) === "[object Object]";
+    }
+    function safeParse(json) {
+        try {
+            const v = JSON.parse(json);
+            return isPlainObject(v) ? v : null;
+        } catch {
+            return null;
+        }
+    }
+
+    function mergeWithPrune(existing, defaults) {
+        const result = Array.isArray(defaults) ? [] : {};
+        for (const key of Object.keys(defaults)) {
+            const defVal = defaults[key];
+            const hasExisting = existing && Object.prototype.hasOwnProperty.call(existing, key);
+            const exVal = hasExisting ? existing[key] : undefined;
+
+            if (isPlainObject(defVal)) {
+            if (isPlainObject(exVal)) {
+                result[key] = mergeWithPrune(exVal, defVal);
+            } else {
+                result[key] = mergeWithPrune({}, defVal); // take full default subtree
             }
-        ],
-        "tips": {
-            "seeMore1": false
-        },
-        "languagePackVersion": "00",
-        "onboarding": false,
-        "storageVersion": storageLocalVersion
-    }));
-    storageLocal = JSON.parse(localStorage.getItem("DLP_Local_Storage"));
-} else {
-    storageLocal = JSON.parse(localStorage.getItem("DLP_Local_Storage"));
-}
+            } else if (Array.isArray(defVal)) {
+                result[key] = Array.isArray(exVal) ? exVal : defVal.slice();
+            } else {
+                // primitives / everything else: keep existing if present, else default
+                result[key] = hasExisting ? exVal : defVal;
+            }
+        }
+        // Unknown keys in `existing` are intentionally NOT copied (pruned)
+        return result;
+    }
+
+    const raw = localStorage.getItem("DLP_Local_Storage");
+    const existing = safeParse(raw);
+
+    // Migrate: replace old "DLP_Get_GEMS_1_ID" pin with new "DLP_Get_GEM_1_ID"
+    if (existing && existing.pins && Array.isArray(existing.pins.home)) {
+        const legacyIndex = existing.pins.home.indexOf("DLP_Get_GEMS_1_ID");
+        if (legacyIndex !== -1) {
+            existing.pins.home[legacyIndex] = "DLP_Get_GEM_1_ID";
+        }
+    }
+
+    // Fresh write if missing or unparsable
+    if (!existing) {
+        const fresh = { ...DEFAULTS, storageVersion: storageLocalVersion };
+        localStorage.setItem("DLP_Local_Storage", JSON.stringify(fresh));
+        storageLocal = fresh;
+        return;
+    }
+
+    // Up-to-date -> just use it
+    if (existing.storageVersion === storageLocalVersion) {
+        storageLocal = existing;
+        return;
+    }
+
+    // Migrate: keep existing values where keys match, add missing defaults, drop extras
+    const migrated = mergeWithPrune(existing, DEFAULTS);
+
+    // Ensure we actually bump the version so we don't re-migrate on next load
+    migrated.storageVersion = storageLocalVersion;
+
+    localStorage.setItem("DLP_Local_Storage", JSON.stringify(migrated));
+    storageLocal = migrated;
+})();
 function saveStorageLocal() {
     localStorage.setItem("DLP_Local_Storage", JSON.stringify(storageLocal));
 }
@@ -126,7 +221,7 @@ let systemText = {
         2: "Show",
         3: "Connecting",
         4: "Donate",
-        5: "Feedback",
+        5: "Support",
         6: "Settings",
         7: "What's New",
         8: "How much XP would you like to gain?",
@@ -211,12 +306,12 @@ let systemText = {
         224: "Limit Reached",
         225: "You reached your XP limit for the next {timeMessage}. To boost your limits, <a href='https://duolingopro.net/donate' target='_blank' style='font-family: Duolingo PRO Rounded; text-decoration: underline; color: #007AFF;'>donate</a>.",
         227: "You already redeemed a 3 day Super Duolingo trial. You can request another 3 day Super Duolingo trial in {timeMessage}.",
-        229: "GEMS testing",
+        229: "REFILL",
         230: "GEMS testing",
         231: "Error Connecting",
         232: "Duolingo PRO was unable to connect to our servers. This may be because our servers are temporarily unavailable or you are using an outdated version. Check for <a href='https://status.duolingopro.net' target='_blank' style='font-family: Duolingo PRO Rounded; text-decoration: underline; color: #007AFF;'>server status</a> or <a href='https://duolingopro.net/greasyfork' target='_blank' style='font-family: Duolingo PRO Rounded; text-decoration: underline; color: #007AFF;'>updates</a>.",
         233: "Update Duolingo PRO",
-        234: "You are using an outdated version of Duolingo PRO. Please <a href='https://www.duolingopro.net/greasyfork' target='_blank' style='font-family: Duolingo PRO Rounded; color: #007AFF; text-decoration: underline;'>update Duolingo PRO</a> or turn on automatic updates."
+        234: "You are using an outdated version of Duolingo PRO. Please <a href='https://www.duolingopro.net/greasyfork' target='_blank' style='font-family: Duolingo PRO Rounded; color: #007AFF; text-decoration: underline;'>update Duolingo PRO</a>."
     },
 };
 
@@ -356,8 +451,8 @@ HTML2 = `
                     </div>
                     <div class="DLP_HStack_8">
                         <div class="DLP_Button_Style_1 DLP_Magnetic_Hover_1 DLP_NoSelect" id="DLP_Secondary_Earn_Button_1_ID" style="outline: 2px solid rgba(0, 0, 0, 0.20); outline-offset: -2px; background: url(${serverURL}/static/images/flow/secondary/512/light.png) lightgray 50% / cover no-repeat; padding: 10px 0px 10px 10px;">
-                            <p class="DLP_Text_Style_1 DLP_Inset_Icon_1_ID" style="color: #FFF;">􀑊</p>
-                            <p class="DLP_Text_Style_1 DLP_Inset_Text_1_ID" style="color: #FFF;">Earn</p>
+                            <p class="DLP_Text_Style_1 DLP_Inset_Icon_1_ID" style="color: #FFF;">􀋦</p>
+                            <p class="DLP_Text_Style_1 DLP_Inset_Text_1_ID" style="color: #FFF;">Boost</p>
                         </div>
                         <div class="DLP_Button_Style_1 DLP_Magnetic_Hover_1 DLP_NoSelect" id="DLP_Main_YouTube_Button_1_ID" onclick="window.open('https://duolingopro.net/youtube', '_blank');" style="justify-content: center; flex: none; width: 40px; padding: 10px; outline: 2px solid rgba(0, 0, 0, 0.20); outline-offset: -2px; background: rgb(var(--DLP-pink));">
                             <svg width="22" height="16" viewBox="0 0 22 16" fill="#FFF" xmlns="http://www.w3.org/2000/svg">
@@ -386,7 +481,7 @@ HTML2 = `
                 <p id="DLP_Main_Warning_1_ID" class="DLP_Text_Style_1" style="transition: 0.4s cubic-bezier(0.25, 0.46, 0.45, 0.94); text-align: center; opacity: 0.5; display: none;"></p>
                 <div class="DLP_VStack_8" id="DLP_Main_Inputs_1_Divider_1_ID" style="opacity: 0.5; pointer-events: none; transition: 0.4s cubic-bezier(0.25, 0.46, 0.45, 0.94);">
                     <div class="DLP_VStack_8" id="DLP_Get_XP_1_ID" style="flex: 1 0 0;">
-                        <p class="DLP_Text_Style_1 DLP_NoSelect" style="align-self: stretch; opacity: 0.5;">${systemText[systemLanguage][8]}</p>
+                        <p class="DLP_Text_Style_1 DLP_NoSelect" style="align-self: stretch;">${systemText[systemLanguage][8]}</p>
                         <div class="DLP_HStack_8">
                             <div class="DLP_Input_Style_1_Active">
                                 <p class="DLP_Text_Style_1" style="color: rgba(var(--DLP-blue), 0.5);">􀆃</p>
@@ -398,8 +493,8 @@ HTML2 = `
                             </div>
                         </div>
                     </div>
-                    <div class="DLP_VStack_8" id="DLP_Get_GEMS_1_ID" style="flex: 1 0 0; align-self: stretch;">
-                        <p class="DLP_Text_Style_1 DLP_NoSelect" style="align-self: stretch; opacity: 0.5;">${systemText[systemLanguage][10]}</p>
+                    <div class="DLP_VStack_8" id="DLP_Get_GEM_1_ID" style="flex: 1 0 0; align-self: stretch;">
+                        <p class="DLP_Text_Style_1 DLP_NoSelect" style="align-self: stretch;">${systemText[systemLanguage][10]}</p>
                         <div class="DLP_HStack_8">
                             <div class="DLP_Input_Style_1_Active" style="position: relative; overflow: hidden;">
                                 <svg width="120" height="48" viewBox="0 0 120 48" fill="none" xmlns="http://www.w3.org/2000/svg" style="position: absolute; pointer-events: none; transform: translateX(-150px); animation: slideRight 4s ease-in-out forwards infinite; animation-delay: 2s;">
@@ -417,7 +512,7 @@ HTML2 = `
                         </div>
                     </div>
                     <div class="DLP_VStack_8" id="DLP_Get_SUPER_1_ID" style="display: none;">
-                        <p class="DLP_Text_Style_1 DLP_NoSelect" style="align-self: stretch; opacity: 0.5;">${systemText[systemLanguage][12]}</p>
+                        <p class="DLP_Text_Style_1 DLP_NoSelect" style="align-self: stretch;">${systemText[systemLanguage][12]}</p>
                         <div class="DLP_HStack_8">
                             <div class="DLP_Input_Button_Style_1_Active DLP_Magnetic_Hover_1 DLP_NoSelect" id="DLP_Inset_Button_1_ID" style="flex: 1 0 0;">
                                 <p class="DLP_Text_Style_1 DLP_Inset_Text_1_ID" style="color: #FFF;">${systemText[systemLanguage][13]}</p>
@@ -426,7 +521,7 @@ HTML2 = `
                         </div>
                     </div>
                     <div class="DLP_VStack_8" id="DLP_Get_DOUBLE_XP_BOOST_1_ID" style="display: none;">
-                        <p class="DLP_Text_Style_1 DLP_NoSelect" style="align-self: stretch; opacity: 0.5;">Would you like to redeem an XP Boost?</p>
+                        <p class="DLP_Text_Style_1 DLP_NoSelect" style="align-self: stretch;">Would you like to redeem an XP Boost?</p>
                         <div class="DLP_HStack_8">
                             <div class="DLP_Input_Button_Style_1_Active DLP_Magnetic_Hover_1 DLP_NoSelect" id="DLP_Inset_Button_1_ID" style="flex: 1 0 0;">
                                 <p class="DLP_Text_Style_1 DLP_Inset_Text_1_ID" style="color: #FFF;">${systemText[systemLanguage][13]}</p>
@@ -435,7 +530,7 @@ HTML2 = `
                         </div>
                     </div>
                     <div class="DLP_VStack_8" id="DLP_Get_Streak_Freeze_1_ID" style="display: none;">
-                        <p class="DLP_Text_Style_1 DLP_NoSelect" style="align-self: stretch; opacity: 0.5;">How many Streak Freezes would you like to get?</p>
+                        <p class="DLP_Text_Style_1 DLP_NoSelect" style="align-self: stretch;">How many Streak Freezes would you like to get?</p>
                         <div class="DLP_HStack_8">
                             <div class="DLP_Input_Style_1_Active">
                                 <p class="DLP_Text_Style_1" style="color: rgba(var(--DLP-blue), 0.5);">􀆃</p>
@@ -448,7 +543,7 @@ HTML2 = `
                         </div>
                     </div>
                     <div class="DLP_VStack_8" id="DLP_Get_Streak_1_ID" style="display: none;">
-                        <p class="DLP_Text_Style_1 DLP_NoSelect" style="align-self: stretch; opacity: 0.5;">How many days would you like to increase your Streak by?</p>
+                        <p class="DLP_Text_Style_1 DLP_NoSelect" style="align-self: stretch;">How many days would you like to increase your Streak by?</p>
                         <div class="DLP_HStack_8">
                             <div class="DLP_Input_Style_1_Active">
                                 <p class="DLP_Text_Style_1" style="color: rgba(var(--DLP-blue), 0.5);">􀆃</p>
@@ -461,10 +556,10 @@ HTML2 = `
                         </div>
                     </div>
                     <div class="DLP_VStack_8" id="DLP_Get_Heart_Refill_1_ID" style="display: none;">
-                        <p class="DLP_Text_Style_1 DLP_NoSelect" style="align-self: stretch; opacity: 0.5;">Would you like to refill your Hearts to full?</p>
+                        <p class="DLP_Text_Style_1 DLP_NoSelect" style="align-self: stretch;">Would you like to refill your Hearts to full?</p>
                         <div class="DLP_HStack_8">
                             <div class="DLP_Input_Button_Style_1_Active DLP_Magnetic_Hover_1 DLP_NoSelect" id="DLP_Inset_Button_1_ID" style="flex: 1 0 0;">
-                                <p class="DLP_Text_Style_1 DLP_Inset_Text_1_ID" style="color: #FFF;">REFILL</p>
+                                <p class="DLP_Text_Style_1 DLP_Inset_Text_1_ID" style="color: #FFF;">${systemText[systemLanguage][229]}</p>
                                 <p class="DLP_Text_Style_1 DLP_Inset_Icon_1_ID" style="color: #FFF;">􀰫</p>
                             </div>
                         </div>
@@ -476,7 +571,7 @@ HTML2 = `
                 </div>
                 <div class="DLP_HStack_Auto" style="padding-top: 4px;">
                     <div class="DLP_HStack_4 DLP_Magnetic_Hover_1 DLP_NoSelect" id="DLP_Main_Terms_1_Button_1_ID" style="align-items: center;">
-                        <p class="DLP_Text_Style_1" style="color: rgb(var(--DLP-blue)); opacity: 0.5;">${systemText[systemLanguage][14]}</p>
+                        <p class="DLP_Text_Style_1" style="color: rgba(var(--DLP-blue), 0.5);">${systemText[systemLanguage][14]}</p>
                     </div>
                     <div class="DLP_HStack_4 DLP_Magnetic_Hover_1 DLP_NoSelect" id="DLP_Main_Whats_New_1_Button_1_ID" style="align-items: center;">
                         <p class="DLP_Text_Style_1" style="color: rgb(var(--DLP-blue));">${systemText[systemLanguage][7]}</p>
@@ -501,7 +596,7 @@ HTML2 = `
                         <div class="DLP_VStack_8" id="DLP_Get_XP_2_ID" style="flex: 1 0 0;">
                             <div class="DLP_HStack_8" style="align-items: center;">
                                 <p class="DLP_Text_Style_1 DLP_Magnetic_Hover_1 DLP_NoSelect DLP_Inset_Icon_1_ID" style="color: rgba(var(--color-eel), 0.50);">􀎦</p>
-                                <p class="DLP_Text_Style_1 DLP_NoSelect" style="align-self: stretch; opacity: 0.5;">${systemText[systemLanguage][8]}</p>
+                                <p class="DLP_Text_Style_1 DLP_NoSelect" style="align-self: stretch;">${systemText[systemLanguage][8]}</p>
                             </div>
                             <div class="DLP_HStack_8">
                                 <div class="DLP_Input_Style_1_Active">
@@ -514,10 +609,10 @@ HTML2 = `
                                 </div>
                             </div>
                         </div>
-                        <div class="DLP_VStack_8" id="DLP_Get_GEMS_2_ID" style="flex: 1 0 0; align-self: stretch;">
+                        <div class="DLP_VStack_8" id="DLP_Get_GEM_2_ID" style="flex: 1 0 0; align-self: stretch;">
                             <div class="DLP_HStack_8" style="align-items: center;">
                                 <p class="DLP_Text_Style_1 DLP_Magnetic_Hover_1 DLP_NoSelect DLP_Inset_Icon_1_ID" style="color: rgba(var(--color-eel), 0.50);">􀎦</p>
-                                <p class="DLP_Text_Style_1 DLP_NoSelect" style="align-self: stretch; opacity: 0.5;">${systemText[systemLanguage][10]}</p>
+                                <p class="DLP_Text_Style_1 DLP_NoSelect" style="align-self: stretch;">${systemText[systemLanguage][10]}</p>
                             </div>
                             <div class="DLP_HStack_8">
                                 <div class="DLP_Input_Style_1_Active" style="position: relative; overflow: hidden;">
@@ -540,7 +635,7 @@ HTML2 = `
                         <div class="DLP_VStack_8" id="DLP_Get_SUPER_2_ID" style="flex: 1 0 0;">
                             <div class="DLP_HStack_8" style="align-items: center;">
                                 <p class="DLP_Text_Style_1 DLP_Magnetic_Hover_1 DLP_NoSelect DLP_Inset_Icon_1_ID" style="color: rgba(var(--color-eel), 0.50);">􀎦</p>
-                                <p class="DLP_Text_Style_1 DLP_NoSelect" style="align-self: stretch; opacity: 0.5;">${systemText[systemLanguage][12]}</p>
+                                <p class="DLP_Text_Style_1 DLP_NoSelect" style="align-self: stretch;">${systemText[systemLanguage][12]}</p>
                             </div>
                             <div class="DLP_HStack_8">
                                 <div class="DLP_Input_Button_Style_1_Active DLP_Magnetic_Hover_1 DLP_NoSelect" id="DLP_Inset_Button_1_ID" style="flex: 1 0 0;">
@@ -552,7 +647,7 @@ HTML2 = `
                         <div class="DLP_VStack_8" id="DLP_Get_DOUBLE_XP_BOOST_2_ID" style="flex: 1 0 0;">
                             <div class="DLP_HStack_8" style="align-items: center;">
                                 <p class="DLP_Text_Style_1 DLP_Magnetic_Hover_1 DLP_NoSelect DLP_Inset_Icon_1_ID" style="color: rgba(var(--color-eel), 0.50);">􀎦</p>
-                                <p class="DLP_Text_Style_1 DLP_NoSelect" style="align-self: stretch; opacity: 0.5;">Would you like to redeem an XP Boost?</p>
+                                <p class="DLP_Text_Style_1 DLP_NoSelect" style="align-self: stretch;">Would you like to redeem an XP Boost?</p>
                             </div>
                             <div class="DLP_HStack_8">
                                 <div class="DLP_Input_Button_Style_1_Active DLP_Magnetic_Hover_1 DLP_NoSelect" id="DLP_Inset_Button_1_ID" style="flex: 1 0 0;">
@@ -566,7 +661,7 @@ HTML2 = `
                         <div class="DLP_VStack_8" id="DLP_Get_Streak_Freeze_2_ID" style="flex: 1 0 0;">
                             <div class="DLP_HStack_8" style="align-items: center;">
                                 <p class="DLP_Text_Style_1 DLP_Magnetic_Hover_1 DLP_NoSelect DLP_Inset_Icon_1_ID" style="color: rgba(var(--color-eel), 0.50);">􀎦</p>
-                                <p class="DLP_Text_Style_1 DLP_NoSelect" style="align-self: stretch; opacity: 0.5;">How many Streak Freezes would you like to get?</p>
+                                <p class="DLP_Text_Style_1 DLP_NoSelect" style="align-self: stretch;">How many Streak Freezes would you like to get?</p>
                             </div>
                             <div class="DLP_HStack_8">
                                 <div class="DLP_Input_Style_1_Active">
@@ -582,7 +677,7 @@ HTML2 = `
                         <div class="DLP_VStack_8" id="DLP_Get_Streak_2_ID" style="flex: 1 0 0;">
                             <div class="DLP_HStack_8" style="align-items: center;">
                                 <p class="DLP_Text_Style_1 DLP_Magnetic_Hover_1 DLP_NoSelect DLP_Inset_Icon_1_ID" style="color: rgba(var(--color-eel), 0.50);">􀎦</p>
-                                <p class="DLP_Text_Style_1 DLP_NoSelect" style="align-self: stretch; opacity: 0.5;">How many days would you like to increase your Streak by?</p>
+                                <p class="DLP_Text_Style_1 DLP_NoSelect" style="align-self: stretch;">How many days would you like to increase your Streak by?</p>
                             </div>
                             <div class="DLP_HStack_8">
                                 <div class="DLP_Input_Style_1_Active">
@@ -600,11 +695,11 @@ HTML2 = `
                         <div class="DLP_VStack_8" id="DLP_Get_Heart_Refill_2_ID" style="flex: 1 0 0;">
                             <div class="DLP_HStack_8" style="align-items: center;">
                                 <p class="DLP_Text_Style_1 DLP_Magnetic_Hover_1 DLP_NoSelect DLP_Inset_Icon_1_ID" style="color: rgba(var(--color-eel), 0.50);">􀎦</p>
-                                <p class="DLP_Text_Style_1 DLP_NoSelect" style="align-self: stretch; opacity: 0.5;">Would you like to refill your Hearts to full?</p>
+                                <p class="DLP_Text_Style_1 DLP_NoSelect" style="align-self: stretch;">Would you like to refill your Hearts to full?</p>
                             </div>
                             <div class="DLP_HStack_8">
                                 <div class="DLP_Input_Button_Style_1_Active DLP_Magnetic_Hover_1 DLP_NoSelect" id="DLP_Inset_Button_1_ID" style="flex: 1 0 0;">
-                                <p class="DLP_Text_Style_1 DLP_Inset_Text_1_ID" style="color: #FFF;">REFILL</p>
+                                <p class="DLP_Text_Style_1 DLP_Inset_Text_1_ID" style="color: #FFF;">${systemText[systemLanguage][229]}</p>
                                 <p class="DLP_Text_Style_1 DLP_Inset_Icon_1_ID" style="color: #FFF;">􀰫</p>
                                 </div>
                             </div>
@@ -643,8 +738,8 @@ HTML2 = `
                     </div>
                     <div class="DLP_HStack_8">
                         <div class="DLP_Button_Style_1 DLP_Magnetic_Hover_1 DLP_NoSelect" id="DLP_Main_Earn_Button_1_ID" style="outline: 2px solid rgba(0, 0, 0, 0.20); outline-offset: -2px; background: url(${serverURL}/static/images/flow/secondary/512/light.png) lightgray 50% / cover no-repeat; padding: 10px 0px 10px 10px;">
-                            <p class="DLP_Text_Style_1 DLP_Inset_Icon_1_ID" style="color: #FFF;">􀑊</p>
-                            <p class="DLP_Text_Style_1 DLP_Inset_Text_1_ID" style="color: #FFF;">Earn</p>
+                            <p class="DLP_Text_Style_1 DLP_Inset_Icon_1_ID" style="color: #FFF;">􀋦</p>
+                            <p class="DLP_Text_Style_1 DLP_Inset_Text_1_ID" style="color: #FFF;">Boost</p>
                         </div>
                         <div class="DLP_Button_Style_1 DLP_Magnetic_Hover_1 DLP_NoSelect" id="DLP_Secondary_YouTube_Button_1_ID" onclick="window.open('https://duolingopro.net/youtube', '_blank');" style="justify-content: center; flex: none; width: 40px; padding: 10px; outline: 2px solid rgba(0, 0, 0, 0.20); outline-offset: -2px; background: rgb(var(--DLP-pink));">
                             <svg width="22" height="16" viewBox="0 0 22 16" fill="#FFF" xmlns="http://www.w3.org/2000/svg">
@@ -675,7 +770,7 @@ HTML2 = `
                 <p class="DLP_Text_Style_1" style="display: none; transition: 0.4s cubic-bezier(0.25, 0.46, 0.45, 0.94); opacity: 0; filter: blur(4px);">We are currently unable to receive new requests due to high demand. Join our Discord Server to learn more. <br><br>You can help us handle more demand by donating on Patreon while getting exclusive features and higher limits. </p>
                 <div class="DLP_VStack_8" id="DLP_Main_Inputs_2_Divider_1_ID">
                     <div class="DLP_VStack_8" id="DLP_Get_PATH_1_ID">
-                        <p class="DLP_Text_Style_1 DLP_NoSelect" style="align-self: stretch; opacity: 0.5;">${systemText[systemLanguage][17]}</p>
+                        <p class="DLP_Text_Style_1 DLP_NoSelect" style="align-self: stretch;">${systemText[systemLanguage][17]}</p>
                         <div class="DLP_HStack_8">
                             <div class="DLP_Input_Button_Style_1_Active DLP_Magnetic_Hover_1 DLP_NoSelect" id="DLP_Inset_Button_2_ID" style="width: 48px; padding: 0;">
                                 <p class="DLP_Text_Style_1 DLP_Inset_Icon_1_ID" style="color: #FFF;">􀆃</p>
@@ -690,7 +785,7 @@ HTML2 = `
                         </div>
                     </div>
                     <div class="DLP_VStack_8" id="DLP_Get_PRACTICE_1_ID">
-                        <p class="DLP_Text_Style_1 DLP_NoSelect" style="align-self: stretch; opacity: 0.5;">${systemText[systemLanguage][19]}</p>
+                        <p class="DLP_Text_Style_1 DLP_NoSelect" style="align-self: stretch;">${systemText[systemLanguage][19]}</p>
                         <div class="DLP_HStack_8">
                             <div class="DLP_Input_Button_Style_1_Active DLP_Magnetic_Hover_1 DLP_NoSelect" id="DLP_Inset_Button_2_ID" style="width: 48px; padding: 0;">
                                 <p class="DLP_Text_Style_1 DLP_Inset_Icon_1_ID" style="color: #FFF;">􀆃</p>
@@ -705,7 +800,7 @@ HTML2 = `
                         </div>
                     </div>
                     <div class="DLP_VStack_8" id="DLP_Get_LISTEN_1_ID" style="display: none;">
-                        <p class="DLP_Text_Style_1 DLP_NoSelect" style="align-self: stretch; opacity: 0.5;">${systemText[systemLanguage][21]}</p>
+                        <p class="DLP_Text_Style_1 DLP_NoSelect" style="align-self: stretch;">${systemText[systemLanguage][21]}</p>
                         <div class="DLP_HStack_8">
                             <div class="DLP_Input_Button_Style_1_Active DLP_Magnetic_Hover_1 DLP_NoSelect" id="DLP_Inset_Button_2_ID" style="width: 48px; padding: 0;">
                                 <p class="DLP_Text_Style_1 DLP_Inset_Icon_1_ID" style="color: #FFF;">􀆃</p>
@@ -720,14 +815,14 @@ HTML2 = `
                         </div>
                     </div>
                     <div class="DLP_VStack_8" id="DLP_Get_LESSON_1_ID" style="display: none;">
-                        <p class="DLP_Text_Style_1 DLP_NoSelect" style="align-self: stretch; opacity: 0.5;">${systemText[systemLanguage][23]}</p>
+                        <p class="DLP_Text_Style_1 DLP_NoSelect" style="align-self: stretch;">${systemText[systemLanguage][23]}</p>
                         <div class="DLP_HStack_8">
                             <div class="DLP_Input_Style_1_Active">
                                 <p class="DLP_Text_Style_1" style="color: rgba(var(--DLP-blue), 0.5);">􀆃</p>
                                 <div style="display: flex; align-items: center; gap: 8px; width: 100%; justify-content: flex-end;">
-                                    <p class="DLP_Text_Style_1 DLP_NoSelect" style="color: rgb(var(--DLP-blue)); opacity: 0.5;">Unit:</p>
+                                    <p class="DLP_Text_Style_1 DLP_NoSelect" style="color: rgba(var(--DLP-blue), 0.5);">Unit:</p>
                                     <input type="text" value="1" placeholder="1" id="DLP_Inset_Input_3_ID" class="DLP_Input_Input_Style_1" style="width: 30px;">
-                                    <p class="DLP_Text_Style_1 DLP_NoSelect" style="color: rgb(var(--DLP-blue)); opacity: 0.5;">Lesson:</p>
+                                    <p class="DLP_Text_Style_1 DLP_NoSelect" style="color: rgba(var(--DLP-blue), 0.5);">Lesson:</p>
                                     <input type="text" value="1" placeholder="1" id="DLP_Inset_Input_4_ID" class="DLP_Input_Input_Style_1" style="width: 30px;">
                                 </div>
                             </div>
@@ -751,7 +846,7 @@ HTML2 = `
                     </div>
                     <div class="DLP_HStack_Auto" style="padding-top: 4px;">
                         <div class="DLP_HStack_4 DLP_Magnetic_Hover_1 DLP_NoSelect" id="DLP_Secondary_Terms_1_Button_1_ID" style="align-items: center;">
-                            <p class="DLP_Text_Style_1" style="color: rgb(var(--DLP-blue)); opacity: 0.5;">${systemText[systemLanguage][14]}</p>
+                            <p class="DLP_Text_Style_1" style="color: rgba(var(--DLP-blue), 0.5);">${systemText[systemLanguage][14]}</p>
                         </div>
                         <div class="DLP_HStack_4 DLP_Magnetic_Hover_1 DLP_NoSelect" id="DLP_Secondary_Whats_New_1_Button_1_ID" style="align-items: center;">
                             <p class="DLP_Text_Style_1" style="color: rgb(var(--DLP-blue));">${systemText[systemLanguage][7]}</p>
@@ -776,7 +871,7 @@ HTML2 = `
                     <div class="DLP_VStack_8" id="DLP_Get_PATH_2_ID">
                         <div class="DLP_HStack_8" style="align-items: center;">
                             <p class="DLP_Text_Style_1 DLP_Magnetic_Hover_1 DLP_NoSelect DLP_Inset_Icon_1_ID" style="color: rgba(var(--color-eel), 0.50);">􀎦</p>
-                            <p class="DLP_Text_Style_1 DLP_NoSelect" style="align-self: stretch; opacity: 0.5;">${systemText[systemLanguage][17]}</p>
+                            <p class="DLP_Text_Style_1 DLP_NoSelect" style="align-self: stretch;">${systemText[systemLanguage][17]}</p>
                         </div>
                         <div class="DLP_HStack_8">
                             <div class="DLP_Input_Button_Style_1_Active DLP_Magnetic_Hover_1 DLP_NoSelect" id="DLP_Inset_Button_2_ID" style="width: 48px; padding: 0;">
@@ -794,7 +889,7 @@ HTML2 = `
                     <div class="DLP_VStack_8" id="DLP_Get_PRACTICE_2_ID">
                         <div class="DLP_HStack_8" style="align-items: center;">
                             <p class="DLP_Text_Style_1 DLP_Magnetic_Hover_1 DLP_NoSelect DLP_Inset_Icon_1_ID" style="color: rgba(var(--color-eel), 0.50);">􀎦</p>
-                            <p class="DLP_Text_Style_1 DLP_NoSelect" style="align-self: stretch; opacity: 0.5;">${systemText[systemLanguage][19]}</p>
+                            <p class="DLP_Text_Style_1 DLP_NoSelect" style="align-self: stretch;">${systemText[systemLanguage][19]}</p>
                         </div>
                         <div class="DLP_HStack_8">
                             <div class="DLP_Input_Button_Style_1_Active DLP_Magnetic_Hover_1 DLP_NoSelect" id="DLP_Inset_Button_2_ID" style="width: 48px; padding: 0;">
@@ -812,7 +907,7 @@ HTML2 = `
                     <div class="DLP_VStack_8" id="DLP_Get_LISTEN_2_ID">
                         <div class="DLP_HStack_8" style="align-items: center;">
                             <p class="DLP_Text_Style_1 DLP_Magnetic_Hover_1 DLP_NoSelect DLP_Inset_Icon_1_ID" style="color: rgba(var(--color-eel), 0.50);">􀎦</p>
-                            <p class="DLP_Text_Style_1 DLP_NoSelect" style="align-self: stretch; opacity: 0.5;">${systemText[systemLanguage][21]}</p>
+                            <p class="DLP_Text_Style_1 DLP_NoSelect" style="align-self: stretch;">${systemText[systemLanguage][21]}</p>
                         </div>
                         <div class="DLP_HStack_8">
                             <div class="DLP_Input_Button_Style_1_Active DLP_Magnetic_Hover_1 DLP_NoSelect" id="DLP_Inset_Button_2_ID" style="width: 48px; padding: 0;">
@@ -830,14 +925,14 @@ HTML2 = `
                     <div class="DLP_VStack_8" id="DLP_Get_LESSON_2_ID">
                         <div class="DLP_HStack_8" style="align-items: center;">
                             <p class="DLP_Text_Style_1 DLP_Magnetic_Hover_1 DLP_NoSelect DLP_Inset_Icon_1_ID" style="color: rgba(var(--color-eel), 0.50);">􀎦</p>
-                            <p class="DLP_Text_Style_1 DLP_NoSelect" style="align-self: stretch; opacity: 0.5;">${systemText[systemLanguage][23]}</p>
+                            <p class="DLP_Text_Style_1 DLP_NoSelect" style="align-self: stretch;">${systemText[systemLanguage][23]}</p>
                         </div>
                         <div class="DLP_HStack_8">
                             <div class="DLP_Input_Style_1_Active">
                                 <div style="display: flex; align-items: center; gap: 8px; width: 100%; justify-content: flex-end;">
-                                    <p class="DLP_Text_Style_1 DLP_NoSelect" style="color: rgb(var(--DLP-blue)); opacity: 0.5;">Unit:</p>
+                                    <p class="DLP_Text_Style_1 DLP_NoSelect" style="color: rgba(var(--DLP-blue), 0.5);">Unit:</p>
                                     <input type="text" value="1" placeholder="1" id="DLP_Inset_Input_3_ID" class="DLP_Input_Input_Style_1" style="width: 30px;">
-                                    <p class="DLP_Text_Style_1 DLP_NoSelect" style="color: rgb(var(--DLP-blue)); opacity: 0.5;">Lesson:</p>
+                                    <p class="DLP_Text_Style_1 DLP_NoSelect" style="color: rgba(var(--DLP-blue), 0.5);">Lesson:</p>
                                     <input type="text" value="1" placeholder="1" id="DLP_Inset_Input_4_ID" class="DLP_Input_Input_Style_1" style="width: 30px;">
                                 </div>
                             </div>
@@ -869,8 +964,8 @@ HTML2 = `
                     </div>
                     <p class="DLP_Text_Style_1" style="font-size: 14px; background: url(${serverURL}/static/images/flow/secondary/512/light.png) lightgray 50% / cover no-repeat; background-clip: text; -webkit-background-clip: text; -webkit-text-fill-color: transparent;">${versionName}</p>
                 </div>
-                <p class="DLP_Text_Style_1 DLP_NoSelect" id="DLP_Terms_1_Text_1_ID" style="opacity: 0.5;">${systemText[systemLanguage][25]}</p>
-                <p class="DLP_Text_Style_1 DLP_NoSelect" id="DLP_Terms_1_Text_2_ID" style="opacity: 0.5; display: none; align-self: stretch;">${systemText[systemLanguage][26]}</p>
+                <p class="DLP_Text_Style_1 DLP_NoSelect" id="DLP_Terms_1_Text_1_ID">${systemText[systemLanguage][25]}</p>
+                <p class="DLP_Text_Style_1 DLP_NoSelect" id="DLP_Terms_1_Text_2_ID" style="display: none; align-self: stretch;">${systemText[systemLanguage][26]}</p>
                 <div class="DLP_Scroll_Box_Style_1">
                     <p id="DLP_Terms_Main_Text_1_ID" class="DLP_Scroll_Box_Text_Style_1">${systemText[systemLanguage][27]}</p>
                 </div>
@@ -923,50 +1018,88 @@ HTML2 = `
                     </div>
                     <p class="DLP_Text_Style_1" style="font-size: 14px; background: url(${serverURL}/static/images/flow/secondary/512/light.png) lightgray 50% / cover no-repeat; background-clip: text; -webkit-background-clip: text; -webkit-text-fill-color: transparent;">${versionName}</p>
                 </div>
-                <div class="DLP_VStack_8" style="padding-bottom: 4px;">
-                    <div id="DLP_Settings_Show_Solve_Buttons_1_ID" class="DLP_HStack_8" style="justify-content: center; align-items: center;">
-                        <div class="DLP_VStack_0" style="align-items: flex-start; flex: 1 0 0;">
-                            <p class="DLP_Text_Style_1 DLP_NoSelect" style="opacity: 0.5;">Show Solve Buttons</p>
-                            <p class="DLP_Text_Style_1 DLP_NoSelect" style="opacity: 0.25;">In lessons and practices, see the solve and solve all buttons.</p>
+                <div style="max-height: 320px; overflow-y: auto;">
+                    <div class="DLP_VStack_8">
+                        <div id="DLP_Settings_Show_Solve_Buttons_1_ID" class="DLP_HStack_8" style="justify-content: center; align-items: center;">
+                            <div class="DLP_VStack_0" style="align-items: flex-start; flex: 1 0 0;">
+                                <p class="DLP_Text_Style_1">Show Solve Buttons</p>
+                                <p class="DLP_Text_Style_1" style="opacity: 0.5;">In lessons and practices, see the solve and solve all buttons.</p>
+                            </div>
+                            <div id="DLP_Inset_Toggle_1_ID" class="DLP_Toggle_Style_1 DLP_Magnetic_Hover_1 DLP_NoSelect">
+                                <p class="DLP_Text_Style_1 DLP_Inset_Icon_1_ID" style="color: #FFF;">􀁣</p>
+                            </div>
                         </div>
-                        <div id="DLP_Inset_Toggle_1_ID" class="DLP_Toggle_Style_1 DLP_Magnetic_Hover_1 DLP_NoSelect">
-                            <p class="DLP_Text_Style_1 DLP_Inset_Icon_1_ID" style="color: #FFF;">􀁣</p>
+                        <div id="DLP_Settings_Show_AutoServer_Button_1_ID" class="DLP_HStack_8" style="justify-content: center; align-items: center;">
+                            <div class="DLP_VStack_0" style="align-items: flex-start; flex: 1 0 0;">
+                                <p class="DLP_Text_Style_1">Show AutoServer Button</p>
+                                <p class="DLP_Text_Style_1" style="opacity: 0.5;">See the AutoServer by Duolingo PRO button in your Duolingo menubar.</p>
+                            </div>
+                            <div id="DLP_Inset_Toggle_1_ID" class="DLP_Toggle_Style_1 DLP_Magnetic_Hover_1 DLP_NoSelect">
+                                <p class="DLP_Text_Style_1 DLP_Inset_Icon_1_ID" style="color: #FFF;">􀁣</p>
+                            </div>
                         </div>
-                    </div>
-                    <div id="DLP_Settings_Show_AutoServer_Button_1_ID" class="DLP_HStack_8" style="justify-content: center; align-items: center;">
-                        <div class="DLP_VStack_0" style="align-items: flex-start; flex: 1 0 0;">
-                            <p class="DLP_Text_Style_1 DLP_NoSelect" style="opacity: 0.5;">Show AutoServer Button</p>
-                            <p class="DLP_Text_Style_1 DLP_NoSelect" style="opacity: 0.25;">See the AutoServer by Duolingo PRO button in your Duolingo menubar.</p>
+                        <div id="DLP_Settings_Legacy_Solve_Speed_1_ID" class="DLP_HStack_8" style="justify-content: center; align-items: center;">
+                            <div class="DLP_VStack_0" style="align-items: flex-start; flex: 1 0 0;">
+                                <p class="DLP_Text_Style_1">Legacy Solve Speed</p>
+                                <p class="DLP_Text_Style_1" style="opacity: 0.5;">Legacy will solve each question every this amount of seconds. The lower speed you set, the more mistakes Legacy can make.</p>
+                            </div>
+                            <div class="DLP_Input_Style_1_Active" style="flex: none; width: 72px;">
+                                <input type="text" placeholder="0" id="DLP_Inset_Input_1_ID" class="DLP_Input_Input_Style_1" style="text-align: center;">
+                            </div>
                         </div>
-                        <div id="DLP_Inset_Toggle_1_ID" class="DLP_Toggle_Style_1 DLP_Magnetic_Hover_1 DLP_NoSelect">
-                            <p class="DLP_Text_Style_1 DLP_Inset_Icon_1_ID" style="color: #FFF;">􀁣</p>
+                        <div id="DLP_Settings_Help_Us_Make_Better_Button_1_ID" class="DLP_HStack_8" style="justify-content: center; align-items: center;${alpha ? ' opacity: 0.5; pointer-events: none;' : ''}">
+                            <div class="DLP_VStack_0" style="align-items: flex-start; flex: 1 0 0;">
+                                <p class="DLP_Text_Style_1">Help Us Make Duolingo PRO Better</p>
+                                <p class="DLP_Text_Style_1" style="opacity: 0.5;">Allow Duolingo PRO to collect anonymous usage data for us to improve the script.</p>
+                            </div>
+                            <div id="DLP_Inset_Toggle_1_ID" class="DLP_Toggle_Style_1 DLP_Magnetic_Hover_1 DLP_NoSelect">
+                                <p class="DLP_Text_Style_1 DLP_Inset_Icon_1_ID" style="color: #FFF;">􀁣</p>
+                            </div>
                         </div>
-                    </div>
-                    <div id="DLP_Settings_Legacy_Solve_Speed_1_ID" class="DLP_HStack_8" style="justify-content: center; align-items: center;">
-                        <div class="DLP_VStack_0" style="align-items: flex-start; flex: 1 0 0;">
-                            <p class="DLP_Text_Style_1 DLP_NoSelect" style="opacity: 0.5;">Legacy Solve Speed</p>
-                            <p class="DLP_Text_Style_1 DLP_NoSelect" style="opacity: 0.25;">Legacy will solve each question every this amount of seconds. The lower speed you set, the more mistakes Legacy can make.</p>
+                        <div id="DLP_Settings_Auto_Update_Toggle_1_ID" class="DLP_HStack_8" style="justify-content: center; align-items: center; opacity: 0.5; pointer-events: none; cursor: not-allowed;">
+                            <div class="DLP_VStack_0" style="align-items: flex-start; flex: 1 0 0;">
+                                <p class="DLP_Text_Style_1">${systemText[systemLanguage][34]}</p>
+                                <p class="DLP_Text_Style_1" style="opacity: 0.5;">${systemText[systemLanguage][35]}</p>
+                            </div>
+                            <div id="DLP_Inset_Toggle_1_ID" class="DLP_Toggle_Style_1 DLP_Magnetic_Hover_1 DLP_NoSelect">
+                                <p class="DLP_Text_Style_1 DLP_Inset_Icon_1_ID" style="color: #FFF;">􀁣</p>
+                            </div>
                         </div>
-                        <div class="DLP_Input_Style_1_Active" style="flex: none; width: 72px;">
-                            <input type="text" placeholder="0" id="DLP_Inset_Input_1_ID" class="DLP_Input_Input_Style_1" style="text-align: center;">
+                        <div id="DLP_Settings_Modern_Stats_Main_Box_1_ID" class="DLP_VStack_6" style="background: rgba(var(--DLP-blue), 0.10); outline: 2px solid rgba(var(--DLP-blue), 0.20); outline-offset: -2px; padding: 16px; border-radius: 8px;">
+                            <div style="display: flex; align-self: stretch; justify-content: space-between; align-items: center;">
+                                <p class="DLP_Text_Style_1" style="color: rgb(var(--DLP-blue));">3.1 Stats</p>
+                                <p class="DLP_Text_Style_1" style="color: rgba(var(--DLP-blue), 0.5);"></p>
+                            </div>
+                            <div style="display: flex; align-self: stretch; justify-content: space-between; align-items: center;">
+                                <p class="DLP_Text_Style_1" style="color: rgba(var(--DLP-blue), 0.5);">XP Gained:</p>
+                                <p class="DLP_Text_Style_1" style="color: rgba(var(--DLP-blue), 0.5);"></p>
+                            </div>
+                            <div style="display: flex; align-self: stretch; justify-content: space-between; align-items: center;">
+                                <p class="DLP_Text_Style_1" style="color: rgba(var(--DLP-blue), 0.5);">Gems Gained:</p>
+                                <p class="DLP_Text_Style_1" style="color: rgba(var(--DLP-blue), 0.5);"></p>
+                            </div>
+                            <div style="display: flex; align-self: stretch; justify-content: space-between; align-items: center;">
+                                <p class="DLP_Text_Style_1" style="color: rgba(var(--DLP-blue), 0.5);">Streak Gained:</p>
+                                <p class="DLP_Text_Style_1" style="color: rgba(var(--DLP-blue), 0.5);"></p>
+                            </div>
+                            <div style="display: flex; align-self: stretch; justify-content: space-between; align-items: center;">
+                                <p class="DLP_Text_Style_1" style="color: rgba(var(--DLP-blue), 0.5);">Heart Refills Requested:</p>
+                                <p class="DLP_Text_Style_1" style="color: rgba(var(--DLP-blue), 0.5);"></p>
+                            </div>
                         </div>
-                    </div>
-                    <div id="DLP_Settings_Help_Us_Make_Better_Button_1_ID" class="DLP_HStack_8" style="justify-content: center; align-items: center;${alpha ? ' opacity: 0.5; pointer-events: none;' : ''}">
-                        <div class="DLP_VStack_0" style="align-items: flex-start; flex: 1 0 0;">
-                            <p class="DLP_Text_Style_1 DLP_NoSelect" style="opacity: 0.5;">Help Us Make Duolingo PRO Better</p>
-                            <p class="DLP_Text_Style_1 DLP_NoSelect" style="opacity: 0.25;">Allow Duolingo PRO to collect anonymous usage data for us to improve the script.</p>
-                        </div>
-                        <div id="DLP_Inset_Toggle_1_ID" class="DLP_Toggle_Style_1 DLP_Magnetic_Hover_1 DLP_NoSelect">
-                            <p class="DLP_Text_Style_1 DLP_Inset_Icon_1_ID" style="color: #FFF;">􀁣</p>
-                        </div>
-                    </div>
-                    <div id="DLP_Settings_Auto_Update_Toggle_1_ID" class="DLP_HStack_8" style="justify-content: center; align-items: center; opacity: 0.5; pointer-events: none; cursor: not-allowed;">
-                        <div class="DLP_VStack_0" style="align-items: flex-start; flex: 1 0 0;">
-                            <p class="DLP_Text_Style_1 DLP_NoSelect" style="opacity: 0.5;">${systemText[systemLanguage][34]}</p>
-                            <p class="DLP_Text_Style_1 DLP_NoSelect" style="opacity: 0.25;">${systemText[systemLanguage][35]}</p>
-                        </div>
-                        <div id="DLP_Inset_Toggle_1_ID" class="DLP_Toggle_Style_1 DLP_Magnetic_Hover_1 DLP_NoSelect">
-                            <p class="DLP_Text_Style_1 DLP_Inset_Icon_1_ID" style="color: #FFF;">􀁣</p>
+                        <div id="DLP_Settings_Legacy_Stats_Main_Box_1_ID" class="DLP_VStack_6" style="background: rgba(var(--DLP-blue), 0.10); outline: 2px solid rgba(var(--DLP-blue), 0.20); outline-offset: -2px; padding: 16px; border-radius: 8px;">
+                            <div style="display: flex; align-self: stretch; justify-content: space-between; align-items: center;">
+                                <p class="DLP_Text_Style_1" style="color: rgb(var(--DLP-blue));">Legacy Mode Stats</p>
+                                <p class="DLP_Text_Style_1" style="color: rgba(var(--DLP-blue), 0.5);"></p>
+                            </div>
+                            <div style="display: flex; align-self: stretch; justify-content: space-between; align-items: center;">
+                                <p class="DLP_Text_Style_1" style="color: rgba(var(--DLP-blue), 0.5);">Lessons Solved:</p>
+                                <p class="DLP_Text_Style_1" style="color: rgba(var(--DLP-blue), 0.5);"></p>
+                            </div>
+                            <div style="display: flex; align-self: stretch; justify-content: space-between; align-items: center;">
+                                <p class="DLP_Text_Style_1" style="color: rgba(var(--DLP-blue), 0.5);">Questions Solved:</p>
+                                <p class="DLP_Text_Style_1" style="color: rgba(var(--DLP-blue), 0.5);"></p>
+                            </div>
                         </div>
                     </div>
                 </div>
@@ -994,11 +1127,11 @@ HTML2 = `
                         <p class="DLP_Text_Style_1 DLP_NoSelect" style="color: rgb(var(--DLP-blue));">􀁝</p>
                         <p class="DLP_Text_Style_1 DLP_NoSelect" style="align-self: stretch; color: rgb(var(--DLP-blue));">Need Support?</p>
                     </div>
-                    <p class="DLP_Text_Style_1 DLP_NoSelect" style="align-self: stretch; color: rgb(var(--DLP-blue)); opacity: 0.5;">Get help from our <a href='https://www.duolingopro.net/faq' target='_blank' style='font-family: Duolingo PRO Rounded; color: rgb(var(--DLP-blue)); text-decoration: underline;'>FAQ page</a>, enhanced with AI, or join our <a href='https://www.duolingopro.net/discord' target='_blank' style='font-family: Duolingo PRO Rounded; color: rgb(var(--DLP-blue)); text-decoration: underline;'>Discord server</a> and talk with the devs.</p>
+                    <p class="DLP_Text_Style_1 DLP_NoSelect" style="align-self: stretch; color: rgba(var(--DLP-blue), 0.5);">Get help from our <a href='https://www.duolingopro.net/faq' target='_blank' style='font-family: Duolingo PRO Rounded; color: rgb(var(--DLP-blue)); text-decoration: underline;'>FAQ page</a>, enhanced with AI, or join our <a href='https://www.duolingopro.net/discord' target='_blank' style='font-family: Duolingo PRO Rounded; color: rgb(var(--DLP-blue)); text-decoration: underline;'>Discord server</a> and talk with the devs.</p>
                 </div>
-                <p class="DLP_Text_Style_1 DLP_NoSelect" style="opacity: 0.5; align-self: stretch;">${systemText[systemLanguage][39]}</p>
+                <p class="DLP_Text_Style_1 DLP_NoSelect" style="align-self: stretch;">${systemText[systemLanguage][39]}</p>
                 <textarea id="DLP_Feedback_Text_Input_1_ID" class="DLP_Large_Input_Box_Style_1" style="height: 128px; max-height: 256px;" placeholder="${systemText[systemLanguage][40]}"/></textarea>
-                <p class="DLP_Text_Style_1 DLP_NoSelect" style="opacity: 0.5; align-self: stretch;">${systemText[systemLanguage][41]}</p>
+                <p class="DLP_Text_Style_1 DLP_NoSelect" style="align-self: stretch;">${systemText[systemLanguage][41]}</p>
                 <div class="DLP_HStack_8">
                     <div id="DLP_Feedback_Type_Bug_Report_Button_1_ID" class="DLP_Button_Style_2 DLP_Magnetic_Hover_1 DLP_NoSelect DLP_Feedback_Type_Button_Style_1_OFF" style="transition: background 0.4s, outline 0.4s, filter 0.4s cubic-bezier(0.16, 1, 0.32, 1), transform 0.4s cubic-bezier(0.16, 1, 0.32, 1);">
                         <p class="DLP_Text_Style_1 DLP_Inset_Icon_1_ID" style="transition: 0.4s;">􀌛</p>
@@ -1009,7 +1142,7 @@ HTML2 = `
                         <p class="DLP_Text_Style_1 DLP_Inset_Text_1_ID" style="transition: 0.4s;">${systemText[systemLanguage][43]}</p>
                     </div>
                 </div>
-                <p class="DLP_Text_Style_1 DLP_NoSelect" style="opacity: 0.5; align-self: stretch;">${systemText[systemLanguage][44]}</p>
+                <p class="DLP_Text_Style_1 DLP_NoSelect" style="align-self: stretch;">${systemText[systemLanguage][44]}</p>
                 <div class="DLP_HStack_8">
                     <div id="DLP_Feedback_Attachment_Upload_Button_1_ID" class="DLP_Button_Style_2 DLP_Magnetic_Hover_1 DLP_NoSelect" style="outline: 2px solid rgba(var(--DLP-blue), 0.20); outline-offset: -2px; background: rgba(var(--DLP-blue), 0.10); transition: background 0.4s, outline 0.4s, filter 0.4s cubic-bezier(0.16, 1, 0.32, 1), transform 0.4s cubic-bezier(0.16, 1, 0.32, 1);">
                         <p class="DLP_Text_Style_1 DLP_Inset_Text_1_ID" style="color: rgb(var(--DLP-blue)); transition: 0.4s;">${systemText[systemLanguage][45]}</p>
@@ -1036,10 +1169,10 @@ HTML2 = `
                     </div>
                     <p class="DLP_Text_Style_1" style="font-size: 14px; background: url(${serverURL}/static/images/flow/secondary/512/light.png) lightgray 50% / cover no-repeat; background-clip: text; -webkit-background-clip: text; -webkit-text-fill-color: transparent;">${versionName}</p>
                 </div>
-                <div class="DLP_VStack_8" id="DLP_Release_Notes_List_1_ID"></div>
+                <div class="DLP_VStack_8" id="DLP_Release_Notes_List_1_ID" style="height: 256px; padding: 0 16px;"></div>
                 <div id="DLP_Release_Notes_Controls" class="DLP_NoSelect" style="display: flex; align-items: center; gap: 8px; margin: 8px;">
                     <p class="DLP_Text_Style_1 DLP_Magnetic_Hover_1 DLP_Inset_Icon_1_ID" style="color: rgb(var(--DLP-blue));">􀯶</p>
-                    <p class="DLP_Text_Style_1 DLP_Inset_Text_1_ID" style="color: rgb(var(--DLP-blue));">1/3</p>
+                    <p class="DLP_Text_Style_1 DLP_Inset_Text_1_ID" style="color: rgb(var(--DLP-blue));"></p>
                     <p class="DLP_Text_Style_1 DLP_Magnetic_Hover_1 DLP_Inset_Icon_2_ID" style="color: rgb(var(--DLP-blue));">􀯻</p>
                 </div>
             </div>
@@ -1056,7 +1189,7 @@ HTML2 = `
                             <p class="DLP_Text_Style_2" style="background: url(${serverURL}/static/images/flow/primary/512/light.png) lightgray 50% / cover no-repeat; background-clip: text; -webkit-background-clip: text; -webkit-text-fill-color: transparent;">PRO 3.1</p>
                         </div>
                     </div>
-                    <p class="DLP_Text_Style_1 DLP_NoSelect" style="align-self: stretch; opacity: 0.5; text-align: center;">${systemText[systemLanguage][53]}</p>
+                    <p class="DLP_Text_Style_1 DLP_NoSelect" style="align-self: stretch; text-align: center;">${systemText[systemLanguage][53]}</p>
                 </div>
                 <div class="DLP_HStack_8">
                     <div id="DLP_Onboarding_Start_Button_1_ID" class="DLP_Button_Style_2 DLP_Magnetic_Hover_1 DLP_NoSelect" style="outline: 2px solid rgba(0, 0, 0, 0.20); outline-offset: -2px; background: rgb(var(--DLP-blue));">
@@ -1085,18 +1218,16 @@ HTML2 = `
                             <p class="DLP_Text_Style_1 DLP_NoSelect" style="color: rgb(var(--DLP-blue)); flex: 1 0 0;">Response Times</p>
                             <p class="DLP_Text_Style_1 DLP_NoSelect" style="color: rgb(var(--DLP-blue));">􀯻</p>
                         </div>
-                        <p class="DLP_Text_Style_1 DLP_NoSelect" style="align-self: stretch; color: rgb(var(--DLP-blue)); opacity: 0.5; display: none; opacity: 0; filter: blur(4px); height: 0px; transition: 0.4s cubic-bezier(0.16, 1, 0.32, 1);">It may take a few hours for a developer to respond to you. You will be notified in Duolingo PRO when there’s a reply.</p>
+                        <p class="DLP_Text_Style_1 DLP_NoSelect" style="align-self: stretch; color: rgba(var(--DLP-blue), 0.5); display: none; opacity: 0; filter: blur(4px); height: 0px; transition: 0.4s cubic-bezier(0.16, 1, 0.32, 1);">It may take a few hours for a developer to respond to you. You will be notified in Duolingo PRO when there's a reply.</p>
                     </div>
 
-                    <div class="DLP_Chat_Box_1_ID_1" style="display: flex; flex-direction: column; align-items: center; gap: 8px; flex: 1 0 0; align-self: stretch; overflow-y: auto;">
+                    <div class="DLP_Chat_Box_1_ID_1" style="display: flex; flex-direction: column; align-items: center; gap: 8px; flex: 1 0 0; align-self: stretch; overflow-y: auto; display: none;">
 
                     </div>
 
-                    <div style="display: flex; display: none; flex-direction: column; justify-content: center; align-items: center; gap: 8px; flex: 1 0 0; align-self: stretch;">
-                        <div class="DLP_VStack_4" style="padding: 0px 32px;">
-                            <p class="DLP_Text_Style_1 DLP_NoSelect" style="color: rgb(var(--DLP-blue));">􂄺</p>
-                            <p class="DLP_Text_Style_1 DLP_NoSelect" style="align-self: stretch; text-align: center; opacity: 0.5;">Send a message to start chatting</p>
-                        </div>
+                    <div class="DLP_VStack_8" id="DLP_Inset_Group_3" style="padding: 0px 32px; flex: 1 0 0;">
+                        <p class="DLP_Text_Style_1 DLP_NoSelect" style="background: url(https://www.duolingopro.net/static/images/flow/primary/512/light.png) lightgray 50% / cover no-repeat; background-clip: text; -webkit-background-clip: text; -webkit-text-fill-color: transparent; font-size: 24px;">􀘲</p>
+                        <p class="DLP_Text_Style_1 DLP_NoSelect" style="align-self: stretch; text-align: center;">Send a message to start talking with a support member.</p>
                     </div>
 
                     <div class="DLP_VStack_8" id="DLP_Inset_Group_2" style="display: none;">
@@ -1105,7 +1236,7 @@ HTML2 = `
                                 <p class="DLP_Text_Style_1 DLP_NoSelect" style="color: rgb(var(--DLP-blue));">􀿌</p>
                                 <p class="DLP_Text_Style_1 DLP_NoSelect" style="color: rgb(var(--DLP-blue)); flex: 1 0 0;">This chat was closed.</p>
                             </div>
-                            <p class="DLP_Text_Style_1 DLP_NoSelect" style="align-self: stretch; color: rgb(var(--DLP-blue)); opacity: 0.5;">We hope to have solved your issue. If not, you can start a new chat.</p>
+                            <p class="DLP_Text_Style_1 DLP_NoSelect" style="align-self: stretch; color: rgba(var(--DLP-blue), 0.5);">We hope to have solved your issue. If not, you can start a new chat.</p>
                         </div>
 
                         <div class="DLP_Input_Button_Style_1_Active DLP_Magnetic_Hover_1 DLP_NoSelect" id="DLP_Inset_Button_3_ID" style="width: 100%;">
@@ -1126,7 +1257,7 @@ HTML2 = `
 
                         <div class="DLP_HStack_8" style="align-items: flex-end;">
                             <div class="DLP_Input_Button_Style_1_Active DLP_Magnetic_Hover_1 DLP_NoSelect DLP_Hide_Scrollbar" id="DLP_Inset_Button_1_ID" style="width: 48px; background: rgba(var(--DLP-blue), 0.10); outline-offset: -2px; outline: 2px solid rgba(var(--DLP-blue), 0.20);">
-                                <p class="DLP_Text_Style_1 DLP_NoSelect" style="color: rgb(var(--DLP-blue));">􀅼</p>
+                                <p class="DLP_Text_Style_1 DLP_NoSelect" style="color: rgb(var(--DLP-blue));">􀉢</p>
                                 <input type="file" id="DLP_Attachment_Input_1" accept="image/*, video/*" multiple style="display: none;">
                             </div>
                             <div class="DLP_Input_Style_1_Active" style="padding: 0;">
@@ -1160,6 +1291,8 @@ CSS2 = `
     font-style: normal;
     font-weight: 500;
     line-height: normal;
+
+    color: rgb(var(--color-wolf), 0.8);
 
     margin: 0;
     -webkit-font-smoothing: antialiased;
@@ -1551,7 +1684,7 @@ svg {
     font-style: normal;
     font-weight: 500;
     line-height: normal;
-    opacity: 0.5;
+    color: rgb(var(--color-wolf));
     margin: 0;
 
     overflow-y: scroll;
@@ -1803,15 +1936,15 @@ svg {
 }
 
 @keyframes slideRight {
-  0% {
-    transform: translateX(-150px);
-  }
-  20% {
-    transform: translateX(200px);
-  }
-  100% {
-    transform: translateX(200px);
-  }
+    0% {
+        transform: translateX(-150px);
+    }
+    20% {
+        transform: translateX(200px);
+    }
+    100% {
+        transform: translateX(200px);
+    }
 }
 
 `;
@@ -1819,11 +1952,11 @@ svg {
 HTML3 = `
 <div class="DLP_Notification_Box" style="position: fixed;">
     <div class="DLP_HStack_4" style="align-items: center;">
-        <p class="DLP_Text_Style_1 DLP_Inset_Icon_1_ID DLP_NoSelect" style="align-self: stretch;"></p>
-        <p class="DLP_Text_Style_1 DLP_Inset_Text_1_ID" style="opacity: 0.5; flex: 1 0 0;"></p>
-        <p class="DLP_Text_Style_1 DLP_Inset_Icon_2_ID DLP_Magnetic_Hover_1 DLP_NoSelect" style="opacity: 0.5; align-self: stretch;">􀆄</p>
+        <p class="DLP_Text_Style_1 DLP_Inset_Icon_1_ID DLP_NoSelect"></p>
+        <p class="DLP_Text_Style_1 DLP_Inset_Text_1_ID" style="flex: 1 0 0;"></p>
+        <p class="DLP_Text_Style_1 DLP_Inset_Icon_2_ID DLP_Magnetic_Hover_1 DLP_NoSelect" style="align-self: stretch;">􀆄</p>
     </div>
-    <p class="DLP_Text_Style_1 DLP_Inset_Text_2_ID" style="opacity: 0.25; align-self: stretch; overflow-wrap: break-word;"></p>
+    <p class="DLP_Text_Style_1 DLP_Inset_Text_2_ID" style="opacity: 0.5; align-self: stretch; overflow-wrap: break-word;"></p>
 </div>
 `;
 
@@ -2896,6 +3029,20 @@ function One() {
                 const chatBox = document.querySelector('#DLP_Main_Box_Divider_11_ID')?.querySelector('.DLP_Chat_Box_1_ID_1');
                 chatBox.scrollTop = chatBox.scrollHeight;
             }, 420);
+        } else if (toNumber === 7) {
+            const trackingSinceDateString = new Date(storageLocal.stats.tracking_since).toLocaleDateString(systemLanguage, { month: 'short', day: 'numeric', year: 'numeric' });
+
+            let modernStatsBox = document.querySelector('#DLP_Main_Box_Divider_7_ID').querySelector('#DLP_Settings_Modern_Stats_Main_Box_1_ID');
+            modernStatsBox.children[0].lastElementChild.innerHTML = "since " + trackingSinceDateString;
+            modernStatsBox.children[1].lastElementChild.innerHTML = storageLocal.stats.modern.xp;
+            modernStatsBox.children[2].lastElementChild.innerHTML = storageLocal.stats.modern.gem;
+            modernStatsBox.children[3].lastElementChild.innerHTML = storageLocal.stats.modern.streak;
+            modernStatsBox.children[4].lastElementChild.innerHTML = storageLocal.stats.modern.heart_refill;
+
+            let legacyStatsBox = document.querySelector('#DLP_Main_Box_Divider_7_ID').querySelector('#DLP_Settings_Legacy_Stats_Main_Box_1_ID');
+            legacyStatsBox.children[0].lastElementChild.innerHTML = "since " + trackingSinceDateString;
+            legacyStatsBox.children[1].lastElementChild.innerHTML = (storageLocal.stats.legacy.listen.lessons + storageLocal.stats.legacy.path.lessons + storageLocal.stats.legacy.practice.lessons + storageLocal.stats.legacy.lesson.lessons);
+            legacyStatsBox.children[2].lastElementChild.innerHTML = (storageLocal.stats.legacy.listen.questions + storageLocal.stats.legacy.path.questions + storageLocal.stats.legacy.practice.questions + storageLocal.stats.legacy.lesson.questions);
         }
 
         if (toNumber === 11) {
@@ -3551,6 +3698,7 @@ function One() {
         function clickHandler() {
             const icon = button2.querySelector('.DLP_Inset_Icon_1_ID');
             const input = button2.parentElement.querySelector('#DLP_Inset_Input_1_ID');
+            const button1 = button2.parentElement.querySelector('#DLP_Inset_Button_1_ID');
 
             function animateElement(element, visibility, duration = 400) {
                 if (visibility) {
@@ -3590,11 +3738,25 @@ function One() {
                 }
             }
 
+            function syncGetButtonState(mode) {
+                if (!button1) return;
+                if (mode === 'infinity') {
+                    button1.style.opacity = '';
+                    button1.style.pointerEvents = '';
+                } else {
+                    const isEmpty = input && input.value.length === 0;
+                    button1.style.opacity = isEmpty ? '0.5' : '';
+                    button1.style.pointerEvents = isEmpty ? 'none' : '';
+                }
+            }
+
             if (storageSession.legacy[type].type === 'lesson') {
                 let inputTo;
                 button2.setAttribute("data-dlp-tooltip", "Lesson Mode");
 
                 if (input.style.display === 'none') inputTo = 'show';
+
+                syncGetButtonState('lesson');
 
                 animateElement(icon, false);
                 setTimeout(() => {
@@ -3602,11 +3764,14 @@ function One() {
                     animateElement(icon, true);
                 }, 400);
                 if (inputTo === 'show') setTimeout(() => animateElement(input, true), 400);
+
             } else if (storageSession.legacy[type].type === 'xp') {
                 let inputTo;
                 button2.setAttribute("data-dlp-tooltip", "XP Mode");
 
                 if (input.style.display === 'none') inputTo = 'show';
+
+                syncGetButtonState('xp');
 
                 animateElement(icon, false);
                 setTimeout(() => {
@@ -3620,6 +3785,8 @@ function One() {
                 button2.setAttribute("data-dlp-tooltip", "Infinity Mode");
 
                 if (input.style.display !== 'none') inputTo = 'hide';
+
+                syncGetButtonState('infinity');
 
                 animateElement(icon, false);
                 setTimeout(() => {
@@ -3777,21 +3944,6 @@ function One() {
 
 
 
-    const DLP_Get_XP_1_ID = document.getElementById("DLP_Get_XP_1_ID");
-    const DLP_Get_XP_2_ID = document.getElementById("DLP_Get_XP_2_ID");
-    const DLP_Get_GEMS_1_ID = document.getElementById("DLP_Get_GEMS_1_ID");
-    const DLP_Get_GEMS_2_ID = document.getElementById("DLP_Get_GEMS_2_ID");
-    const DLP_Get_SUPER_1_ID = document.getElementById("DLP_Get_SUPER_1_ID");
-    const DLP_Get_SUPER_2_ID = document.getElementById("DLP_Get_SUPER_2_ID");
-    const DLP_Get_DOUBLE_XP_BOOST_1_ID = document.getElementById("DLP_Get_DOUBLE_XP_BOOST_1_ID");
-    const DLP_Get_DOUBLE_XP_BOOST_2_ID = document.getElementById("DLP_Get_DOUBLE_XP_BOOST_2_ID");
-    const DLP_Get_Streak_Freeze_1_ID = document.getElementById("DLP_Get_Streak_Freeze_1_ID");
-    const DLP_Get_Streak_Freeze_2_ID = document.getElementById("DLP_Get_Streak_Freeze_2_ID");
-    const DLP_Get_Heart_Refill_1_ID = document.getElementById("DLP_Get_Heart_Refill_1_ID");
-    const DLP_Get_Heart_Refill_2_ID = document.getElementById("DLP_Get_Heart_Refill_2_ID");
-    const DLP_Get_Streak_1_ID = document.getElementById("DLP_Get_Streak_1_ID");
-    const DLP_Get_Streak_2_ID = document.getElementById("DLP_Get_Streak_2_ID");
-
     if (storageLocal.pins.home.includes("DLP_Get_XP_1_ID")) {
         document.querySelector("#DLP_Get_Heart_Refill_2_ID > .DLP_HStack_8 > #DLP_Inset_Icon_1_ID");
     }
@@ -3800,8 +3952,8 @@ function One() {
         const ids = {
             "DLP_Get_XP_1_ID": ["xp"],
             "DLP_Get_XP_2_ID": ["xp"],
-            "DLP_Get_GEMS_1_ID": ["gems"],
-            "DLP_Get_GEMS_2_ID": ["gems"],
+            "DLP_Get_GEM_1_ID": ["gem"],
+            "DLP_Get_GEM_2_ID": ["gem"],
             "DLP_Get_SUPER_1_ID": ["super"],
             "DLP_Get_SUPER_2_ID": ["super"],
             "DLP_Get_DOUBLE_XP_BOOST_1_ID": ["double_xp_boost"],
@@ -3967,6 +4119,13 @@ function One() {
 
     let DLP_Server_Connection_Button = document.getElementById("DLP_Main_1_Server_Connection_Button_1_ID");
     let DLP_Server_Connection_Button_2 = document.getElementById("DLP_Secondary_1_Server_Connection_Button_1_ID");
+    DLP_Server_Connection_Button.addEventListener('click', () => {
+        if (DLP_Server_Connection_Button.getAttribute("data-dlp-connection-status") === "outdated") {
+            window.open("https://duolingopro.net/update/userscript", "_blank");
+        } else if (DLP_Server_Connection_Button.getAttribute("data-dlp-connection-status") === "error") {
+            window.open("https://status.duolingopro.net", "_blank");
+        }
+    });
     function updateConnetionButtonStyles(button, color, content, animation) {
         let iconToChange = button.querySelector(".DLP_Inset_Icon_1_ID");
         let textToChange = button.querySelector(".DLP_Inset_Text_1_ID");
@@ -4011,7 +4170,9 @@ function One() {
     let newTermID;
     let chatMemory = [];
     let chatTempSendList = [];
+    const pendingTempMessages = new Map();
     let chatMemoryFingerprints = [];
+    let chatMessageLookup = new Map();
 
     function normalizeMessageValue(value) {
         if (Array.isArray(value)) {
@@ -4038,19 +4199,35 @@ function One() {
             deleted: message?.deleted ?? false,
             edited: message?.edited ?? false,
             files: Array.isArray(message?.files) ? message.files.slice() : [],
+            message_id: message?.message_id ?? null,
             message: message?.message ?? '',
             profile_picture: message?.profile_picture ?? '',
             role: message?.role ?? '',
             send_time: message?.send_time ?? null,
-            status: message?.status ?? ''
+            status: message?.status ?? '',
+            reply_to: message?.reply_to ?? null
         };
 
         try {
             return JSON.stringify(normalizeMessageValue(relevantData));
         } catch (error) {
             console.error('Failed to compute message fingerprint', error);
-            return JSON.stringify({ send_time: message?.send_time ?? null });
+            return JSON.stringify({
+                message_id: message?.message_id ?? null,
+                send_time: message?.send_time ?? null
+            });
         }
+    }
+
+    function resolveMessageKey(msg) {
+        if (!msg || typeof msg !== 'object') return null;
+        if (msg?.message_id !== undefined && msg?.message_id !== null) {
+            return String(msg.message_id);
+        }
+        if (msg?.send_time !== undefined && msg?.send_time !== null) {
+            return String(msg.send_time);
+        }
+        return null;
     }
 
     function areArraysEqual(arrayA = [], arrayB = []) {
@@ -4063,11 +4240,9 @@ function One() {
     let newReplyButtonActive = false;
     let userBioData = false;
     let kqjzvmbt = false;
-    let intelligentXPAmount = 20000;
     function connectToServer() {
         let mainInputsDiv1 = document.getElementById('DLP_Main_Inputs_1_Divider_1_ID');
 
-        let chatTempSendListSnapshot = chatTempSendList;
         const chatKeyValue = storageLocal?.chatKey?.[0] ?? false;
 
         //fetch(apiURL + '/server', {
@@ -4109,7 +4284,9 @@ function One() {
                         if (!chatBox) return;
 
                         if (typeof data === 'undefined' || typeof data.chats === 'undefined' || !Array.isArray(data.chats.messages)) return;
-
+                        if (chatParent?.querySelector('#DLP_Inset_Group_3')?.style.display !== 'none') chatParent.querySelector('#DLP_Inset_Group_3').style.display = 'none';
+                        if (chatBox?.style.display === 'none') chatBox.style.display = 'flex';
+                        
                         if (data.chats.solved) {
                             chatParent.querySelector('#DLP_Inset_Group_1').style.display = 'none';
                             chatParent.querySelector('#DLP_Inset_Group_2').style.display = '';
@@ -4125,8 +4302,60 @@ function One() {
                             const scrollOffsetFromBottom = chatBox.scrollHeight - chatBox.scrollTop;
 
                             chatBox.innerHTML = '';
+                            const combinedMessages = [];
+                            let sequenceCounter = 0;
+                            const resolveTimestamp = (msg) => {
+                                const rawTimestamp = msg?.send_time;
+                                if (rawTimestamp === undefined || rawTimestamp === null) {
+                                    return Number.MAX_SAFE_INTEGER;
+                                }
+                                const numericTimestamp = Number(rawTimestamp);
+                                if (!Number.isFinite(numericTimestamp)) {
+                                    return Number.MAX_SAFE_INTEGER;
+                                }
+                                return numericTimestamp < 1e12 ? numericTimestamp * 1000 : numericTimestamp;
+                            };
+
                             incomingMessages.forEach(message => {
-                                createMessage(message);
+                                combinedMessages.push({
+                                    message,
+                                    tempId: false,
+                                    sequence: sequenceCounter++
+                                });
+                            });
+                            pendingTempMessages.forEach((tempMessage, tempId) => {
+                                combinedMessages.push({
+                                    message: tempMessage,
+                                    tempId,
+                                    sequence: sequenceCounter++
+                                });
+                            });
+
+                            combinedMessages.sort((a, b) => {
+                                const timeA = resolveTimestamp(a.message);
+                                const timeB = resolveTimestamp(b.message);
+                                if (timeA === timeB) {
+                                    return a.sequence - b.sequence;
+                                }
+                                return timeA - timeB;
+                            });
+
+                            chatMessageLookup.clear();
+                            incomingMessages.forEach(msg => {
+                                const key = resolveMessageKey(msg);
+                                if (key) {
+                                    chatMessageLookup.set(key, msg);
+                                }
+                                if (msg?.send_time !== undefined && msg?.send_time !== null) {
+                                    const sendKey = String(msg.send_time);
+                                    if (sendKey && sendKey !== key) {
+                                        chatMessageLookup.set(sendKey, msg);
+                                    }
+                                }
+                            });
+
+                            combinedMessages.forEach(({ message, tempId }) => {
+                                createMessage(message, false, tempId || false);
                             });
 
                             const hasNewMessages = incomingMessages.length > previousLength;
@@ -4141,26 +4370,25 @@ function One() {
                         chatMemory = incomingMessages.map(message => ({ ...message }));
                         chatMemoryFingerprints = nextFingerprints;
 
-                        const knownSendTimes = storageLocal.chats ?? [];
+                        const knownMessageIds = (storageLocal.chats ?? []).map(id => (id === null || id === undefined) ? id : String(id));
+
                         if (currentPage === 11) {
-                            const newSendTimes = chatMemory.map(msg => msg.send_time);
-                            if (!areArraysEqual(knownSendTimes, newSendTimes)) {
-                                storageLocal.chats = newSendTimes;
+                            const newMessageIds = chatMemory.map(resolveMessageKey);
+                            if (!areArraysEqual(knownMessageIds, newMessageIds)) {
+                                storageLocal.chats = newMessageIds;
                                 saveStorageLocal();
                             }
                         } else {
                             incomingMessages.forEach(msg => {
-                                if (!knownSendTimes.includes(msg.send_time) && !newReplyButtonActive) {
+                                const messageKey = resolveMessageKey(msg);
+                                const sendTimeKey = (msg?.send_time !== undefined && msg?.send_time !== null) ? String(msg.send_time) : null;
+                                const alreadyKnown = (messageKey && knownMessageIds.includes(messageKey)) || (sendTimeKey && knownMessageIds.includes(sendTimeKey));
+                                if (!alreadyKnown && !newReplyButtonActive) {
                                     newReplyButtonActive = true;
                                     updateConnetionButtonStyles(document.getElementById("DLP_Main_Feedback_1_Button_1_ID"), {button: 'rgb(var(--DLP-blue))', outline: 'rgba(0, 0, 0, 0.20)', text: '#FFF', icon: '#FFF'}, {text: 'New Reply', icon: '􀝗'}, {text: 'DLP_Pulse_Opacity_Animation_1 6s ease-in-out infinite', icon: 'DLP_Pulse_Opacity_Animation_1 6s ease-in-out infinite'});
                                     showNotification({icon: "􂄺", color: "rgb(var(--DLP-blue))"}, "Support Team Response", "You have a new message from our support team.", 30);
                                 }
                             });
-                        }
-
-                        for (let i = 0; i < chatTempSendListSnapshot.length; i++) {
-                            updateMessageOnServer(false, chatTempSendListSnapshot[i]);
-                            chatTempSendList.splice(chatTempSendList.indexOf(chatTempSendListSnapshot[i]), 1);
                         }
                     }
 
@@ -4185,6 +4413,8 @@ function One() {
                                 mainInputsDiv1.style.pointerEvents = 'auto';
                                 updateConnetionButtonStyles(DLP_Server_Connection_Button, {button: 'rgb(var(--DLP-green))', outline: 'rgba(0, 0, 0, 0.20)', text: '#FFF', icon: '#FFF'}, {text: systemText[systemLanguage][108], icon: '􀤆'}, {text: 'DLP_Pulse_Opacity_Animation_1 6s ease-in-out infinite', icon: 'DLP_Pulse_Opacity_Animation_1 6s ease-in-out infinite'});
                                 updateConnetionButtonStyles(DLP_Server_Connection_Button_2, {button: 'rgb(var(--DLP-green))', outline: 'rgba(0, 0, 0, 0.20)', text: '#FFF', icon: '#FFF'}, {text: systemText[systemLanguage][108], icon: '􀤆'}, {text: 'DLP_Pulse_Opacity_Animation_1 6s ease-in-out infinite', icon: 'DLP_Pulse_Opacity_Animation_1 6s ease-in-out infinite'});
+                                DLP_Server_Connection_Button.setAttribute("data-dlp-connection-status", "connected");
+                                DLP_Server_Connection_Button_2.setAttribute("data-dlp-connection-status", "connected");
                                 if (serverConnectedBefore === 'error' || serverConnectedBeforeNotification) {
                                     serverConnectedBeforeNotification.close();
                                     serverConnectedBeforeNotification = false;
@@ -4194,6 +4424,7 @@ function One() {
                         } else {
                             if (storageLocal.onboarding) {
                                 if (currentPage !== 5 && currentPage !== 6) goToPage(5);
+                                document.querySelector(`#DLP_Main_Box_Divider_5_ID`).querySelector(`#DLP_Terms_1_Text_1_ID`).innerHTML = "We have updated our Terms & Conditions. Please read them carefully and accept to continue using Duolingo PRO 3.1.";
                             } else {
                                 if (currentPage !== 10) goToPage(10);
                             }
@@ -4201,6 +4432,8 @@ function One() {
                     } else if (serverConnectedBefore !== 'outdated') {
                         updateConnetionButtonStyles(DLP_Server_Connection_Button, {button: 'rgb(var(--DLP-orange))', outline: 'rgba(0, 0, 0, 0.20)', text: '#FFF', icon: '#FFF'}, {text: 'Outdated', icon: '􀁟'}, {text: 'DLP_Pulse_Opacity_Animation_1 6s ease-in-out infinite', icon: 'DLP_Pulse_Opacity_Animation_1 6s ease-in-out infinite'});
                         updateConnetionButtonStyles(DLP_Server_Connection_Button_2, {button: 'rgb(var(--DLP-orange))', outline: 'rgba(0, 0, 0, 0.20)', text: '#FFF', icon: '#FFF'}, {text: 'Outdated', icon: '􀁟'}, {text: 'DLP_Pulse_Opacity_Animation_1 6s ease-in-out infinite', icon: 'DLP_Pulse_Opacity_Animation_1 6s ease-in-out infinite'});
+                        DLP_Server_Connection_Button.setAttribute("data-dlp-connection-status", "outdated");
+                        DLP_Server_Connection_Button_2.setAttribute("data-dlp-connection-status", "outdated");
                         if (serverConnectedBefore === 'no') {
                             mainInputsDiv1.style.opacity = '0.5';
                             mainInputsDiv1.style.pointerEvents = 'none';
@@ -4226,7 +4459,7 @@ function One() {
                     //        .catch(error => console.error('Error fetching systemText:', error));
                     //}
                 } else {
-                    console.error(`Version ${versionNumber} not found in the data`);
+                    console.error(`Version ${versionFull} not found in the data`);
                 }
             })
             .catch(error => {
@@ -4236,6 +4469,8 @@ function One() {
                     mainInputsDiv1.style.pointerEvents = 'none';
                     updateConnetionButtonStyles(DLP_Server_Connection_Button, {button: 'rgb(var(--DLP-pink))', outline: 'rgba(0, 0, 0, 0.20)', text: '#FFF', icon: '#FFF'}, {text: systemText[systemLanguage][109], icon: '􀇿'}, {text: 'DLP_Pulse_Opacity_Animation_1 6s ease-in-out infinite', icon: 'DLP_Pulse_Opacity_Animation_1 6s ease-in-out infinite'});
                     updateConnetionButtonStyles(DLP_Server_Connection_Button_2, {button: 'rgb(var(--DLP-pink))', outline: 'rgba(0, 0, 0, 0.20)', text: '#FFF', icon: '#FFF'}, {text: systemText[systemLanguage][109], icon: '􀇿'}, {text: 'DLP_Pulse_Opacity_Animation_1 6s ease-in-out infinite', icon: 'DLP_Pulse_Opacity_Animation_1 6s ease-in-out infinite'});
+                    DLP_Server_Connection_Button.setAttribute("data-dlp-connection-status", "error");
+                    DLP_Server_Connection_Button_2.setAttribute("data-dlp-connection-status", "error");
                     serverConnectedBeforeNotification = showNotification("error", systemText[systemLanguage][231], systemText[systemLanguage][232], 0);
                     serverConnectedBefore = 'error';
                 }
@@ -4322,22 +4557,258 @@ function One() {
 
         const chatBox = document.querySelector('#DLP_Main_Box_Divider_11_ID')?.querySelector('.DLP_Chat_Box_1_ID_1');
 
+        const messageKey = (() => {
+            if (message?.message_id !== undefined && message?.message_id !== null) {
+                return String(message.message_id);
+            }
+            if (message?.send_time !== undefined && message?.send_time !== null) {
+                return String(message.send_time);
+            }
+            if (isTemp) {
+                return `temp-${isTemp}`;
+            }
+            return '';
+        })();
+
         let lastChatChild = chatBox.lastElementChild;
         if (isBefore) lastChatChild = isBefore.previousElementSibling;
+
+        const tempState = isTemp ? pendingTempMessages.get(isTemp) : null;
+        const failedTemp = Boolean(tempState?.sendFailed);
+
+        function getReplyKey(message) {
+            const rawReplyTo = message?.reply_to;
+            if (typeof rawReplyTo === 'number' && Number.isFinite(rawReplyTo)) {
+                return String(rawReplyTo);
+            }
+            if (typeof rawReplyTo === 'string') {
+                const trimmed = rawReplyTo.trim();
+                if (/^\d+$/.test(trimmed)) {
+                    return trimmed;
+                }
+            }
+            if (typeof rawReplyTo === 'bigint') {
+                return rawReplyTo.toString();
+            }
+            return null;
+        }
+
+        function hasNumericReply(message) {
+            return Boolean(getReplyKey(message));
+        }
+
+        function createReplyPreview(message) {
+            const replyKey = getReplyKey(message);
+            if (!replyKey) {
+                return null;
+            }
+
+            function deriveTargetFromDom(key) {
+                if (!chatBox) return null;
+
+                const messageNodes = chatBox.querySelectorAll('[data-message-id]');
+                let matchedNode = null;
+                for (const node of messageNodes) {
+                    if (node.getAttribute('data-message-id') === key) {
+                        matchedNode = node;
+                        break;
+                    }
+                }
+
+                if (!matchedNode) {
+                    const groupCandidate = chatBox.querySelector(`[data-group-id="${key}"]`);
+                    if (groupCandidate) {
+                        matchedNode = groupCandidate.querySelector('[data-message-id]');
+                    }
+                }
+
+                if (!matchedNode) return null;
+
+                const result = {
+                    message_id: key,
+                    message: (matchedNode.textContent || '').trim()
+                };
+
+                const sendAttr = matchedNode.getAttribute('data-message-sent');
+                if (sendAttr && sendAttr !== '') {
+                    const numericSend = Number(sendAttr);
+                    result.send_time = Number.isFinite(numericSend) ? numericSend : sendAttr;
+                }
+
+                const groupNode = matchedNode.closest('[data-group-id]');
+                if (groupNode) {
+                    if (!result.message) {
+                        const fallbackNode = groupNode.querySelector('[data-message-id]');
+                        if (fallbackNode && fallbackNode !== matchedNode) {
+                            const fallbackText = (fallbackNode.textContent || '').trim();
+                            if (fallbackText) {
+                                result.message = fallbackText;
+                            }
+                        }
+                    }
+
+                    const authorNameAttr = groupNode.getAttribute('data-author-name');
+                    if (authorNameAttr) {
+                        result.author = authorNameAttr;
+                    }
+
+                    const headerNode = groupNode.querySelector('[data-chat-header="true"]');
+                    if (headerNode) {
+                        const authorElement = headerNode.querySelector('.DLP_HStack_6 p.DLP_Text_Style_1');
+                        if (authorElement) {
+                            const authorText = authorElement.textContent || '';
+                            if (authorText.trim()) {
+                                result.author = authorText.trim();
+                            }
+                            let accentColor = authorElement.style?.color?.trim();
+                            if ((!accentColor || accentColor === '') && typeof window !== 'undefined' && document.contains(authorElement)) {
+                                try {
+                                    accentColor = window.getComputedStyle(authorElement).color;
+                                } catch (error) {
+                                    console.error('Failed to compute accent color for reply preview', error);
+                                }
+                            }
+                            if (accentColor) {
+                                result.accent = accentColor;
+                            }
+                        }
+
+                        const avatarElement = headerNode.querySelector('div[style*="background"]');
+                        if (avatarElement) {
+                            const styleAttr = avatarElement.getAttribute('style') || '';
+                            const urlMatch = styleAttr.match(/url\((['"]?)(.*?)\1\)/);
+                            if (urlMatch && urlMatch[2]) {
+                                result.profile_picture = urlMatch[2];
+                            }
+                        }
+                    }
+                }
+
+                if ((!result.message || result.message === '') && matchedNode.classList?.contains('DLP_Hide_Scrollbar')) {
+                    result.message = 'Attachment';
+                }
+
+                return result;
+            }
+
+            let targetMessage = chatMessageLookup.get(replyKey);
+            if (!targetMessage && chatMemory.length) {
+                targetMessage = chatMemory.find(existing => resolveMessageKey(existing) === replyKey);
+            }
+
+            function isMeaningful(value, type) {
+                if (value === undefined || value === null) return false;
+                const trimmed = String(value).trim();
+                if (!trimmed) return false;
+                if (type === 'author' && trimmed === 'The User Who Was Replied') return false;
+                if (type === 'message' && trimmed === 'Reply content') return false;
+                return true;
+            }
+
+            const domMessage = deriveTargetFromDom(replyKey);
+            if (domMessage) {
+                const merged = targetMessage ? { ...targetMessage } : {};
+
+                if (isMeaningful(domMessage.author, 'author')) {
+                    merged.author = domMessage.author;
+                }
+                if (isMeaningful(domMessage.profile_picture)) {
+                    merged.profile_picture = domMessage.profile_picture;
+                }
+                if (isMeaningful(domMessage.accent)) {
+                    merged.accent = domMessage.accent;
+                }
+
+                if (isMeaningful(domMessage.message, 'message')) {
+                    if (!isMeaningful(merged.message, 'message') || domMessage.message !== 'Attachment') {
+                        merged.message = domMessage.message;
+                    }
+                } else if (!isMeaningful(merged.message, 'message') && domMessage.message) {
+                    merged.message = domMessage.message;
+                }
+
+                if (domMessage.send_time !== undefined && domMessage.send_time !== null && (merged.send_time === undefined || merged.send_time === null || merged.send_time === '')) {
+                    merged.send_time = domMessage.send_time;
+                }
+                if (!isMeaningful(merged.message_id)) {
+                    merged.message_id = replyKey;
+                }
+
+                targetMessage = merged;
+                chatMessageLookup.set(replyKey, targetMessage);
+                const derivedSendKey = targetMessage?.send_time;
+                if (derivedSendKey !== undefined && derivedSendKey !== null) {
+                    const sendKey = String(derivedSendKey);
+                    if (sendKey && sendKey !== replyKey) {
+                        chatMessageLookup.set(sendKey, targetMessage);
+                    }
+                }
+            }
+
+            const previewWrapper = document.createElement('div');
+            const targetKey = resolveMessageKey(targetMessage) ?? replyKey;
+            const targetSendTime = targetMessage?.send_time ?? '';
+            const previewAccent = targetMessage?.accent && targetMessage.accent !== '' ? targetMessage.accent : (message?.accent || 'rgb(var(--DLP-blue))');
+            const previewAuthor = targetMessage?.author ?? message?.author ?? 'Unknown user';
+            const previewAvatar = targetMessage?.profile_picture ?? message?.profile_picture ?? '';
+            const avatarBackground = previewAvatar ? `background: url(${previewAvatar}) 50% center / cover no-repeat white;` : 'background: rgba(var(--color-snow), 1);';
+            const previewMessage = (targetMessage?.message && targetMessage.message.trim() !== '') ? targetMessage.message : 'Original message unavailable';
+
+            previewWrapper.innerHTML = `
+                <div class="DLP_HStack_8" data-reply-preview="true" style="padding-left: 24px; position: relative;">
+                    <svg width="18" height="18" viewBox="0 0 18 18" fill="none" xmlns="http://www.w3.org/2000/svg" style="position: absolute; left: 9px; top: 9px; z-index: -1;">
+                        <path d="M17 1H11C5.47715 1 1 5.47715 1 11V17" stroke="rgb(var(--color-eel), 0.20)" stroke-width="2" stroke-linecap="round"/>
+                    </svg>
+                    <div class="DLP_HStack_6">
+                        <div style="width: 20px; height: 20px; border-radius: 16px; outline: rgba(0, 0, 0, 0.2) solid 2px; outline-offset: -2px; ${avatarBackground}"></div>
+                        <p class="DLP_Text_Style_1 DLP_NoSelect" style="color: ${previewAccent}; white-space: pre;">${previewAuthor}</p>
+                    </div>
+                    <p class="DLP_Text_Style_1" data-message-id="${targetKey}" data-message-sent="${targetSendTime}" style="align-self: stretch; white-space: nowrap; overflow-wrap: anywhere; word-break: break-word; text-overflow: ellipsis; -webkit-line-clamp: 1; overflow: hidden; display: -webkit-box; -webkit-box-orient: vertical;">${previewMessage}</p>
+                </div>
+            `;
+
+            return previewWrapper.firstElementChild;
+        }
+
+        function ensureReplyPreview(container, message) {
+            if (!container) return;
+            const replyKey = getReplyKey(message);
+            const existingPreview = container.querySelector('[data-reply-preview="true"]');
+
+            if (!replyKey) {
+                if (existingPreview) existingPreview.remove();
+                return;
+            }
+
+            const headerElement = container.querySelector('[data-chat-header="true"]');
+            if (!headerElement) {
+                if (existingPreview) existingPreview.remove();
+                return;
+            }
+
+            if (existingPreview) {
+                existingPreview.remove();
+            }
+
+            const previewElement = createReplyPreview(message);
+            if (previewElement) {
+                container.insertBefore(previewElement, headerElement);
+            }
+        }
 
         function createStartersMessage(message) {
             const temp = document.createElement('div');
             temp.innerHTML = `
-                <div class="DLP_VStack_4" data-group-timestamp="${message.send_time}" data-author-name="${message.author}">
+                <div class="DLP_VStack_4" data-group-id="${messageKey}" data-group-sent="${message.send_time ?? ''}" data-author-name="${message.author}">
                     <div data-chat-header="true" style="display: flex; justify-content: space-between; align-items: center; align-self: stretch;">
                         <div class="DLP_HStack_6">
                             <div style="width: 20px; height: 20px; border-radius: 16px; outline: rgba(0, 0, 0, 0.2) solid 2px; outline-offset: -2px; background: url(${message.profile_picture}) 50% center / cover no-repeat white;"></div>
-                            <p class="DLP_Text_Style_1 DLP_NoSelect" style="color: ${message.accent}; opacity: 0.5;">${message.author}</p>
+                            <p class="DLP_Text_Style_1 DLP_NoSelect" style="color: ${message.accent};">${message.author}</p>
                         </div>
                         <div class="DLP_HStack_6">
-                            <p class="DLP_Text_Style_1 DLP_NoSelect" style="color: ${message.accent}; opacity: 0.5;">${message.role}</p>
-                            <p class="DLP_Text_Style_1 DLP_NoSelect" style="color: ${message.accent}; opacity: 0.5; font-size: 4px;">􀀁</p>
-                            <p class="DLP_Text_Style_1 DLP_NoSelect" data-time-element="true" style="color: ${message.accent}; opacity: 0.5;">${formatTimeAgo(message.send_time)}</p>
+                            <p class="DLP_Text_Style_1 DLP_NoSelect" style="color: ${message.accent};">${message.role}</p>
+                            <p class="DLP_Text_Style_1 DLP_NoSelect" style="color: ${message.accent}; font-size: 4px;">􀀁</p>
+                            <p class="DLP_Text_Style_1 DLP_NoSelect" data-time-element="true" style="color: ${message.accent};">${formatTimeAgo(message.send_time)}</p>
                         </div>
                     </div>
                 </div>
@@ -4346,21 +4817,53 @@ function One() {
             chatBox.appendChild(newElement);
             lastChatChild = newElement;
 
-            updateTimeAgo(document.querySelector(`[data-group-timestamp="${message.send_time}"] [data-time-element="true"]`), message.send_time);
+            ensureReplyPreview(lastChatChild, message);
 
-            createContinuationMessage(message);
+            const timeElement = lastChatChild.querySelector('[data-time-element="true"]');
+            if (timeElement) {
+                updateTimeAgo(timeElement, message.send_time);
+            }
+
+            createContinuationMessage(message, true);
         }
 
-        function createContinuationMessage(message) {
-            const firstMessageTimestamp = parseInt(lastChatChild.getAttribute('data-group-timestamp'));
-            if (toMilliseconds(message.send_time) - toMilliseconds(firstMessageTimestamp) > 900000) { // 15 minutes, 900,000 milliseconds
-                createStartersMessage(message);
-                return;
+        function createContinuationMessage(message, skipGroupChecks = false) {
+            const firstMessageTimestampAttr = lastChatChild.getAttribute('data-group-sent') ?? lastChatChild.getAttribute('data-group-timestamp');
+            const firstMessageTimestamp = firstMessageTimestampAttr ? parseInt(firstMessageTimestampAttr) : 0;
+            const replyKey = getReplyKey(message);
+
+            if (!skipGroupChecks) {
+                if (replyKey) {
+                    createStartersMessage(message);
+                    return;
+                }
+                if (toMilliseconds(message.send_time) - toMilliseconds(firstMessageTimestamp) > 900000) { // 15 minutes, 900,000 milliseconds
+                    createStartersMessage(message);
+                    return;
+                }
             }
+
+            if (replyKey) {
+                ensureReplyPreview(lastChatChild, message);
+            }
+
             if (message.message !== "") {
+                const continuationStyles = [
+                    'align-self: stretch',
+                    'white-space: pre-line',
+                    'overflow-wrap: anywhere',
+                    'word-break: break-word'
+                ];
+                if (isTemp && !failedTemp) {
+                    continuationStyles.push('animation: DLP_Pulse_Opacity_Animation_2 2s ease-in-out infinite');
+                }
+                if (failedTemp) {
+                    continuationStyles.push('color: rgba(var(--DLP-pink))');
+                }
+                const continuationStyleAttr = continuationStyles.join('; ') + ';';
                 const temp = document.createElement('div');
                 temp.innerHTML = `
-                    <p class="DLP_Text_Style_1" data-message-timestamp="${message.send_time}"${isTemp ? ` data-is-temp="${isTemp}"` : ''} style="align-self: stretch; opacity: 0.5; white-space: pre-line; overflow-wrap: anywhere; word-break: break-word;${isTemp ? ' animation: DLP_Pulse_Opacity_Animation_2 2s ease-in-out infinite;' : ''}">${message.message}</p>
+                    <p class="DLP_Text_Style_1" data-message-id="${messageKey}" data-message-sent="${message.send_time ?? ''}"${isTemp ? ` data-is-temp="${isTemp}"` : ''} style="${continuationStyleAttr}">${message.message}</p>
                 `;
                 const newElement = temp.firstElementChild;
                 lastChatChild.appendChild(newElement);
@@ -4650,7 +5153,7 @@ function One() {
             if (message.files.length > 0) {
                 const temp2 = document.createElement('div');
                 temp2.innerHTML = `
-                    <div data-message-timestamp="${message.send_time}"${isTemp ? ` data-is-temp="${isTemp}"` : ''} class="DLP_Hide_Scrollbar" style="display: flex; align-items: center; gap: 8px; align-self: stretch; width: 100%; overflow-y: scroll; opacity: 1; filter: blur(0px); margin-top: 0px; transition: 0.4s cubic-bezier(0.16, 1, 0.32, 1);"></div>
+                    <div data-message-id="${messageKey}" data-message-sent="${message.send_time ?? ''}"${isTemp ? ` data-is-temp="${isTemp}"` : ''} class="DLP_Hide_Scrollbar" style="display: flex; align-items: center; gap: 8px; align-self: stretch; width: 100%; overflow-y: scroll; opacity: 1; filter: blur(0px); margin-top: 0px; transition: 0.4s cubic-bezier(0.16, 1, 0.32, 1);${failedTemp ? ' color: rgba(var(--DLP-pink));' : ''}"></div>
                 `;
                 const newElement2 = temp2.firstElementChild;
                 lastChatChild.appendChild(newElement2);
@@ -4682,7 +5185,7 @@ function One() {
                             <div class="DLP_Attachment_Box_1" data-preview-src="${file}">
                                 <div style="display: flex; width: 100%; height: 100%; padding-top: 6px; flex-direction: column; justify-content: center; align-items: center; gap: 6px; flex-shrink: 0;">
                                     <p class="DLP_Text_Style_1 DLP_NoSelect" style="font-size: 24px;">􀈸</p>
-                                    <p class="DLP_Text_Style_1 DLP_NoSelect" style="opacity: 0.5;">File</p>
+                                    <p class="DLP_Text_Style_1 DLP_NoSelect">File</p>
                                 </div>
                                 <div class="DLP_Attachment_Box_1_Hover" style="display: none;">
                                     <p class="DLP_Text_Style_1 DLP_Magnetic_Hover_1 DLP_NoSelect">􀄉</p>
@@ -4698,23 +5201,17 @@ function One() {
             }
         }
 
-        if (lastChatChild !== null && message.author === lastChatChild.getAttribute('data-author-name')) {
+        const sameAuthor = lastChatChild !== null && message.author === lastChatChild.getAttribute('data-author-name');
+        const messageHasReply = hasNumericReply(message);
+
+        if (sameAuthor && !messageHasReply) {
             createContinuationMessage(message);
         } else {
             createStartersMessage(message);
         }
     }
 
-    function updateMessageOnServer(messageSendTime, isTemp=false) {
-        const chatBox = document.querySelector('#DLP_Main_Box_Divider_11_ID')?.querySelector('.DLP_Chat_Box_1_ID_1');
-        if (isTemp) {
-            chatBox.querySelectorAll(`[data-is-temp="${isTemp}"]`).forEach(element => {
-                element.remove();
-            });
-        }
-    }
-
-    function intelligentLeaderboardBasedWarningLimit() {
+    async function intelligentLeaderboardBasedWarningLimit() {
         const defaultBoardId = "7d9f5dd1-8423-491a-91f2-2532052038ce";
         const tournamentBoardId = "4b668ba6-288d-4b78-81a3-7b213175ae2c";
         const baseUrl = "https://duolingo-leaderboards-prod.duolingo.com/leaderboards/";
@@ -4733,38 +5230,37 @@ function One() {
         function processLeaderboardData(data, userId) {
             if (!data || !data.active || !data.active.cohort || !data.active.cohort.rankings) {
                 console.log("Chosen leaderboard data is invalid or inactive.");
-                return;
+                return null;
             }
 
             const rankings = data.active.cohort.rankings;
-
             const topN = 5;
             const topScores = [...rankings].sort((a, b) => b.score - a.score).slice(0, topN).map(user => user.score);
 
             const userRanking = rankings.find(u => u.user_id === userId);
             const userScore = userRanking ? userRanking.score : 0;
-
             const avgTopScore = topScores.length ? Math.round(topScores.reduce((sum, val) => sum + val, 0) / topScores.length) : 0;
 
             const intelligentAmount = Math.max(0, avgTopScore - userScore);
-            intelligentXPAmount = intelligentAmount;
 
             console.log(`Using leaderboard: ${data.active.contest.contest_id}`);
             console.log(`Average top ${topN} score:`, avgTopScore);
             console.log(`Your score:`, userScore);
             console.log(`Calculated intelligent warning limit:`, intelligentAmount);
+
+            return intelligentAmount;
         }
 
         const jwtToken = document.cookie.split('; ').find(cookie => cookie.startsWith('jwt_token='))?.split('=')[1];
         if (!jwtToken) {
             console.error("JWT token not found. Cannot proceed.");
-            return;
+            return null;
         }
 
         const userID = getDuolingoUserIdFromJwt(jwtToken);
         if (!userID) {
             console.error("Could not extract User ID from JWT.");
-            return;
+            return null;
         }
 
         const spedTimestamp = Date.now();
@@ -4772,56 +5268,39 @@ function One() {
             method: 'GET',
             headers: {
                 'Content-Type': 'application/json',
-                'Authorization': `Bearer ${jwtToken}`
-            }
+                'Authorization': `Bearer ${jwtToken}`,
+            },
         };
 
-        const defaultBoardPromise = fetch(`${baseUrl}${defaultBoardId}/users/${userID}?_=${spedTimestamp}`, fetchOptions).then(res => res.json());
-        const tournamentBoardPromise = fetch(`${baseUrl}${tournamentBoardId}/users/${userID}?_=${spedTimestamp}`, fetchOptions).then(res => res.json());
+        try {
+            const [tournamentResult, defaultResult] = await Promise.allSettled([
+                fetch(`${baseUrl}${tournamentBoardId}/users/${userID}?_=${spedTimestamp}`, fetchOptions).then(res => res.json()),
+                fetch(`${baseUrl}${defaultBoardId}/users/${userID}?_=${spedTimestamp}`, fetchOptions).then(res => res.json()),
+            ]);
 
-        Promise.allSettled([tournamentBoardPromise, defaultBoardPromise])
-            .then(([tournamentResult, defaultResult]) => {
-                let selectedData = null;
-                let boardType = "";
+            let selectedData = null;
 
-                if (tournamentResult.status === 'fulfilled' && tournamentResult.value.active) {
-                    console.log("Tournament leaderboard is active. Using it for calculation.");
-                    selectedData = tournamentResult.value;
-                    boardType = "Tournament";
-                }
-                else if (defaultResult.status === 'fulfilled' && defaultResult.value.active) {
-                    console.log("Default leaderboard is active. Using it for calculation.");
-                    selectedData = defaultResult.value;
-                    boardType = "Default";
-                }
-
-                if (selectedData) {
-                    processLeaderboardData(selectedData, userID);
-                } else {
-                    console.log("No active leaderboards found (neither tournament nor default).");
-                    if(tournamentResult.status === 'rejected') console.error("Tournament fetch failed:", tournamentResult.reason);
-                    if(defaultResult.status === 'rejected') console.error("Default fetch failed:", defaultResult.reason);
-                }
-            })
-            .catch(error => {
-                console.error("An unexpected error occurred during the fetch process:", error);
-            });
-    }
-    function intelligentLeaderboardBasedWarningLimitTicker() {
-        intelligentLeaderboardBasedWarningLimit();
-        function randPeriod() { return (60 + Math.floor(Math.random() * 61)) * 1000; } // 60–120s inclusive
-        let periodMs = randPeriod();
-        let lastRun = Date.now();
-
-        const id = setInterval(() => {
-            if (Date.now() - lastRun >= periodMs) {
-                lastRun = Date.now();
-                try { intelligentLeaderboardBasedWarningLimit(); } catch (e) { console.error(e); }
-                periodMs = randPeriod(); // pick next period
+            if (tournamentResult.status === 'fulfilled' && tournamentResult.value.active) {
+                console.log("Tournament leaderboard is active. Using it for calculation.");
+                selectedData = tournamentResult.value;
+            } else if (defaultResult.status === 'fulfilled' && defaultResult.value.active) {
+                console.log("Default leaderboard is active. Using it for calculation.");
+                selectedData = defaultResult.value;
+            } else {
+                console.log("No active leaderboards found (neither tournament nor default).");
+                if (tournamentResult.status === 'rejected') console.error("Tournament fetch failed:", tournamentResult.reason);
+                if (defaultResult.status === 'rejected') console.error("Default fetch failed:", defaultResult.reason);
+                return null;
             }
-        }, 1000);
+
+            const intelligentAmount = processLeaderboardData(selectedData, userID);
+            // return intelligentAmount ?? null;
+            return 20;
+        } catch (error) {
+            console.error("An unexpected error occurred during the fetch process:", error);
+            return null;
+        }
     }
-    // intelligentLeaderboardBasedWarningLimitTicker();
 
     function updateReleaseNotes(warnings) {
         const releaseNotesContainer = document.getElementById('DLP_Release_Notes_List_1_ID');
@@ -4860,13 +5339,13 @@ function One() {
         warnings.forEach((warning, index) => {
             if (warning.head && warning.body && warning.icon) {
                 const warningHTML = `
-                <div id="warning-${index}" style="display: ${index === 0 ? 'flex' : 'none'}; height: 200px; flex-direction: column; justify-content: center; align-items: center; gap: 8px; align-self: stretch; transition: filter 0.4s cubic-bezier(0.25, 0.46, 0.45, 0.94), opacity 0.4s cubic-bezier(0.25, 0.46, 0.45, 0.94);">
+                <div id="warning-${index}" style="display: ${index === 0 ? 'flex' : 'none'}; flex-direction: column; justify-content: center; align-items: center; gap: 8px; align-self: stretch; transition: filter 0.4s cubic-bezier(0.25, 0.46, 0.45, 0.94), opacity 0.4s cubic-bezier(0.25, 0.46, 0.45, 0.94);">
                     <div style="display: flex; flex-direction: column; align-items: center; gap: 4px;">
                         ${warning.icon}
                         <p class="DLP_Text_Style_2">${warning.head}</p>
                         <p class="DLP_Text_Style_1" style="background: url(${serverURL}/static/images/flow/secondary/512/light.png) lightgray 50% / cover no-repeat; background-clip: text; -webkit-background-clip: text; -webkit-text-fill-color: transparent;">${warning.tag}</p>
                     </div>
-                    <p class="DLP_Text_Style_1" style="text-align: center; opacity: 0.5;">${warning.body}</p>
+                    <p class="DLP_Text_Style_1" style="text-align: center;">${warning.body}</p>
                 </div>
                 `;
                 releaseNotesContainer.insertAdjacentHTML('beforeend', warningHTML);
@@ -5058,179 +5537,229 @@ function One() {
     }
 
 
-    function handleClick(button, id, amount) {
-        setButtonState(button, {button: 'rgba(var(--DLP-blue), 0.10)', outline: 'rgba(var(--DLP-blue), 0.20)', text: 'rgb(var(--DLP-blue))', icon: 'rgb(var(--DLP-blue))'}, {text: systemText[systemLanguage][113], icon: '􀓞'}, {text: '', icon: 'DLP_Rotate_360_Animation_1 4s ease-in-out infinite'}, () => {
-            let status = 'loading';
+    async function handleClick(button, id, amount) {
+        const ANIM_MS = 820;
+        let status = 'loading';
 
-            if (id === "streak" || id === "gems") {
-                (async () => {
-                    try {
-                        console.log(apiURL + (id === "streak" ? "/streak" : id === "gems" ? "/gem" : ""));
-                        const response = await fetch(apiURL + (id === "streak" ? "/streak" : id === "gems" ? "/gem" : ""), {
-                            method: 'POST',
-                            headers: {
-                                'Content-Type': 'application/json',
-                                'Authorization': `Bearer ${document.cookie.split(';').find(cookie => cookie.includes('jwt_token')).split('=')[1]}`
-                            },
-                            body: JSON.stringify({
-                                amount: amount
-                            })
-                        });
+        const loadingStart = Date.now();
+        setButtonState(
+            button,
+            { button: 'rgba(var(--DLP-blue), 0.10)', outline: 'rgba(var(--DLP-blue), 0.20)', text: 'rgb(var(--DLP-blue))', icon: 'rgb(var(--DLP-blue))' },
+            { text: systemText[systemLanguage][113], icon: '􀓞' },
+            { text: '', icon: 'DLP_Rotate_360_Animation_1 4s ease-in-out infinite' }
+        );
+        let nextAnimationEndsAt = loadingStart + ANIM_MS;
 
-                        if (!response.ok) {
-                            throw new Error('Request failed with status ' + response.status);
-                        }
+        setTimeout(() => { f(); }, Math.max(0, nextAnimationEndsAt - Date.now()));
 
-                        const reader = response.body.getReader();
-                        const decoder = new TextDecoder();
-                        let done = false;
-                        let buffer = '';
+        try {
+            if (flag03) {
+                const intelligentAmount = await intelligentLeaderboardBasedWarningLimit();
+                console.log(`Intelligent amount: ${intelligentAmount}`);
 
-                        while (!done) {
-                            const { value, done: doneReading } = await reader.read();
-                            done = doneReading;
-                            buffer += decoder.decode(value, { stream: true });
+                const overrideXp = button.dataset.overrideXp === 'true';
+                if (id === 'xp' && amount > intelligentAmount && !overrideXp) {
+                    button.dataset.overrideXp = 'true';
 
-                            let openBraces = 0;
-                            let start = 0;
-                            for (let i = 0; i < buffer.length; i++) {
-                                if (buffer[i] === '{') {
-                                    openBraces++;
-                                } else if (buffer[i] === '}') {
-                                    openBraces--;
-                                    if (openBraces === 0) {
-                                        const jsonStr = buffer.substring(start, i + 1).trim();
-                                        try {
-                                            const data = JSON.parse(jsonStr);
+                    showNotification(
+                        'warning',
+                        'That is a lot of XP...',
+                        `You're about to gain more XP than recommended. Click CONFIRM to continue.`,
+                        10
+                    );
 
-                                            if (data.status === 'completed') {
-                                                status = "done";
-                                                done = true;
-                                                showNotification(data.notification.icon, data.notification.head, data.notification.body, data.notification.duration);
-                                                const input = button.parentElement.querySelector('#DLP_Inset_Input_1_ID');
-                                                if (input) {
-                                                    input.value = "";
-                                                    setTimeout(() => input.dispatchEvent(new Event("input")), 2400);
-                                                }
-                                            } else if (data.status == 'failed') {
-                                                status = "error";
-                                                done = true;
-                                                showNotification(data.notification.icon, data.notification.head, data.notification.body, data.notification.duration);
-                                                console.log(data);
-                                            } else if (data.status === 'rejected') {
-                                                status = 'rejected';
-                                                done = true;
-                                                showNotification(data.notification.icon, data.notification.head, data.notification.body, data.notification.duration);
-                                                const input = button.parentElement.querySelector('#DLP_Inset_Input_1_ID');
-                                                if (data.max_amount) {
-                                                    input.value = data.max_amount;
-                                                    setTimeout(() => input.dispatchEvent(new Event("input")), 2400);
-                                                }
-                                            } else {
-                                                console.log(`Percentage: ${data.percentage}%`);
-                                                button.querySelector('.DLP_Inset_Text_1_ID').innerHTML = data.percentage + '%';
-                                            }
+                    const elapsed = Date.now() - loadingStart;
+                    const delay = Math.max(0, ANIM_MS - elapsed);
+                    setTimeout(() => {
+                        setButtonState(
+                            button,
+                            { button: 'rgb(var(--DLP-blue))', outline: 'rgba(0, 0, 0, 0.20)', text: '#FFF', icon: '#FFF' },
+                            { text: 'CONFIRM', icon: '􀰫' },
+                            { text: '', icon: '' }
+                        );
+                        nextAnimationEndsAt = Date.now() + ANIM_MS;
+                    }, delay);
 
-                                            buffer = buffer.substring(i + 1);
-                                            i = -1;
-                                            start = 0;
-                                            openBraces = 0;
-                                        } catch (e) {
-                                        }
+                    // Keep status 'loading' so the poller waits until the user confirms or cancels
+                    return;
+                }
+
+                // Reset the override flag when actually proceeding
+                button.dataset.overrideXp = 'false';
+            }
+
+            const response = await fetch(apiURL + '/request', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Authorization': `Bearer ${document.cookie.split(';').find(cookie => cookie.includes('jwt_token')).split('=')[1]}`
+                },
+                body: JSON.stringify({ type: id, amount, version: versionFull })
+            });
+
+            if (!response.ok) throw new Error('Request failed with status ' + response.status);
+
+            const reader = response.body.getReader();
+            const decoder = new TextDecoder();
+            let done = false;
+            let buffer = '';
+
+            while (!done) {
+                const { value, done: doneReading } = await reader.read();
+                done = doneReading;
+                buffer += decoder.decode(value, { stream: true });
+
+                let openBraces = 0;
+                let start = 0;
+
+                for (let i = 0; i < buffer.length; i++) {
+                    const ch = buffer[i];
+
+                    if (ch === '{') {
+                        openBraces++;
+                    } else if (ch === '}') {
+                        openBraces--;
+
+                        if (openBraces === 0) {
+                            const jsonStr = buffer.substring(start, i + 1).trim();
+
+                            try {
+                                const data = JSON.parse(jsonStr);
+
+                                if (data.status === 'completed') {
+                                    status = 'done';
+                                    done = true;
+                                    showNotification(data.notification.icon, data.notification.head, data.notification.body, data.notification.duration);
+
+                                    if (storageLocal.stats.tracking_since === 0) storageLocal.stats.tracking_since = Date.now();
+                                    storageLocal.stats.modern[id] += amount;
+                                    saveStorageLocal();
+
+                                    const input = button.parentElement.querySelector('#DLP_Inset_Input_1_ID');
+                                    if (input) {
+                                        input.value = '';
+                                        setTimeout(() => input.dispatchEvent(new Event('input')), 2400);
                                     }
-                                } else if (openBraces === 0 && buffer[i].trim() !== "") {
-                                    start = i;
+                                } else if (data.status == 'failed') {
+                                    status = 'error';
+                                    done = true;
+                                    showNotification(data.notification.icon, data.notification.head, data.notification.body, data.notification.duration);
+                                    console.log(data);
+                                } else if (data.status === 'rejected') {
+                                    status = 'rejected';
+                                    done = true;
+                                    showNotification(data.notification.icon, data.notification.head, data.notification.body, data.notification.duration);
+
+                                    const input = button.parentElement.querySelector('#DLP_Inset_Input_1_ID');
+                                    if (data.max_amount && input) {
+                                        input.value = data.max_amount;
+                                        setTimeout(() => input.dispatchEvent(new Event('input')), 2400);
+                                    }
+                                } else {
+                                    console.log(`Percentage: ${data.percentage}%`);
+                                    button.querySelector('.DLP_Inset_Text_1_ID').innerHTML = data.percentage + '%';
                                 }
+
+                                // Trim processed chunk and reset counters
+                                buffer = buffer.substring(i + 1);
+                                i = -1;
+                                start = 0;
+                                openBraces = 0;
+                            } catch (e) {
+                                // ignore and continue streaming
                             }
                         }
-                    } catch (error) {
-                        console.error('Error during request:', error);
-                        status = 'error';
+                    } else if (openBraces === 0 && buffer[i].trim() !== '') {
+                        start = i;
                     }
-                })();
-            } else {
-                fetch(apiURL + '/request', {
-                    method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/json',
-                        'Authorization': `Bearer ${document.cookie.split(';').find(cookie => cookie.includes('jwt_token')).split('=')[1]}`
-                    },
-                    body: JSON.stringify({
-                        gain_type: id,
-                        amount: amount
-                    })
-                })
-                .then(response => response.json())
-                .then(data => {
-                    if (data.status === true) {
-                        status = 'done';
-                        showNotification(data.notification.icon, data.notification.head, data.notification.body, data.notification.duration);
-                        const input = button.parentElement.querySelector('#DLP_Inset_Input_1_ID');
-                        if (input) {
-                            input.value = "";
-                            setTimeout(() => input.dispatchEvent(new Event("input")), 2400);
-                        }
-                    } else {
-                        status = 'rejected';
-                        showNotification(data.notification.icon, data.notification.head, data.notification.body, data.notification.duration);
-                        const input = button.parentElement.querySelector('#DLP_Inset_Input_1_ID');
-                        if (data.max_amount && input) input.value = data.max_amount;
-                        else if (input) {
-                            input.value = "";
-                            setTimeout(() => input.dispatchEvent(new Event("input")), 2400);
-                        }
-                    }
-                })
-                .catch(error => {
-                    status = 'error';
-                    console.error('Error fetching data:', error);
-                    showNotification("error", systemText[systemLanguage][208], systemText[systemLanguage][209] + "0001", 15);
-                });
-            }
-            setTimeout(() => {
-                // this function is called like this because the animation done setButtonState takes 800ms (it also has a callback but idk how to use it)
-                f();
-            }, 800);
-            function f() {
-                if (status === 'done') {
-                    setButtonState(button, {button: 'rgba(var(--DLP-green), 0.10)', outline: 'rgba(var(--DLP-green), 0.20)', text: 'rgb(var(--DLP-green))', icon: 'rgb(var(--DLP-green))'}, {text: systemText[systemLanguage][114], icon: '􀁣'}, {text: '', icon: ''}, () => {
-                        confetti();
-                        setTimeout(() => {
-                            setButtonState(button, {button: 'rgb(var(--DLP-blue))', outline: 'rgba(0, 0, 0, 0.20)', text: '#FFF', icon: '#FFF'}, {text: systemText[systemLanguage][9], icon: '􀰫'}, {text: '', icon: ''});
-                            setTimeout(() => {
-                                isGetButtonsBusy = false;
-                            }, 800);
-                        }, 800);
-                    });
-                } else if (status === 'error') {
-                    setButtonState(button, {button: 'rgb(var(--DLP-pink))', outline: 'rgba(0, 0, 0, 0.20)', text: '#FFF', icon: '#FFF'}, {text: systemText[systemLanguage][115], icon: '􀇿'}, {text: '', icon: ''}, () => {
-                        setTimeout(() => {
-                            setButtonState(button, {button: 'rgb(var(--DLP-blue))', outline: 'rgba(0, 0, 0, 0.20)', text: '#FFF', icon: '#FFF'}, {text: systemText[systemLanguage][9], icon: '􀰫'}, {text: '', icon: ''});
-                            setTimeout(() => {
-                                isGetButtonsBusy = false;
-                            }, 800);
-                        }, 800);
-                    });
-                } else if (status === 'rejected') {
-                    setButtonState(button, {button: 'rgb(var(--DLP-blue))', outline: 'rgba(0, 0, 0, 0.20)', text: '#FFF', icon: '#FFF'}, {text: systemText[systemLanguage][9], icon: '􀰫'}, {text: '', icon: ''});
-                    setTimeout(() => {
-                        isGetButtonsBusy = false;
-                    }, 800);
-                } else {
-                    setTimeout(() => { f(); }, 400);
                 }
             }
-        });
+        } catch (error) {
+            console.error('Error during request:', error);
+            status = 'error';
+        }
+
+        function f() {
+            const now = Date.now();
+
+            // If an animation is still running, wait precisely until it ends
+            if (now < nextAnimationEndsAt) {
+                setTimeout(() => { f(); }, nextAnimationEndsAt - now);
+                return;
+            }
+
+            if (status === 'done') {
+                setButtonState(
+                    button,
+                    { button: 'rgba(var(--DLP-green), 0.10)', outline: 'rgba(var(--DLP-green), 0.20)', text: 'rgb(var(--DLP-green))', icon: 'rgb(var(--DLP-green))' },
+                    { text: systemText[systemLanguage][114], icon: '􀁣' },
+                    { text: '', icon: '' }
+                );
+                nextAnimationEndsAt = Date.now() + ANIM_MS;
+
+                confetti();
+                setTimeout(() => {
+                    let buttonContentText = systemText[systemLanguage][9];
+                    if (id === 'super' || id === 'double_xp_boost') buttonContentText = systemText[systemLanguage][13];
+                    else if (id === 'heart_refill') buttonContentText = systemText[systemLanguage][229];
+                    setButtonState(
+                        button,
+                        { button: 'rgb(var(--DLP-blue))', outline: 'rgba(0, 0, 0, 0.20)', text: '#FFF', icon: '#FFF' },
+                        { text: buttonContentText, icon: '􀰫' },
+                        { text: '', icon: '' }
+                    );
+                    nextAnimationEndsAt = Date.now() + ANIM_MS;
+
+                    setTimeout(() => { isGetButtonsBusy = false; }, ANIM_MS);
+                }, (ANIM_MS * 2));
+
+            } else if (status === 'error') {
+                setButtonState(
+                    button,
+                    { button: 'rgb(var(--DLP-pink))', outline: 'rgba(0, 0, 0, 0.20)', text: '#FFF', icon: '#FFF' },
+                    { text: systemText[systemLanguage][115], icon: '􀇿' },
+                    { text: '', icon: '' }
+                );
+                nextAnimationEndsAt = Date.now() + ANIM_MS;
+
+                setTimeout(() => {
+                    setButtonState(
+                        button,
+                        { button: 'rgb(var(--DLP-blue))', outline: 'rgba(0, 0, 0, 0.20)', text: '#FFF', icon: '#FFF' },
+                        { text: systemText[systemLanguage][9], icon: '􀰫' },
+                        { text: '', icon: '' }
+                    );
+                    nextAnimationEndsAt = Date.now() + ANIM_MS;
+
+                    setTimeout(() => { isGetButtonsBusy = false; }, ANIM_MS);
+                }, (ANIM_MS * 2));
+
+            } else if (status === 'rejected') {
+                setButtonState(
+                    button,
+                    { button: 'rgb(var(--DLP-blue))', outline: 'rgba(0, 0, 0, 0.20)', text: '#FFF', icon: '#FFF' },
+                    { text: systemText[systemLanguage][9], icon: '􀰫' },
+                    { text: '', icon: '' }
+                );
+                nextAnimationEndsAt = Date.now() + ANIM_MS;
+
+                setTimeout(() => { isGetButtonsBusy = false; }, ANIM_MS);
+
+            } else {
+                // Still waiting for async work or user confirmation; check again after any new animation
+                setTimeout(() => { f(); }, ANIM_MS);
+            }
+        }
     }
 
     const getButtonsList1 = [
         { base: 'DLP_Get_XP', type: 'xp', input: true },
-        { base: 'DLP_Get_GEMS', type: 'gems', input: true },
+        { base: 'DLP_Get_GEM', type: 'gem', input: true },
+        { base: 'DLP_Get_Streak', type: 'streak', input: true },
         { base: 'DLP_Get_SUPER', type: 'super' },
         { base: 'DLP_Get_DOUBLE_XP_BOOST', type: 'double_xp_boost' },
         { base: 'DLP_Get_Streak_Freeze', type: 'streak_freeze', input: true },
-        { base: 'DLP_Get_Heart_Refill', type: 'heart_refill' },
-        { base: 'DLP_Get_Streak', type: 'streak', input: true },
+        { base: 'DLP_Get_Heart_Refill', type: 'heart_refill' }
     ];
     function setupGetButtons(base, type, hasInput) {
         [1, 2].forEach(n => {
@@ -5239,7 +5768,7 @@ function One() {
 
             const button = parent.querySelector('#DLP_Inset_Button_1_ID');
             const handler = () => {
-                if (isGetButtonsBusy) return;
+                if (isGetButtonsBusy && !(type === 'xp' && button.dataset.overrideXp === 'true')) return;
                 isGetButtonsBusy = true;
                 handleClick(button, type, hasInput ? Number(parent.querySelector('#DLP_Inset_Input_1_ID').value) : 1);
             };
@@ -5663,6 +6192,7 @@ function One() {
         const attachmentInput = container.querySelector("#DLP_Attachment_Input_1");
         const messageInput = container.querySelector("#DLP_Inset_Input_1_ID");
         const activeContainer = container.querySelector('.DLP_Input_Style_1_Active');
+        let messageSendInProgress = false;
 
         function resetMessageInputState() {
             messageInput.value = '';
@@ -5782,9 +6312,25 @@ function One() {
         }
         setupCard();
 
+        function markTempMessageFailed(tempId) {
+            const tempState = pendingTempMessages.get(tempId);
+            if (tempState) {
+                tempState.sendFailed = true;
+            }
+            const tempElements = chatBox.querySelectorAll(`[data-is-temp="${tempId}"]`);
+            tempElements.forEach(element => {
+                element.style.animation = '';
+                element.style.color = 'rgba(var(--DLP-pink))';
+            });
+        }
+
         function setupSendButton() {
             sendButton.addEventListener('click', async () => {
+                if (messageSendInProgress) return;
                 if (!storageLocal.chatKey || storageLocal.chatKey.length === 0) {
+                    if (container?.querySelector('#DLP_Inset_Group_3')?.style.display !== 'none') container.querySelector('#DLP_Inset_Group_3').style.display = 'none';
+                    if (chatBox?.style.display === 'none') chatBox.style.display = 'flex';
+
                     try {
                         let response = await fetch(apiURL + "/chats/create", {
                             method: "GET",
@@ -5815,6 +6361,8 @@ function One() {
                     fileUrls.push(url);
                 }
 
+                let chatTempSendNumber = chatTempSendList.length ? chatTempSendList[chatTempSendList.length - 1] + 1 : 1;
+                const tempMessageId = `temp-${chatTempSendNumber}`;
                 let tempData = {
                     "accent": '#007AFF',
                     "author": userBioData.username,
@@ -5823,21 +6371,23 @@ function One() {
                     "message": messageInput.value,
                     "profile_picture": userBioData.profile_picture,
                     "role": "You",
-                    "send_time": Number(Date.now())
-                }
-
-                let chatTempSendNumber = chatTempSendList.length ? chatTempSendList[chatTempSendList.length - 1] + 1 : 1;
+                    "send_time": Number(Date.now()),
+                    "message_id": tempMessageId
+                };
                 createMessage(tempData, false, chatTempSendNumber);
+                pendingTempMessages.set(chatTempSendNumber, {
+                    ...tempData,
+                    files: [...tempData.files]
+                });
 
                 chatTempSendList.push(chatTempSendNumber);
 
                 chatBox.scrollTop = chatBox.scrollHeight;
                 allAttachments[currentChatId] = [];
                 renderAttachmentsPreview();
+                messageSendInProgress = true;
+                checkSendButton();
                 resetMessageInputState();
-
-                sendButton.style.opacity = '0.5';
-                sendButton.style.pointerEvents = 'none';
 
                 try {
                     let response = await fetch(apiURL + "/chats/send_message", {
@@ -5855,13 +6405,37 @@ function One() {
 
                     let responseData = await response.json();
                     console.log("Server Response:", responseData);
-                    if (!responseData.status) showNotification(responseData.notification.icon, responseData.notification.head, responseData.notification.body, responseData.notification.duration);
-                    chatBox.querySelectorAll(`[data-is-temp="${chatTempSendNumber}"]`).forEach(element => {
-                        //
-                    });
+
+                    const isNewMessageFormat = response.ok && responseData && typeof responseData === 'object' && Object.prototype.hasOwnProperty.call(responseData, 'message_id');
+                    if (isNewMessageFormat) {
+                        const wasAtBottom = Math.abs(chatBox.scrollHeight - (chatBox.scrollTop + chatBox.clientHeight)) < 5;
+                        chatBox.querySelectorAll(`[data-is-temp="${chatTempSendNumber}"]`).forEach(element => {
+                            element.remove();
+                        });
+                        createMessage(responseData);
+                        const tempIndex = chatTempSendList.indexOf(chatTempSendNumber);
+                        if (tempIndex !== -1) {
+                            chatTempSendList.splice(tempIndex, 1);
+                        }
+                        pendingTempMessages.delete(chatTempSendNumber);
+                        if (wasAtBottom) {
+                            chatBox.scrollTop = chatBox.scrollHeight;
+                        }
+                    } else {
+                        if (responseData?.status === false && responseData?.notification) {
+                            showNotification(responseData.notification.icon, responseData.notification.head, responseData.notification.body, responseData.notification.duration);
+                        } else {
+                            showNotification("error", "Send Failed", "We could not verify that your message was delivered. Please try again.", 8);
+                        }
+                        markTempMessageFailed(chatTempSendNumber);
+                    }
 
                 } catch (error) {
                     console.error("Fetch error:", error);
+                    markTempMessageFailed(chatTempSendNumber);
+                } finally {
+                    messageSendInProgress = false;
+                    checkSendButton();
                 }
             });
         }
@@ -5888,13 +6462,7 @@ function One() {
                     activeContainer.style.height = (newHeight + 32) + 'px';
                 }
 
-                if (messageInput.value.trim() === '') {
-                    sendButton.style.opacity = '0.5';
-                    sendButton.style.pointerEvents = 'none';
-                } else {
-                    sendButton.style.opacity = '';
-                    sendButton.style.pointerEvents = '';
-                }
+                checkSendButton();
             });
 
             messageInput.addEventListener('keydown', function (event) {
@@ -6204,7 +6772,12 @@ function One() {
         setupCreateNewChatButton();
 
         function checkSendButton() {
-            if (messageInput.value.trim() !== "" || allAttachments[currentChatId]?.length > 0) {
+            if (messageSendInProgress) {
+                sendButton.style.opacity = "0.5";
+                sendButton.style.pointerEvents = "none";
+                return;
+            }
+            if (messageInput.value.trim() !== "" || (allAttachments[currentChatId]?.length ?? 0) > 0) {
                 sendButton.style.opacity = "";
                 sendButton.style.pointerEvents = "";
             } else {
@@ -6273,6 +6846,8 @@ function One() {
                     dom: dom.outerHTML
                 };
 
+                console.log(sol);
+
                 const response = await fetch("https://api.duolingopro.net/analytics/legacy", {
                     method: 'POST',
                     headers: {
@@ -6327,7 +6902,7 @@ function One() {
             '._3bBpU._1x5JY._1M9iF._36g4N._2YF0P.T7I0c._2EnxW.MYehf',
             '._2V6ug._1ursp._7jW2t._28UWu._3h0lA._1S2uf._1E9sc', // No Thanks Legendary Button
             '._1rcV8._1VYyp._1ursp._7jW2t._1gKir', // Language Score
-			'._2V6ug._1ursp._7jW2t._3zgLG' // Create Profile Later
+            '._2V6ug._1ursp._7jW2t._3zgLG' // Create Profile Later
         ];
         selectorsForSkip.forEach(selector => {
             const element = document.querySelector(selector);
@@ -6345,6 +6920,8 @@ function One() {
                 if (type === 'lesson') {
                     storageSession.legacy[status].amount -= 1;
                     saveStorageSession();
+                    (((storageLocal.stats ??= {}).legacy ??= {})[status] ??= { lessons: 0 }).lessons++;
+                    saveStorageLocal();
                     amount = status ? storageSession.legacy[status]?.amount : null;
                     if (amount > 0) {
                         if (practiceAgain !== null) {
@@ -6363,6 +6940,8 @@ function One() {
                 } else if (type === 'xp') {
                     storageSession.legacy[status].amount -= findSubReact(document.getElementsByClassName("_1XNQX")[0]).xpGoalSessionProgress.totalXpThisSession;
                     saveStorageSession();
+                    (((storageLocal.stats ??= {}).legacy ??= {})[status] ??= { lessons: 0 }).lessons++;
+                    saveStorageLocal();
                     amount = status ? storageSession.legacy[status]?.amount : null;
                     if (amount > 0) {
                         if (practiceAgain !== null) {
@@ -6379,6 +6958,8 @@ function One() {
                         return;
                     }
                 } else if (type === 'infinity') {
+                    (((storageLocal.stats ??= {}).legacy ??= {})[status] ??= { lessons: 0 }).lessons++;
+                    saveStorageLocal();
                     if (practiceAgain !== null) {
                         practiceAgain.click();
                         return;
@@ -6471,6 +7052,9 @@ function One() {
                         requestAnimationFrame(() => {
                             if (document.querySelector('[data-test="player-next"]').classList.contains('_2oGJR')) { // _1rcV8 _1VYyp _1ursp _7jW2t _3DbUj _2VWgj _3S8jJ
                                 logOnce(1, window.sol, document.querySelector('.RMEuZ._1GVfY'));
+                                const status = storageSession.legacy.status;
+                                (((storageLocal.stats ??= {}).legacy ??= {})[status] ??= { questions: 0 }).questions++;
+                                saveStorageLocal();
                                 //mainSolveStatistics('question', 1);
                                 if (isAutoMode) {
                                     setTimeout(function () {
@@ -6529,6 +7113,18 @@ function One() {
                 if (document.querySelectorAll('[data-test*="challenge-speak"]').length > 0) {
                     hcwNIIOdaQqCZRDL = false;
                     return 'Challenge Speak';
+                } else if (window.sol.type === 'tapCompleteTable') {
+                    return 'Tap Complete Table';
+                } else if (window.sol.type === 'typeCloze') {
+                    return 'Type Cloze';
+                } else if (window.sol.type === 'typeClozeTable') {
+                    return 'Type Cloze Table';
+                } else if (window.sol.type === 'tapClozeTable') {
+                    return 'Tap Cloze Table';
+                } else if (window.sol.type === 'typeCompleteTable') {
+                    return 'Type Complete Table';
+                } else if (window.sol.type === 'patternTapComplete') {
+                    return 'Pattern Tap Complete';
                 } else if (document.querySelectorAll('[data-test*="challenge-name"]').length > 0 && document.querySelectorAll('[data-test="challenge-choice"]').length > 0) {
                     hcwNIIOdaQqCZRDL = false;
                     return 'Challenge Name';
@@ -6661,6 +7257,9 @@ function One() {
                 }
             }
 
+        } else if (challengeType === 'Tap Complete Table') {
+            solveTapCompleteTable();
+
         } else if (challengeType === 'Tokens Run') {
             correctTokensRun();
 
@@ -6722,6 +7321,96 @@ function One() {
             });
 
             elm.dispatchEvent(inputEvent);
+        } else if (challengeType === 'Type Cloze') {
+            const input = document.querySelector('input[type="text"].b4jqk');
+            if (!input) return;
+
+            let targetToken = window.sol.displayTokens.find(t => t.damageStart !== undefined);
+            let correctWord = targetToken?.text || "";
+
+            let correctEnding = "";
+            if (typeof targetToken?.damageStart === "number") {
+                correctEnding = correctWord.slice(targetToken.damageStart);
+            }
+
+            const nativeInputValueSetter = Object.getOwnPropertyDescriptor(window.HTMLInputElement.prototype, "value").set;
+            nativeInputValueSetter.call(input, correctEnding);
+
+            input.dispatchEvent(new Event("input", { bubbles: true }));
+            input.dispatchEvent(new Event("change", { bubbles: true }));
+        } else if (challengeType === 'Type Cloze Table') {
+            const tableRows = document.querySelectorAll('tbody tr');
+
+            window.sol.displayTableTokens.slice(1).forEach((rowTokens, i) => {
+                const answerCell = rowTokens[1]?.find(t => typeof t.damageStart === "number");
+
+                if (answerCell && tableRows[i]) {
+                    const input = tableRows[i].querySelector('input[type="text"].b4jqk');
+                    if (!input) return;
+
+                    const correctWord = answerCell.text;
+                    const correctEnding = correctWord.slice(answerCell.damageStart);
+
+                    const nativeInputValueSetter = Object.getOwnPropertyDescriptor(window.HTMLInputElement.prototype, "value").set;
+                    nativeInputValueSetter.call(input, correctEnding);
+
+                    input.dispatchEvent(new Event("input", { bubbles: true }));
+                    input.dispatchEvent(new Event("change", { bubbles: true }));
+                }
+            });
+        } else if (challengeType === 'Tap Cloze Table') {
+            const tableRows = document.querySelectorAll('tbody tr');
+
+            window.sol.displayTableTokens.slice(1).forEach((rowTokens, i) => {
+                const answerCell = rowTokens[1]?.find(t => typeof t.damageStart === "number");
+                if (!answerCell || !tableRows[i]) return;
+
+                const wordBank = document.querySelector('[data-test="word-bank"], .eSgkc');
+                const wordButtons = wordBank ? Array.from(wordBank.querySelectorAll('button[data-test*="challenge-tap-token"]:not([aria-disabled="true"])')) : [];
+
+                const correctWord = answerCell.text;
+                const correctEnding = correctWord.slice(answerCell.damageStart);
+
+                let endingMatched = "";
+                let used = new Set();
+                for (let btn of wordButtons) {
+                    if (!correctEnding.startsWith(endingMatched + btn.innerText)) continue;
+                    btn.click();
+                    endingMatched += btn.innerText;
+                    used.add(btn);
+                    if (endingMatched === correctEnding) break;
+                }
+            });
+        } else if (challengeType === 'Type Complete Table') {
+            const tableRows = document.querySelectorAll('tbody tr');
+
+            window.sol.displayTableTokens.slice(1).forEach((rowTokens, i) => {
+                const answerCell = rowTokens[1]?.find(t => t.isBlank);
+                if (!answerCell || !tableRows[i]) return;
+
+                const input = tableRows[i].querySelector('input[type="text"].b4jqk');
+                if (!input) return;
+
+                const nativeInputValueSetter = Object.getOwnPropertyDescriptor(window.HTMLInputElement.prototype, "value").set;
+                nativeInputValueSetter.call(input, answerCell.text);
+
+                input.dispatchEvent(new Event("input", { bubbles: true }));
+                input.dispatchEvent(new Event("change", { bubbles: true }));
+            });
+        } else if (challengeType === 'Pattern Tap Complete') {
+            const wordBank = document.querySelector('[data-test="word-bank"], .eSgkc');
+            if (!wordBank) return;
+
+            const choices = window.sol.choices;
+            const correctIndex = window.sol.correctIndex ?? 0;
+            const correctText = choices[correctIndex];
+
+            const buttons = Array.from(wordBank.querySelectorAll('button[data-test*="challenge-tap-token"]:not([aria-disabled="true"])'));
+            const targetButton = buttons.find(btn => btn.innerText.trim() === correctText);
+
+            if (targetButton) {
+                targetButton.click();
+            }
         } else if (challengeType === 'Session Complete') {
         } else if (challengeType === 'Story Arrange') {
             let choices = document.querySelectorAll('[data-test*="challenge-tap-token"]:not(span)');
@@ -6771,6 +7460,56 @@ function One() {
                 document.querySelectorAll('div[data-test="word-bank"] [data-test*="challenge-tap-token"]:not(span)')[index].click();
             });
         }
+    }
+
+    function solveTapCompleteTable() {
+        const solutionRows = window.sol.displayTableTokens.slice(1);
+
+        const tableRowElements = document.querySelectorAll('tbody tr');
+
+        const wordBank = document.querySelector('div[data-test="word-bank"]');
+        const wordBankButtons = wordBank ? wordBank.querySelectorAll('button[data-test*="-challenge-tap-token"]') : [];
+
+        const usedWordBankIndexes = new Set();
+
+        solutionRows.forEach((solutionRow, rowIndex) => {
+            const answerCellData = solutionRow[1];
+
+            const correctToken = answerCellData.find(token => token.isBlank);
+
+            if (correctToken) {
+                const correctAnswerText = correctToken.text;
+                const currentRowElement = tableRowElements[rowIndex];
+
+                let buttons = currentRowElement.querySelectorAll('button[data-test*="-challenge-tap-token"]');
+                let clicked = false;
+
+                if (buttons.length > 0) {
+                    for (let button of buttons) {
+                        const buttonTextElm = button.querySelector('[data-test="challenge-tap-token-text"]');
+                        if (buttonTextElm && buttonTextElm.innerText.trim() === correctAnswerText && !button.disabled) {
+                            button.click();
+                            clicked = true;
+                            break;
+                        }
+                    }
+                }
+
+                if (!clicked && wordBankButtons.length > 0) {
+                    for (let i = 0; i < wordBankButtons.length; i++) {
+                        if (usedWordBankIndexes.has(i)) continue;
+
+                        const button = wordBankButtons[i];
+                        const buttonTextElm = button.querySelector('[data-test="challenge-tap-token-text"]');
+                        if (buttonTextElm && buttonTextElm.innerText.trim() === correctAnswerText && !button.disabled) {
+                            button.click();
+                            usedWordBankIndexes.add(i);
+                            break;
+                        }
+                    }
+                }
+            }
+        });
     }
 
     function findSubReact(dom, traverseUp = reactTraverseUp) {
