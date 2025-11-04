@@ -7435,20 +7435,21 @@ function One() {
     }
 
     function correctTokensRun() {
-        const all_tokens = document.querySelectorAll('[data-test$="challenge-tap-token"]');
         const correct_tokens = window.sol.correctTokens;
         const clicked_tokens = [];
-
+    
         correct_tokens.forEach(correct_token => {
-            const matching_elements = Array.from(all_tokens).filter(element => element.textContent.trim() === correct_token.trim());
-            if (matching_elements.length > 0) {
-                const match_index = clicked_tokens.filter(token => token.textContent.trim() === correct_token.trim()).length;
-                if (match_index < matching_elements.length) {
-                    matching_elements[match_index].click();
-                    clicked_tokens.push(matching_elements[match_index]);
-                } else {
-                    clicked_tokens.push(matching_elements[0]);
-                }
+            const selector = `[data-test="${correct_token}-challenge-tap-token"]`;
+            const elements = document.querySelectorAll(selector);
+    
+            if (elements.length > 0) {
+                elements.forEach(element => {
+                    console.log(element);
+                    element.click();
+                    clicked_tokens.push(element);
+                });
+            } else {
+                console.warn(`couldnt find data-test="${correct_token}-challenge-tap-token"`);
             }
         });
     }
