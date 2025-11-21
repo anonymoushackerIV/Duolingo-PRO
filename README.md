@@ -21,7 +21,7 @@
 
 **Duolingo PRO 3.1** is a powerful user-script designed to supercharge your Duolingo experience. Instantly gain XP, farm XP automatically, complete quests, climb the leaderboard, extend your streak, collect gems, and much more, all with minimal effort.
 
-- **Latest Version:** 3.1 (Working as of August 2025)
+- **Latest Version:** 3.1 (Working as of November 2025)
 - **Supported Platform:** Duolingo (Web)
 - **Script Manager:** Tampermonkey (recommended)
 - **Community:** [Join our Discord server](https://discord.gg/r8xQ7K59Mt) for news, support, and discussions
