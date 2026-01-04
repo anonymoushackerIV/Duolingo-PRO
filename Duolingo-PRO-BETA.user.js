@@ -946,7 +946,7 @@ function Two() {
                                 <p class="DLP_Text_Style_1 DLP_NoSelect DLP_Inset_Icon_1_ID" style="color: #FFF;">􀁣</p>
                             </div>
                         </div>
-                        <div id="DLP_Settings_Show_AutoServer_Button_1_ID" class="DLP_HStack_8" style="justify-content: center; align-items: center;">
+                        <div id="DLP_Settings_Show_AutoServer_Button_1_ID" class="DLP_HStack_8" style="justify-content: center; align-items: center;${alpha ? '' : ' display: none;'}">
                             <div class="DLP_VStack_0" style="align-items: flex-start; flex: 1 0 0;">
                                 <p class="DLP_Text_Style_1">Show AutoServer Button</p>
                                 <p class="DLP_Text_Style_1" style="color: rgb(var(--color-wolf), 0.4);">See the AutoServer by Duolingo PRO button in your Duolingo menubar.</p>
