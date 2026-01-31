@@ -1,8 +1,8 @@
 // ==UserScript==
 // @name         Duolingo PRO
 // @namespace    http://duolingopro.net
-// @version      3.1BETA.04
-// @description  The fastest Duolingo XP farmer, now with Gems and Free Duolingo Max, working as of January 2026.
+// @version      3.1BETA.04.1
+// @description  The fastest Duolingo XP farmer, now with gems and free Duolingo Max, working as of February 2026.
 // @author       anonymousHackerIV
 // @match        *://*.duolingo.com/*
 // @match        *://*.duolingo.cn/*
@@ -10,12 +10,12 @@
 // @grant        GM_log
 // ==/UserScript==
 
-const VERSION_NUMBER = "06";
-const STORAGE_LOCAL_VERSION = "06";
-const STORAGE_SESSION_VERSION = "06";
-const VERSION_NAME = "BETA.04";
-const VERSION_FULL = "3.1BETA.04";
-const VERSION_FORMAL = "3.1 BETA.04";
+const VERSION_NUMBER = "07";
+const STORAGE_LOCAL_VERSION = "07";
+const STORAGE_SESSION_VERSION = "07";
+const VERSION_NAME = "BETA.04.1";
+const VERSION_FULL = "3.1BETA.04.1";
+const VERSION_FORMAL = "3.1 BETA.04.1";
 let serverURL = "https://www.duolingopro.net";
 let apiURL = "https://api.duolingopro.net";
 let greasyfork = true;
@@ -25,8 +25,7 @@ let storageLocal;
 let storageSession;
 
 let hidden = false;
-let lastPage;
-let currentPage = 1;
+let pageHistory = [1];
 let windowBlurState = true;
 let multipleScriptsDetected = false;
 let recentUpdateDetected = false;
@@ -121,7 +120,7 @@ let systemText = {
         48: "What's New",
         51: "LEARN MORE",
         52: "Welcome to",
-        53: "The next generation of Duolingo PRO is here, with Instant XP, Magnet UI, all powerful than ever. ",
+        53: "Skip the grind and jump straight to the rewards with instant XP, gem gains, streak boosts, auto-solved lessons, and more.",
         54: "START",
         55: "Would you like to redeem an XP Boost?",
         56: "How many Streak Freezes would you like to get?",
@@ -129,6 +128,7 @@ let systemText = {
         58: "Would you like to refill your Hearts to full?",
         59: "Would you like to complete all your Quests?",
         60: "COMPLETE",
+        61: "Pick 3.1 mode for faster, instant results powered by server-side processing, or Legacy mode to keep everything running on-client.",
 
         100: "SOLVE",
         101: "SOLVE ALL",
@@ -300,7 +300,7 @@ function Two() {
                             <p class="DLP_Text_Style_1 DLP_NoSelect DLP_Inset_Icon_1_ID" style="color: rgb(var(--color-eel)); animation: 4s ease-in-out 0s infinite normal none running DLP_Rotate_360_Animation_1;">􀓞</p>
                             <p class="DLP_Text_Style_1 DLP_NoSelect DLP_Inset_Text_1_ID" style="color: rgb(var(--color-eel));">${systemText[systemLanguage][3]}</p>
                         </div>
-                        <div class="DLP_Button_Style_1 DLP_Magnetic_Hover_1" id="DLP_Main_Donate_Button_1_ID" onclick="window.open('https://duolingopro.net/donate', '_blank');" style="outline: 2px solid rgba(0, 0, 0, 0.20); outline-offset: -2px; background: url(${serverURL}/static/images/flow/primary/512/light.png) lightgray 50% / cover no-repeat; padding: 10px 0px 10px 10px;">
+                        <div class="DLP_Button_Style_1 DLP_Magnetic_Hover_1" id="DLP_Main_Donate_Button_1_ID" style="outline: 2px solid rgba(0, 0, 0, 0.20); outline-offset: -2px; background: url(${serverURL}/static/images/flow/primary/512/light.png) lightgray 50% / cover no-repeat; padding: 10px 0px 10px 10px;">
                             <svg width="17" height="19" viewBox="0 0 17 19" fill="#FFF" xmlns="http://www.w3.org/2000/svg">
                                 <path d="M16.5 5.90755C16.4968 3.60922 14.6997 1.72555 12.5913 1.04588C9.97298 0.201877 6.51973 0.324211 4.01956 1.49921C0.989301 2.92355 0.0373889 6.04355 0.00191597 9.15522C-0.0271986 11.7136 0.229143 18.4517 4.04482 18.4997C6.87998 18.5356 7.30214 14.8967 8.61397 13.1442C9.5473 11.8974 10.749 11.5452 12.2284 11.1806C14.7709 10.5537 16.5037 8.55506 16.5 5.90755Z"/>
                             </svg>
@@ -322,17 +322,17 @@ function Two() {
                             <p class="DLP_Text_Style_1 DLP_NoSelect DLP_Inset_Icon_1_ID" style="color: #FFF;">􀋦</p>
                             <p class="DLP_Text_Style_1 DLP_NoSelect DLP_Inset_Text_1_ID" style="color: #FFF;">Boost</p>
                         </div>
-                        <div class="DLP_Button_Style_1 DLP_Magnetic_Hover_1" id="DLP_Main_YouTube_Button_1_ID" onclick="window.open('https://duolingopro.net/youtube', '_blank');" style="justify-content: center; flex: none; width: 40px; padding: 10px; outline: 2px solid rgba(0, 0, 0, 0.20); outline-offset: -2px; background: rgb(var(--DLP-pink));">
+                        <div class="DLP_Button_Style_1 DLP_Magnetic_Hover_1" id="DLP_Main_YouTube_Button_1_ID" style="justify-content: center; flex: none; width: 40px; padding: 10px; outline: 2px solid rgba(0, 0, 0, 0.20); outline-offset: -2px; background: rgb(var(--DLP-pink));">
                             <svg width="22" height="16" viewBox="0 0 22 16" fill="#FFF" xmlns="http://www.w3.org/2000/svg">
                                 <path fill-rule="evenodd" clip-rule="evenodd" d="M19.2043 1.0885C20.1084 1.33051 20.8189 2.041 21.0609 2.9451C21.4982 4.58216 21.5 7.99976 21.5 7.99976C21.5 7.99976 21.5 11.4174 21.0609 13.0544C20.8189 13.9585 20.1084 14.669 19.2043 14.911C17.5673 15.3501 11 15.3501 11 15.3501C11 15.3501 4.43274 15.3501 2.79568 14.911C1.89159 14.669 1.1811 13.9585 0.939084 13.0544C0.5 11.4174 0.5 7.99976 0.5 7.99976C0.5 7.99976 0.5 4.58216 0.939084 2.9451C1.1811 2.041 1.89159 1.33051 2.79568 1.0885C4.43274 0.649414 11 0.649414 11 0.649414C11 0.649414 17.5673 0.649414 19.2043 1.0885ZM14.3541 8.00005L8.89834 11.1497V4.85038L14.3541 8.00005Z"/>
                             </svg>
                         </div>
-                        <div class="DLP_Button_Style_1 DLP_Magnetic_Hover_1" id="DLP_Main_Discord_Button_1_ID" onclick="window.open('https://duolingopro.net/discord', '_blank');" style="justify-content: center; flex: none; width: 40px; padding: 10px; outline: 2px solid rgba(0, 0, 0, 0.20); outline-offset: -2px; background: rgb(var(--DLP-indigo));">
+                        <div class="DLP_Button_Style_1 DLP_Magnetic_Hover_1" id="DLP_Main_Discord_Button_1_ID" style="justify-content: center; flex: none; width: 40px; padding: 10px; outline: 2px solid rgba(0, 0, 0, 0.20); outline-offset: -2px; background: rgb(var(--DLP-indigo));">
                             <svg width="22" height="16" viewBox="0 0 22 16" fill="#FFF" xmlns="http://www.w3.org/2000/svg">
                                 <path d="M18.289 1.34C16.9296 0.714 15.4761 0.259052 13.9565 0C13.7699 0.332095 13.5519 0.77877 13.4016 1.1341C11.7862 0.894993 10.1857 0.894993 8.60001 1.1341C8.44972 0.77877 8.22674 0.332095 8.03844 0C6.51721 0.259052 5.06204 0.715671 3.70267 1.34331C0.960812 5.42136 0.21754 9.39811 0.589177 13.3184C2.40772 14.655 4.17011 15.467 5.90275 15.9984C6.33055 15.4189 6.71209 14.8028 7.04078 14.1536C6.41478 13.9195 5.81521 13.6306 5.24869 13.2952C5.39898 13.1856 5.546 13.071 5.68803 12.9531C9.14342 14.5438 12.8978 14.5438 16.3119 12.9531C16.4556 13.071 16.6026 13.1856 16.7512 13.2952C16.183 13.6322 15.5818 13.9211 14.9558 14.1553C15.2845 14.8028 15.6644 15.4205 16.0939 16C17.8282 15.4687 19.5922 14.6567 21.4107 13.3184C21.8468 8.77378 20.6658 4.83355 18.289 1.34ZM7.51153 10.9075C6.47426 10.9075 5.62361 9.95435 5.62361 8.7937C5.62361 7.63305 6.45609 6.67831 7.51153 6.67831C8.56699 6.67831 9.41761 7.63138 9.39945 8.7937C9.40109 9.95435 8.56699 10.9075 7.51153 10.9075ZM14.4884 10.9075C13.4511 10.9075 12.6005 9.95435 12.6005 8.7937C12.6005 7.63305 13.4329 6.67831 14.4884 6.67831C15.5438 6.67831 16.3945 7.63138 16.3763 8.7937C16.3763 9.95435 15.5438 10.9075 14.4884 10.9075Z"/>
                             </svg>
                         </div>
-                        <div class="DLP_Button_Style_1 DLP_Magnetic_Hover_1" id="DLP_Main_GitHub_Button_1_ID" onclick="window.open('https://duolingopro.net/github', '_blank');" style="justify-content: center; flex: none; width: 40px; padding: 10px; outline: 2px solid rgba(255, 255, 255, 0.20); outline-offset: -2px; background: #333333;">
+                        <div class="DLP_Button_Style_1 DLP_Magnetic_Hover_1" id="DLP_Main_GitHub_Button_1_ID" style="justify-content: center; flex: none; width: 40px; padding: 10px; outline: 2px solid rgba(255, 255, 255, 0.20); outline-offset: -2px; background: #333333;">
                             <svg width="22" height="22" viewBox="0 0 22 22" fill="#FFF" xmlns="http://www.w3.org/2000/svg">
                                 <path fill-rule="evenodd" clip-rule="evenodd" d="M11.0087 0.5C5.19766 0.5 0.5 5.3125 0.5 11.2662C0.5 16.0253 3.50995 20.0538 7.68555 21.4797C8.2076 21.5868 8.39883 21.248 8.39883 20.963C8.39883 20.7134 8.38162 19.8578 8.38162 18.9664C5.45836 19.6082 4.84962 17.683 4.84962 17.683C4.37983 16.4353 3.68375 16.1146 3.68375 16.1146C2.72697 15.4551 3.75345 15.4551 3.75345 15.4551C4.81477 15.5264 5.37167 16.5602 5.37167 16.5602C6.31103 18.1999 7.82472 17.7366 8.43368 17.4514C8.52058 16.7562 8.79914 16.2749 9.09491 16.0076C6.7634 15.758 4.31035 14.8312 4.31035 10.6957C4.31035 9.51928 4.72765 8.55678 5.38888 7.80822C5.28456 7.54091 4.9191 6.43556 5.49342 4.95616C5.49342 4.95616 6.38073 4.67091 8.38141 6.06128C9.23797 5.82561 10.1213 5.70573 11.0087 5.70472C11.896 5.70472 12.8005 5.82963 13.6358 6.06128C15.6367 4.67091 16.524 4.95616 16.524 4.95616C17.0983 6.43556 16.7326 7.54091 16.6283 7.80822C17.3069 8.55678 17.707 9.51928 17.707 10.6957C17.707 14.8312 15.254 15.7401 12.905 16.0076C13.2879 16.3463 13.6183 16.9878 13.6183 18.0039C13.6183 19.4477 13.6011 20.6064 13.6011 20.9627C13.6011 21.248 13.7926 21.5868 14.3144 21.4799C18.49 20.0536 21.5 16.0253 21.5 11.2662C21.5172 5.3125 16.8023 0.5 11.0087 0.5Z"/>
                             </svg>
@@ -454,6 +454,15 @@ function Two() {
                         <div class="DLP_HStack_8">
                             <div class="DLP_Input_Button_Style_1_Active DLP_Magnetic_Hover_1" id="DLP_Inset_Button_1_ID" style="flex: 1 0 0;">
                                 <p class="DLP_Text_Style_1 DLP_NoSelect DLP_Inset_Text_1_ID" style="color: #FFF;">${systemText[systemLanguage][60]}</p>
+                                <p class="DLP_Text_Style_1 DLP_NoSelect DLP_Inset_Icon_1_ID" style="color: #FFF;">􀰫</p>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="DLP_VStack_8" id="DLP_Get_Local_Duolingo_Max_1_ID">
+                        <p class="DLP_Text_Style_1 DLP_NoSelect" style="align-self: stretch;">Would you like to enable on-client Duolingo Max?</p>
+                        <div class="DLP_HStack_8">
+                            <div class="DLP_Input_Button_Style_1_Active DLP_Magnetic_Hover_1" id="DLP_Inset_Button_1_ID" style="flex: 1 0 0;">
+                                <p class="DLP_Text_Style_1 DLP_NoSelect DLP_Inset_Text_1_ID" style="color: #FFF;">ENABLE IN SETTINGS</p>
                                 <p class="DLP_Text_Style_1 DLP_NoSelect DLP_Inset_Icon_1_ID" style="color: #FFF;">􀰫</p>
                             </div>
                         </div>
@@ -611,6 +620,18 @@ function Two() {
                             </div>
                         </div>
                     </div>
+                    <div class="DLP_VStack_8" id="DLP_Get_Local_Duolingo_Max_2_ID">
+                        <div class="DLP_HStack_8" style="align-items: center;">
+                            <p class="DLP_Text_Style_1 DLP_Magnetic_Hover_1 DLP_NoSelect DLP_Inset_Icon_1_ID" style="color: rgba(var(--color-eel), 0.50);">􀎦</p>
+                            <p class="DLP_Text_Style_1 DLP_NoSelect" style="align-self: stretch;">Would you like to enable on-client Duolingo Max?</p>
+                        </div>
+                        <div class="DLP_HStack_8">
+                            <div class="DLP_Input_Button_Style_1_Active DLP_Magnetic_Hover_1" id="DLP_Inset_Button_1_ID" style="flex: 1 0 0;">
+                                <p class="DLP_Text_Style_1 DLP_NoSelect DLP_Inset_Text_1_ID" style="color: #FFF;">ENABLE IN SETTINGS</p>
+                                <p class="DLP_Text_Style_1 DLP_NoSelect DLP_Inset_Icon_1_ID" style="color: #FFF;">􀰫</p>
+                            </div>
+                        </div>
+                    </div>
                     <div class="DLP_VStack_8" id="DLP_Get_SUPER_2_ID" style="flex: 1 0 0;">
                         <div class="DLP_HStack_8" style="align-items: center;">
                             <p class="DLP_Text_Style_1 DLP_Magnetic_Hover_1 DLP_NoSelect DLP_Inset_Icon_1_ID" style="color: rgba(var(--color-eel), 0.50);">􀎦</p>
@@ -636,7 +657,7 @@ function Two() {
                             <p class="DLP_Text_Style_1 DLP_Inset_Icon_1_ID" style="color: rgb(var(--DLP-blue)); animation: 4s ease-in-out 0s infinite normal none running DLP_Rotate_360_Animation_1;">􀓞</p>
                             <p class="DLP_Text_Style_1 DLP_Inset_Text_1_ID" style="color: #000; transition: 0.4s;">${systemText[systemLanguage][3]}</p>
                         </div>
-                        <div class="DLP_Button_Style_1 DLP_Magnetic_Hover_1" id="DLP_Secondary_Donate_Button_1_ID" onclick="window.open('https://duolingopro.net/donate', '_blank');" style="outline: 2px solid rgba(0, 0, 0, 0.20); outline-offset: -2px; background: url(${serverURL}/static/images/flow/primary/512/light.png) lightgray 50% / cover no-repeat; padding: 10px 0px 10px 10px;">
+                        <div class="DLP_Button_Style_1 DLP_Magnetic_Hover_1" id="DLP_Secondary_Donate_Button_1_ID" style="outline: 2px solid rgba(0, 0, 0, 0.20); outline-offset: -2px; background: url(${serverURL}/static/images/flow/primary/512/light.png) lightgray 50% / cover no-repeat; padding: 10px 0px 10px 10px;">
                             <svg width="17" height="19" viewBox="0 0 17 19" fill="#FFF" xmlns="http://www.w3.org/2000/svg">
                                 <path d="M16.5 5.90755C16.4968 3.60922 14.6997 1.72555 12.5913 1.04588C9.97298 0.201877 6.51973 0.324211 4.01956 1.49921C0.989301 2.92355 0.0373889 6.04355 0.00191597 9.15522C-0.0271986 11.7136 0.229143 18.4517 4.04482 18.4997C6.87998 18.5356 7.30214 14.8967 8.61397 13.1442C9.5473 11.8974 10.749 11.5452 12.2284 11.1806C14.7709 10.5537 16.5037 8.55506 16.5 5.90755Z"/>
                             </svg>
@@ -658,17 +679,17 @@ function Two() {
                             <p class="DLP_Text_Style_1 DLP_NoSelect DLP_Inset_Icon_1_ID" style="color: #FFF;">􀋦</p>
                             <p class="DLP_Text_Style_1 DLP_NoSelect DLP_Inset_Text_1_ID" style="color: #FFF;">Boost</p>
                         </div>
-                        <div class="DLP_Button_Style_1 DLP_Magnetic_Hover_1" id="DLP_Secondary_YouTube_Button_1_ID" onclick="window.open('https://duolingopro.net/youtube', '_blank');" style="justify-content: center; flex: none; width: 40px; padding: 10px; outline: 2px solid rgba(0, 0, 0, 0.20); outline-offset: -2px; background: rgb(var(--DLP-pink));">
+                        <div class="DLP_Button_Style_1 DLP_Magnetic_Hover_1" id="DLP_Secondary_YouTube_Button_1_ID" style="justify-content: center; flex: none; width: 40px; padding: 10px; outline: 2px solid rgba(0, 0, 0, 0.20); outline-offset: -2px; background: rgb(var(--DLP-pink));">
                             <svg width="22" height="16" viewBox="0 0 22 16" fill="#FFF" xmlns="http://www.w3.org/2000/svg">
                                 <path fill-rule="evenodd" clip-rule="evenodd" d="M19.2043 1.0885C20.1084 1.33051 20.8189 2.041 21.0609 2.9451C21.4982 4.58216 21.5 7.99976 21.5 7.99976C21.5 7.99976 21.5 11.4174 21.0609 13.0544C20.8189 13.9585 20.1084 14.669 19.2043 14.911C17.5673 15.3501 11 15.3501 11 15.3501C11 15.3501 4.43274 15.3501 2.79568 14.911C1.89159 14.669 1.1811 13.9585 0.939084 13.0544C0.5 11.4174 0.5 7.99976 0.5 7.99976C0.5 7.99976 0.5 4.58216 0.939084 2.9451C1.1811 2.041 1.89159 1.33051 2.79568 1.0885C4.43274 0.649414 11 0.649414 11 0.649414C11 0.649414 17.5673 0.649414 19.2043 1.0885ZM14.3541 8.00005L8.89834 11.1497V4.85038L14.3541 8.00005Z"/>
                             </svg>
                         </div>
-                        <div class="DLP_Button_Style_1 DLP_Magnetic_Hover_1" id="DLP_Secondary_Discord_Button_1_ID" onclick="window.open('https://duolingopro.net/discord', '_blank');" style="justify-content: center; flex: none; width: 40px; padding: 10px; outline: 2px solid rgba(0, 0, 0, 0.20); outline-offset: -2px; background: rgb(var(--DLP-indigo));">
+                        <div class="DLP_Button_Style_1 DLP_Magnetic_Hover_1" id="DLP_Secondary_Discord_Button_1_ID" style="justify-content: center; flex: none; width: 40px; padding: 10px; outline: 2px solid rgba(0, 0, 0, 0.20); outline-offset: -2px; background: rgb(var(--DLP-indigo));">
                             <svg width="22" height="16" viewBox="0 0 22 16" fill="#FFF" xmlns="http://www.w3.org/2000/svg">
                                 <path d="M18.289 1.34C16.9296 0.714 15.4761 0.259052 13.9565 0C13.7699 0.332095 13.5519 0.77877 13.4016 1.1341C11.7862 0.894993 10.1857 0.894993 8.60001 1.1341C8.44972 0.77877 8.22674 0.332095 8.03844 0C6.51721 0.259052 5.06204 0.715671 3.70267 1.34331C0.960812 5.42136 0.21754 9.39811 0.589177 13.3184C2.40772 14.655 4.17011 15.467 5.90275 15.9984C6.33055 15.4189 6.71209 14.8028 7.04078 14.1536C6.41478 13.9195 5.81521 13.6306 5.24869 13.2952C5.39898 13.1856 5.546 13.071 5.68803 12.9531C9.14342 14.5438 12.8978 14.5438 16.3119 12.9531C16.4556 13.071 16.6026 13.1856 16.7512 13.2952C16.183 13.6322 15.5818 13.9211 14.9558 14.1553C15.2845 14.8028 15.6644 15.4205 16.0939 16C17.8282 15.4687 19.5922 14.6567 21.4107 13.3184C21.8468 8.77378 20.6658 4.83355 18.289 1.34ZM7.51153 10.9075C6.47426 10.9075 5.62361 9.95435 5.62361 8.7937C5.62361 7.63305 6.45609 6.67831 7.51153 6.67831C8.56699 6.67831 9.41761 7.63138 9.39945 8.7937C9.40109 9.95435 8.56699 10.9075 7.51153 10.9075ZM14.4884 10.9075C13.4511 10.9075 12.6005 9.95435 12.6005 8.7937C12.6005 7.63305 13.4329 6.67831 14.4884 6.67831C15.5438 6.67831 16.3945 7.63138 16.3763 8.7937C16.3763 9.95435 15.5438 10.9075 14.4884 10.9075Z"/>
                             </svg>
                         </div>
-                        <div class="DLP_Button_Style_1 DLP_Magnetic_Hover_1" id="DLP_Secondary_GitHub_Button_1_ID" onclick="window.open('https://duolingopro.net/github', '_blank');" style="justify-content: center; flex: none; width: 40px; padding: 10px; outline: 2px solid rgba(255, 255, 255, 0.20); outline-offset: -2px; background: #333333;">
+                        <div class="DLP_Button_Style_1 DLP_Magnetic_Hover_1" id="DLP_Secondary_GitHub_Button_1_ID" style="justify-content: center; flex: none; width: 40px; padding: 10px; outline: 2px solid rgba(255, 255, 255, 0.20); outline-offset: -2px; background: #333333;">
                             <svg width="22" height="22" viewBox="0 0 22 22" fill="#FFF" xmlns="http://www.w3.org/2000/svg">
                                 <path fill-rule="evenodd" clip-rule="evenodd" d="M11.0087 0.5C5.19766 0.5 0.5 5.3125 0.5 11.2662C0.5 16.0253 3.50995 20.0538 7.68555 21.4797C8.2076 21.5868 8.39883 21.248 8.39883 20.963C8.39883 20.7134 8.38162 19.8578 8.38162 18.9664C5.45836 19.6082 4.84962 17.683 4.84962 17.683C4.37983 16.4353 3.68375 16.1146 3.68375 16.1146C2.72697 15.4551 3.75345 15.4551 3.75345 15.4551C4.81477 15.5264 5.37167 16.5602 5.37167 16.5602C6.31103 18.1999 7.82472 17.7366 8.43368 17.4514C8.52058 16.7562 8.79914 16.2749 9.09491 16.0076C6.7634 15.758 4.31035 14.8312 4.31035 10.6957C4.31035 9.51928 4.72765 8.55678 5.38888 7.80822C5.28456 7.54091 4.9191 6.43556 5.49342 4.95616C5.49342 4.95616 6.38073 4.67091 8.38141 6.06128C9.23797 5.82561 10.1213 5.70573 11.0087 5.70472C11.896 5.70472 12.8005 5.82963 13.6358 6.06128C15.6367 4.67091 16.524 4.95616 16.524 4.95616C17.0983 6.43556 16.7326 7.54091 16.6283 7.80822C17.3069 8.55678 17.707 9.51928 17.707 10.6957C17.707 14.8312 15.254 15.7401 12.905 16.0076C13.2879 16.3463 13.6183 16.9878 13.6183 18.0039C13.6183 19.4477 13.6011 20.6064 13.6011 20.9627C13.6011 21.248 13.7926 21.5868 14.3144 21.4799C18.49 20.0536 21.5 16.0253 21.5 11.2662C21.5172 5.3125 16.8023 0.5 11.0087 0.5Z"/>
                             </svg>
@@ -994,8 +1015,8 @@ function Two() {
                         </div>
                         <div id="DLP_Settings_Free_Local_Super_Button_1_ID" class="DLP_HStack_8" style="justify-content: center; align-items: center;">
                             <div class="DLP_VStack_0" style="align-items: flex-start; flex: 1 0 0;">
-                                <p class="DLP_Text_Style_1">Free Duolingo Max</p>
-                                <p class="DLP_Text_Style_1" style="color: rgb(var(--color-wolf), 0.4);">Skip the worry of running out of hearts, get free entry to legendary challenges, access to personalized practice, and learn without ads. Do not turn on if you already have Super Duolingo or Max.</p>
+                                <p class="DLP_Text_Style_1">Free On-Client Duolingo Max</p>
+                                <p class="DLP_Text_Style_1" style="color: rgb(var(--color-wolf), 0.4);">Skip the worry of running out of hearts, get free entry to legendary challenges, access to personalized practice, and learn without ads. Only works on-client.</p>
                             </div>
                             <div id="DLP_Inset_Toggle_1_ID" class="DLP_Toggle_Style_1 DLP_Hover_1">
                                 <p class="DLP_Text_Style_1 DLP_NoSelect DLP_Inset_Icon_1_ID" style="color: #FFF;">􀁣</p>
@@ -1156,15 +1177,16 @@ function Two() {
 
         <div class="DLP_Main_Box_Divider" id="DLP_Main_Box_Divider_10_ID" style="display: none;">
             <div class="DLP_VStack_8">
-                <div class="DLP_VStack_8" style="padding: 8px 0;">
+                <div class="DLP_VStack_8" style="padding: 8px 0; max-width: 312px; align-self: center;">
                     <div class="DLP_VStack_0">
-                        <p class="DLP_Text_Style_1" style="font-size: 14px; background: url(${serverURL}/static/images/flow/secondary/512/light.png) lightgray 50% / cover no-repeat; background-clip: text; -webkit-background-clip: text; -webkit-text-fill-color: transparent;">${systemText[systemLanguage][52]}</p>
+                        <p class="DLP_Text_Style_1 DLP_NoSelect" style="font-size: 14px; background: url(${serverURL}/static/images/flow/secondary/512/light.png) lightgray 50% / cover no-repeat; background-clip: text; -webkit-background-clip: text; -webkit-text-fill-color: transparent;">${systemText[systemLanguage][52]}</p>
                         <div class="DLP_HStack_4" style="align-self: auto;">
                             <p class="DLP_Text_Style_2 DLP_NoSelect">Duolingo</p>
                             <p class="DLP_Text_Style_2 DLP_NoSelect" style="background: url(${serverURL}/static/images/flow/primary/512/light.png) lightgray 50% / cover no-repeat; background-clip: text; -webkit-background-clip: text; -webkit-text-fill-color: transparent;">PRO 3.1</p>
                         </div>
                     </div>
-                    <p class="DLP_Text_Style_1 DLP_NoSelect" style="align-self: stretch; text-align: center;">${systemText[systemLanguage][53]}</p>
+                    <p class="DLP_Text_Style_1" style="align-self: stretch; text-align: center;">${systemText[systemLanguage][53]}</p>
+                    <p class="DLP_Text_Style_1" style="align-self: stretch; text-align: center;">${systemText[systemLanguage][61]}</p>
                 </div>
                 <div class="DLP_HStack_8">
                     <div id="DLP_Onboarding_Start_Button_1_ID" class="DLP_Button_Style_2 DLP_Magnetic_Hover_1" style="outline: 2px solid rgba(0, 0, 0, 0.20); outline-offset: -2px; background: rgb(var(--DLP-blue));">
@@ -2565,7 +2587,55 @@ function One() {
                 }
             ],
             hidden: false,
-            storageVersion: STORAGE_SESSION_VERSION
+            storageVersion: STORAGE_SESSION_VERSION,
+            script: {
+                ping: 4000,
+                donate: null,
+                boost: null,
+                youtube: null,
+                discord: null,
+                github: null,
+                support: {
+                    enabled: null,
+                    file_upload: {
+                        enabled: null,
+                        max_size: 8388608,
+                        max_files: 3
+                    }
+                },
+                settings: {
+                    enabled: null,
+                    show_solve: null,
+                    show_autoserver: null,
+                    random_legacy_solve_speed: null,
+                    custom_random_legacy_solve_speed: null,
+                    anonymous_analytics: false,
+                    reduce_effects: null,
+                    free_duolingo_max: null,
+                    show_super_trial: null,
+                    modern_statistics: null,
+                    legacy_statistics: null
+                },
+                release_notes: null,
+                modern: {
+                    enabled: null,
+                    xp: null,
+                    gems: null,
+                    streak: null,
+                    streak_freeze: null,
+                    badge: null,
+                    double_xp_boost: null,
+                    heart_refill: null,
+                    quests: null
+                },
+                legacy: {
+                    enabled: null,
+                    lesson: null,
+                    practice: null,
+                    listen: null,
+                    path: null
+                }
+            }
         };
         sessionStorage.setItem("DLP_Session_Storage", JSON.stringify(DEFAULTS));
         storageSession = DEFAULTS;
@@ -3235,15 +3305,18 @@ function One() {
 
         let mainBox = document.querySelector(`.DLP_Main_Box`);
         let toNumber = to;
-        let fromPage = document.querySelector(`#DLP_Main_Box_Divider_${currentPage}_ID`);
+        let fromPage = document.querySelector(`#DLP_Main_Box_Divider_${pageHistory[pageHistory.length - 1]}_ID`);
         let toPage = document.querySelector(`#DLP_Main_Box_Divider_${toNumber}_ID`);
 
         let mainBoxNewToBeWidth = mainBox.offsetWidth;
+        console.log(pageHistory);
 
         if (buttonID === 'DLP_Terms_Back_Button_1_ID') {
-            toNumber = lastPage;
+            pageHistory.splice(pageHistory.length - 1, 1);
+            toNumber = pageHistory[pageHistory.length - 1];
         } else if (buttonID === 'DLP_Universal_Back_1_Button_1_ID' || to === -1) {
-            toNumber = lastPage;
+            pageHistory.splice(pageHistory.length - 1, 1);
+            toNumber = pageHistory[pageHistory.length - 1];
         } else if (buttonID === 'DLP_Switch_Legacy_Button_1_ID') {
             if (storageSession.legacy.page !== 0) {
                 toNumber = 1;
@@ -3251,9 +3324,29 @@ function One() {
                 toNumber = 3;
             }
         }
-        if (toNumber === currentPage) {
+        if (toNumber === pageHistory[pageHistory.length - 1] && !buttonID === 'DLP_Switch_Legacy_Button_1_ID') {
             isBusySwitchingPages = false;
             return;
+        }
+
+        if (toNumber === 7) {
+            if (storageSession.script.settings.enabled === false) {
+                showNotification("warning", "Feature Disabled", "This feature has been temporarily disabled.", 15);
+                isBusySwitchingPages = false;
+                return;
+            }
+        } else if (toNumber === 9) {
+            if (storageSession.script.release_notes === false) {
+                showNotification("warning", "Feature Disabled", "This feature has been temporarily disabled.", 15);
+                isBusySwitchingPages = false;
+                return;
+            }
+        } else if (toNumber === 11) {
+            if (storageSession.script.support.enabled === false) {
+                showNotification("warning", "Feature Disabled", "This feature has been temporarily disabled.", 15);
+                isBusySwitchingPages = false;
+                return;
+            }
         }
 
         if (buttonID === 'DLP_Main_Terms_1_Button_1_ID' || buttonID === 'DLP_Secondary_Terms_1_Button_1_ID') {
@@ -3262,7 +3355,6 @@ function One() {
             document.querySelector(`#DLP_Terms_1_Text_2_ID`).style.display = 'block';
             document.querySelector(`#DLP_Terms_1_Button_2_ID`).style.display = 'block';
         } else if (buttonID === 'DLP_Terms_Back_Button_1_ID') {
-            toNumber = lastPage;
             toPage = document.querySelector(`#DLP_Main_Box_Divider_${toNumber}_ID`);
             setTimeout(() => {
                 document.querySelector(`#DLP_Terms_1_Text_1_ID`).style.display = 'block';
@@ -3271,18 +3363,15 @@ function One() {
                 document.querySelector(`#DLP_Terms_1_Button_2_ID`).style.display = 'none';
             }, 400);
         } else if (buttonID === 'DLP_Universal_Back_1_Button_1_ID' || to === -1) {
-            toNumber = lastPage;
             toPage = document.querySelector(`#DLP_Main_Box_Divider_${toNumber}_ID`);
         } else if (buttonID === 'DLP_Switch_Legacy_Button_1_ID') {
             let button = document.querySelector('#DLP_Switch_Legacy_Button_1_ID');
             if (storageSession.legacy.page !== 0) {
-                toNumber = 1;
                 toPage = document.querySelector(`#DLP_Main_Box_Divider_${toNumber}_ID`);
                 setButtonState(button, { button: 'linear-gradient(0deg, rgba(var(--DLP-blue), 0.10) 0%, rgba(var(--DLP-blue), 0.10) 100%), rgba(var(--color-snow), 0.80)', outline: 'rgba(var(--DLP-blue), 0.20)', text: 'rgb(var(--DLP-blue))', icon: 'rgb(var(--DLP-blue))' }, { text: systemText[systemLanguage][106], icon: '􀱏' }, { text: '', icon: '' });
                 storageSession.legacy.page = 0;
                 saveStorageSession();
             } else {
-                toNumber = 3;
                 toPage = document.querySelector(`#DLP_Main_Box_Divider_${toNumber}_ID`);
                 setButtonState(button, { button: 'linear-gradient(0deg, rgba(var(--DLP-blue), 0.10) 0%, rgba(var(--DLP-blue), 0.10) 100%), rgba(var(--color-snow), 0.80)', outline: 'rgba(var(--DLP-blue), 0.20)', text: 'rgb(var(--DLP-blue))', icon: 'rgb(var(--DLP-blue))' }, { text: systemText[systemLanguage][105], icon: '􀂑' }, { text: '', icon: '' });
                 storageSession.legacy.page = 1;
@@ -3324,6 +3413,12 @@ function One() {
             legacyStatsBox.children[0].lastElementChild.innerHTML = "since " + trackingSinceDateString;
             legacyStatsBox.children[1].lastElementChild.innerHTML = (storageLocal.stats.legacy.listen.lessons + storageLocal.stats.legacy.path.lessons + storageLocal.stats.legacy.practice.lessons + storageLocal.stats.legacy.lesson.lessons);
             legacyStatsBox.children[2].lastElementChild.innerHTML = (storageLocal.stats.legacy.listen.questions + storageLocal.stats.legacy.path.questions + storageLocal.stats.legacy.practice.questions + storageLocal.stats.legacy.lesson.questions);
+
+            if (buttonID.startsWith("DLP_Get_Local_Duolingo_Max")) {
+                setTimeout(() => {
+                    document.querySelector("#DLP_Main_Box_Divider_7_ID").querySelector("#DLP_Settings_Free_Local_Super_Button_1_ID").scrollIntoView({ behavior: "smooth", block: "start", inline: "nearest" });
+                }, 420);
+            }
         }
 
         if (toNumber === 11) {
@@ -3338,6 +3433,7 @@ function One() {
         else if (toNumber === 7) mainBoxNewToBeWidth = "400";
         else if (toNumber === 8) mainBoxNewToBeWidth = "400";
         else if (toNumber === 9) mainBoxNewToBeWidth = "400";
+        else if (toNumber === 10) mainBoxNewToBeWidth = "356";
         else if (toNumber === 11) mainBoxNewToBeWidth = "400";
         else if (toNumber === 12) mainBoxNewToBeWidth = "400";
         else mainBoxNewToBeWidth = "312";
@@ -3429,8 +3525,7 @@ function One() {
                 toPage.style.height = ``;
                 toPage.style.transform = ``;
 
-                lastPage = currentPage;
-                currentPage = toNumber;
+                if (pageHistory[pageHistory.length - 1] !== toNumber) pageHistory.push(toNumber);
                 isBusySwitchingPages = false;
             }, 400);
         }, 400);
@@ -3468,7 +3563,7 @@ function One() {
         } else {
             setButtonState(button, { button: 'rgb(var(--DLP-blue)', outline: 'rgba(0, 0, 0, 0.20)', text: '#FFF', icon: '#FFF' }, { text: systemText[systemLanguage][103], icon: '􀋰' }, { text: '', icon: '' });
             main.style.bottom = "16px";
-            if (currentPage === 1 || currentPage === 3) legacyButtonVisibility(true);
+            if ([1, 3].includes(pageHistory[pageHistory.length - 1])) legacyButtonVisibility(true);
             mainBox.style.filter = "";
             mainBox.style.opacity = "";
         }
@@ -3596,6 +3691,18 @@ function One() {
         }
     }
 
+    [
+        ['#DLP_Main_YouTube_Button_1_ID, #DLP_Secondary_YouTube_Button_1_ID', 'youtube'],
+        ['#DLP_Main_Discord_Button_1_ID, #DLP_Secondary_Discord_Button_1_ID', 'discord'],
+        ['#DLP_Main_GitHub_Button_1_ID, #DLP_Secondary_GitHub_Button_1_ID', 'github'],
+        ['#DLP_Main_Donate_Button_1_ID, #DLP_Secondary_Donate_Button_1_ID', 'donate']
+    ].forEach(([selectors, key]) => document.querySelectorAll(selectors).forEach(btn => btn.addEventListener('click', () => {
+        if (storageSession.script[key] === false) {
+            showNotification("warning", "Feature Disabled", "This feature has been temporarily disabled.", 15);
+            return;
+        }
+        window.open(`https://duolingopro.net/${key}`, '_blank');
+    })));
 
 
     const DLP_Get_PATH_1_ID = document.getElementById("DLP_Get_PATH_1_ID");
@@ -4031,16 +4138,15 @@ function One() {
     };
 
     if (storageSession.legacy.page === 1) {
-        document.querySelector(`#DLP_Main_Box_Divider_${currentPage}_ID`).style.display = 'none';
+        document.querySelector(`#DLP_Main_Box_Divider_${pageHistory[pageHistory.length - 1]}_ID`).style.display = 'none';
         document.querySelector(`#DLP_Main_Box_Divider_3_ID`).style.display = 'block';
-        currentPage = 3;
+        pageHistory = [3];
         let button = document.querySelector('#DLP_Switch_Legacy_Button_1_ID');
         setButtonState(button, { button: 'linear-gradient(0deg, rgba(var(--DLP-blue), 0.10) 0%, rgba(var(--DLP-blue), 0.10) 100%), rgba(var(--color-snow), 0.80)', outline: 'rgba(var(--DLP-blue), 0.20)', text: 'rgb(var(--DLP-blue))', icon: 'rgb(var(--DLP-blue))' }, { text: systemText[systemLanguage][105], icon: '􀂑' }, { text: '', icon: '' });
     } else if (storageSession.legacy.page === 2) {
-        document.querySelector(`#DLP_Main_Box_Divider_${currentPage}_ID`).style.display = 'none';
+        document.querySelector(`#DLP_Main_Box_Divider_${pageHistory[pageHistory.length - 1]}_ID`).style.display = 'none';
         document.querySelector(`#DLP_Main_Box_Divider_4_ID`).style.display = 'block';
-        lastPage = 3;
-        currentPage = 4;
+        pageHistory = [3, 4];
         let button = document.querySelector('#DLP_Switch_Legacy_Button_1_ID');
         setButtonState(button, { button: 'linear-gradient(0deg, rgba(var(--DLP-blue), 0.10) 0%, rgba(var(--DLP-blue), 0.10) 100%), rgba(var(--color-snow), 0.80)', outline: 'rgba(var(--DLP-blue), 0.20)', text: 'rgb(var(--DLP-blue))', icon: 'rgb(var(--DLP-blue))' }, { text: systemText[systemLanguage][105], icon: '􀂑' }, { text: '', icon: '' });
     }
@@ -4070,7 +4176,9 @@ function One() {
             "DLP_Get_Quest_1_ID": ["quest"],
             "DLP_Get_Quest_2_ID": ["quest"],
             "DLP_Get_Badge_1_ID": ["badge"],
-            "DLP_Get_Badge_2_ID": ["badge"]
+            "DLP_Get_Badge_2_ID": ["badge"],
+            "DLP_Get_Local_Duolingo_Max_1_ID": ["local_max"],
+            "DLP_Get_Local_Duolingo_Max_2_ID": ["local_max"]
         };
 
         if (!storageLocal.settings.showSuper) document.querySelector('#DLP_Get_SUPER_2_ID').style.display = 'none';
@@ -4570,7 +4678,7 @@ function One() {
 
                         const knownMessageIds = (storageLocal.chats ?? []).map(id => (id === null || id === undefined) ? id : String(id));
 
-                        if (currentPage === 11) {
+                        if (pageHistory[pageHistory.length - 1] === 11) {
                             const newMessageIds = chatMemory.map(resolveMessageKey);
                             if (!areArraysEqual(knownMessageIds, newMessageIds)) {
                                 storageLocal.chats = newMessageIds;
@@ -4594,6 +4702,7 @@ function One() {
                     const globalData = data.global;
                     const versionData = data.versions[VERSION_FULL];
                     const warnings = versionData.warnings || [];
+                    const scriptData = data.script;
 
                     const termsText = Object.entries(globalData.terms)[0][1];
                     newTermID = Object.entries(globalData.terms)[0][0];
@@ -4624,13 +4733,13 @@ function One() {
                                 goToPage(10, null, true);
                             }
                         } else if (storageLocal.terms === newTermID) {
-                            if (recentUpdateDetected && currentPage !== 9) {
+                            if (recentUpdateDetected && pageHistory[pageHistory.length - 1] !== 9) {
                                 document.querySelector('#DLP_Main_Box_Divider_9_ID').querySelector('.DLP_HStack_Auto_Top').querySelector(':scope > .DLP_Text_Style_2').style.display = 'block';
                                 document.querySelector('#DLP_Main_Box_Divider_9_ID').querySelector('#DLP_Universal_Back_1_Button_1_ID').style.display = 'none';
                                 goToPage(9, null, true);
                             }
                         } else {
-                            if (currentPage !== 5 && currentPage !== 6) goToPage(5, null, true);
+                            if (![5, 6].includes(pageHistory[pageHistory.length - 1])) goToPage(5, null, true);
                             document.querySelector(`#DLP_Main_Box_Divider_5_ID`).querySelector(`#DLP_Terms_1_Text_1_ID`).innerHTML = "We have updated our Terms & Conditions. Please read them carefully and accept to continue using Duolingo PRO 3.1.";
                         }
                     } else if (serverConnectedBefore !== 'outdated') {
@@ -4647,6 +4756,161 @@ function One() {
                             serverConnectedBeforeNotification = false;
                         }
                         serverConnectedBefore = 'outdated';
+                    }
+
+                    if (scriptData) {
+                        if (scriptData.ping !== storageSession.script.ping) {
+                            createConnectToServerInterval(scriptData.ping);
+                        }
+                        if (scriptData.donate === null) {
+                            document.getElementById('DLP_Main_Donate_Button_1_ID').style.opacity = '';
+                            document.getElementById('DLP_Secondary_Donate_Button_1_ID').style.opacity = '';
+                        } else if (scriptData.donate === false) {
+                            document.getElementById('DLP_Main_Donate_Button_1_ID').style.opacity = '0.5';
+                            document.getElementById('DLP_Secondary_Donate_Button_1_ID').style.opacity = '0.5';
+                        }
+                        if (scriptData.boost === null) {
+                            document.getElementById('DLP_Secondary_Earn_Button_1_ID').style.opacity = '';
+                            document.getElementById('DLP_Main_Earn_Button_1_ID').style.opacity = '';
+                        } else if (scriptData.boost === false) {
+                            document.getElementById('DLP_Secondary_Earn_Button_1_ID').style.opacity = '0.5';
+                            document.getElementById('DLP_Main_Earn_Button_1_ID').style.opacity = '0.5';
+                        }
+                        if (scriptData.youtube === null) {
+                            document.getElementById('DLP_Main_YouTube_Button_1_ID').style.opacity = '';
+                            document.getElementById('DLP_Secondary_YouTube_Button_1_ID').style.opacity = '';
+                        } else if (scriptData.youtube === false) {
+                            document.getElementById('DLP_Main_YouTube_Button_1_ID').style.opacity = '0.5';
+                            document.getElementById('DLP_Secondary_YouTube_Button_1_ID').style.opacity = '0.5';
+                        }
+                        if (scriptData.discord === null) {
+                            document.getElementById('DLP_Main_Discord_Button_1_ID').style.opacity = '';
+                            document.getElementById('DLP_Secondary_Discord_Button_1_ID').style.opacity = '';
+                        } else if (scriptData.discord === false) {
+                            document.getElementById('DLP_Main_Discord_Button_1_ID').style.opacity = '0.5';
+                            document.getElementById('DLP_Secondary_Discord_Button_1_ID').style.opacity = '0.5';
+                        }
+                        if (scriptData.github === null) {
+                            document.getElementById('DLP_Main_GitHub_Button_1_ID').style.opacity = '';
+                            document.getElementById('DLP_Secondary_GitHub_Button_1_ID').style.opacity = '';
+                        } else if (scriptData.github === false) {
+                            document.getElementById('DLP_Main_GitHub_Button_1_ID').style.opacity = '0.5';
+                            document.getElementById('DLP_Secondary_GitHub_Button_1_ID').style.opacity = '0.5';
+                        }
+                        if (scriptData.settings.enabled === null) {
+                            document.getElementById('DLP_Main_Settings_1_Button_1_ID').style.opacity = '';
+                            document.getElementById('DLP_Secondary_Settings_1_Button_1_ID').style.opacity = '';
+                        } else if (scriptData.settings.enabled === false) {
+                            document.getElementById('DLP_Main_Settings_1_Button_1_ID').style.opacity = '0.5';
+                            document.getElementById('DLP_Secondary_Settings_1_Button_1_ID').style.opacity = '0.5';
+                            if (pageHistory[pageHistory.length - 1] === 7) {
+                                goToPage(1, 'DLP_Universal_Back_1_Button_1_ID', true);
+                            }
+                        }
+                        if (scriptData.support.enabled === null) {
+                            document.getElementById('DLP_Main_Feedback_1_Button_1_ID').style.opacity = '';
+                            document.getElementById('DLP_Secondary_Feedback_1_Button_1_ID').style.opacity = '';
+                        } else if (scriptData.support.enabled === false) {
+                            document.getElementById('DLP_Main_Feedback_1_Button_1_ID').style.opacity = '0.5';
+                            document.getElementById('DLP_Secondary_Feedback_1_Button_1_ID').style.opacity = '0.5';
+                            if (pageHistory[pageHistory.length - 1] === 11) {
+                                goToPage(1, 'DLP_Universal_Back_1_Button_1_ID', true);
+                            }
+                        }
+                        if (scriptData.release_notes === null) {
+                            document.getElementById('DLP_Main_Whats_New_1_Button_1_ID').style.opacity = '';
+                            document.getElementById('DLP_Secondary_Whats_New_1_Button_1_ID').style.opacity = '';
+                        } else if (scriptData.release_notes === false) {
+                            document.getElementById('DLP_Main_Whats_New_1_Button_1_ID').style.opacity = '0.5';
+                            document.getElementById('DLP_Secondary_Whats_New_1_Button_1_ID').style.opacity = '0.5';
+                            if (pageHistory[pageHistory.length - 1] === 9) {
+                                goToPage(1, 'DLP_Universal_Back_1_Button_1_ID', true);
+                            }
+                        }
+                        if (scriptData.support.file_upload.enabled === null) {
+                            if (document.getElementById("DLP_Main_Box_Divider_11_ID").querySelector('#DLP_Attachment_Preview_Parent').childElementCount - 1 < scriptData.support.file_upload.max_files) {
+                                document.getElementById("DLP_Main_Box_Divider_11_ID").querySelector('#DLP_Inset_Button_1_ID').style.opacity = '';
+                            }
+                        } else if (scriptData.support.file_upload.enabled === false) {
+                            document.getElementById("DLP_Main_Box_Divider_11_ID").querySelector('#DLP_Inset_Button_1_ID').style.opacity = '0.5';
+                        }
+
+                        if (scriptData.settings.show_solve === null) {
+                            document.getElementById('DLP_Settings_Show_Solve_Buttons_1_ID').style.opacity = '';
+                            document.getElementById('DLP_Settings_Show_Solve_Buttons_1_ID').querySelector('#DLP_Inset_Toggle_1_ID').removeAttribute('data-dlp-server-disabled');
+                            handleToggleClick(document.getElementById('DLP_Settings_Show_Solve_Buttons_1_ID').querySelector('#DLP_Inset_Toggle_1_ID'), DLP_Settings_Var.showSolveButtons ? 1 : 0);
+                        } else if (scriptData.settings.show_solve === false) {
+                            document.getElementById('DLP_Settings_Show_Solve_Buttons_1_ID').style.opacity = '0.5';
+                            handleToggleClick(document.getElementById('DLP_Settings_Show_Solve_Buttons_1_ID').querySelector('#DLP_Inset_Toggle_1_ID'), 1);
+                            document.getElementById('DLP_Settings_Show_Solve_Buttons_1_ID').querySelector('#DLP_Inset_Toggle_1_ID').setAttribute('data-dlp-server-disabled', '');
+                        }
+                        if (scriptData.settings.show_autoserver === null) {
+                            document.getElementById('DLP_Settings_Show_AutoServer_Button_1_ID').style.opacity = '';
+                            document.getElementById('DLP_Settings_Show_AutoServer_Button_1_ID').querySelector('#DLP_Inset_Toggle_1_ID').removeAttribute('data-dlp-server-disabled');
+                            handleToggleClick(document.getElementById('DLP_Settings_Show_AutoServer_Button_1_ID').querySelector('#DLP_Inset_Toggle_1_ID'), DLP_Settings_Var.showAutoServerButton ? 1 : 0);
+                        } else if (scriptData.settings.show_autoserver === false) {
+                            document.getElementById('DLP_Settings_Show_AutoServer_Button_1_ID').style.opacity = '0.5';
+                            handleToggleClick(document.getElementById('DLP_Settings_Show_AutoServer_Button_1_ID').querySelector('#DLP_Inset_Toggle_1_ID'), 0);
+                            document.getElementById('DLP_Settings_Show_AutoServer_Button_1_ID').querySelector('#DLP_Inset_Toggle_1_ID').setAttribute('data-dlp-server-disabled', '');
+                        }
+                        if (scriptData.settings.random_legacy_solve_speed === null) {
+                            document.getElementById('DLP_Settings_Random_Legacy_Solve_Speed_Button_1_ID').style.opacity = '';
+                            document.getElementById('DLP_Settings_Random_Legacy_Solve_Speed_Button_1_ID').querySelector('#DLP_Inset_Toggle_1_ID').removeAttribute('data-dlp-server-disabled');
+                            handleToggleClick(document.getElementById('DLP_Settings_Random_Legacy_Solve_Speed_Button_1_ID').querySelector('#DLP_Inset_Toggle_1_ID'), DLP_Settings_Var.randomSolveSpeed ? 1 : 0);
+                        } else if (scriptData.settings.random_legacy_solve_speed === false) {
+                            document.getElementById('DLP_Settings_Random_Legacy_Solve_Speed_Button_1_ID').style.opacity = '0.5';
+                            handleToggleClick(document.getElementById('DLP_Settings_Random_Legacy_Solve_Speed_Button_1_ID').querySelector('#DLP_Inset_Toggle_1_ID'), 0);
+                            document.getElementById('DLP_Settings_Random_Legacy_Solve_Speed_Button_1_ID').querySelector('#DLP_Inset_Toggle_1_ID').setAttribute('data-dlp-server-disabled', '');
+                        }
+                        if (scriptData.settings.custom_random_legacy_solve_speed === null && scriptData.settings.random_legacy_solve_speed === null) {
+                            if (DLP_Settings_Var.randomSolveSpeed) {
+                                document.getElementById('DLP_Settings_Legacy_Solve_Speed_1_ID').style.opacity = '';
+                            }
+                        } else if (scriptData.settings.random_legacy_solve_speed === false) {
+                            document.getElementById('DLP_Settings_Legacy_Solve_Speed_1_ID').style.display = 'none';
+                        } else if (scriptData.settings.custom_random_legacy_solve_speed === false) {
+                            document.getElementById('DLP_Settings_Legacy_Solve_Speed_1_ID').style.opacity = '0.5';
+                            document.getElementById('DLP_Settings_Legacy_Solve_Speed_1_ID').querySelector('.DLP_Input_Style_1_Active').setAttribute('data-dlp-server-disabled', '');
+                        }
+                        if (scriptData.settings.anonymous_analytics === null) {
+                            document.getElementById('DLP_Settings_Help_Us_Make_Better_Button_1_ID').style.opacity = '';
+                            document.getElementById('DLP_Settings_Help_Us_Make_Better_Button_1_ID').querySelector('#DLP_Inset_Toggle_1_ID').removeAttribute('data-dlp-server-disabled');
+                            handleToggleClick(document.getElementById('DLP_Settings_Help_Us_Make_Better_Button_1_ID').querySelector('#DLP_Inset_Toggle_1_ID'), DLP_Settings_Var.anonymousUsageData ? 1 : 0);
+                        } else if (scriptData.settings.anonymous_analytics === false) {
+                            document.getElementById('DLP_Settings_Help_Us_Make_Better_Button_1_ID').style.opacity = '0.5';
+                            handleToggleClick(document.getElementById('DLP_Settings_Help_Us_Make_Better_Button_1_ID').querySelector('#DLP_Inset_Toggle_1_ID'), 0);
+                            document.getElementById('DLP_Settings_Help_Us_Make_Better_Button_1_ID').querySelector('#DLP_Inset_Toggle_1_ID').setAttribute('data-dlp-server-disabled', '');
+                        }
+                        if (scriptData.settings.reduce_effects === null) {
+                            document.getElementById('DLP_Settings_Reduce_Effects_Button_1_ID').style.opacity = '';
+                            document.getElementById('DLP_Settings_Reduce_Effects_Button_1_ID').querySelector('#DLP_Inset_Toggle_1_ID').removeAttribute('data-dlp-server-disabled');
+                            handleToggleClick(document.getElementById('DLP_Settings_Reduce_Effects_Button_1_ID').querySelector('#DLP_Inset_Toggle_1_ID'), DLP_Settings_Var.reduceEffects ? 1 : 0);
+                        } else if (scriptData.settings.reduce_effects === false) {
+                            document.getElementById('DLP_Settings_Reduce_Effects_Button_1_ID').style.opacity = '0.5';
+                            handleToggleClick(document.getElementById('DLP_Settings_Reduce_Effects_Button_1_ID').querySelector('#DLP_Inset_Toggle_1_ID'), 0);
+                            document.getElementById('DLP_Settings_Reduce_Effects_Button_1_ID').querySelector('#DLP_Inset_Toggle_1_ID').setAttribute('data-dlp-server-disabled', '');
+                        }
+                        if (scriptData.settings.free_duolingo_max === null) {
+                            document.getElementById('DLP_Settings_Free_Local_Super_Button_1_ID').style.opacity = '';
+                            document.getElementById('DLP_Settings_Free_Local_Super_Button_1_ID').querySelector('#DLP_Inset_Toggle_1_ID').removeAttribute('data-dlp-server-disabled');
+                            handleToggleClick(document.getElementById('DLP_Settings_Free_Local_Super_Button_1_ID').querySelector('#DLP_Inset_Toggle_1_ID'), DLP_Settings_Var.localSuper ? 1 : 0);
+                        } else if (scriptData.settings.free_duolingo_max === false) {
+                            document.getElementById('DLP_Settings_Free_Local_Super_Button_1_ID').style.opacity = '0.5';
+                            handleToggleClick(document.getElementById('DLP_Settings_Free_Local_Super_Button_1_ID').querySelector('#DLP_Inset_Toggle_1_ID'), 0);
+                            document.getElementById('DLP_Settings_Free_Local_Super_Button_1_ID').querySelector('#DLP_Inset_Toggle_1_ID').setAttribute('data-dlp-server-disabled', '');
+                        }
+                        if (scriptData.settings.show_super_trial === null) {
+                            document.getElementById('DLP_Settings_Show_Super_Trial_Button_1_ID').style.opacity = '';
+                            document.getElementById('DLP_Settings_Show_Super_Trial_Button_1_ID').querySelector('#DLP_Inset_Toggle_1_ID').removeAttribute('data-dlp-server-disabled');
+                            handleToggleClick(document.getElementById('DLP_Settings_Show_Super_Trial_Button_1_ID').querySelector('#DLP_Inset_Toggle_1_ID'), DLP_Settings_Var.showSuper ? 1 : 0);
+                        } else if (scriptData.settings.show_super_trial === false) {
+                            document.getElementById('DLP_Settings_Show_Super_Trial_Button_1_ID').style.opacity = '0.5';
+                            handleToggleClick(document.getElementById('DLP_Settings_Show_Super_Trial_Button_1_ID').querySelector('#DLP_Inset_Toggle_1_ID'), 0);
+                            document.getElementById('DLP_Settings_Show_Super_Trial_Button_1_ID').querySelector('#DLP_Inset_Toggle_1_ID').setAttribute('data-dlp-server-disabled', '');
+                        }
+
+                        storageSession.script = scriptData;
+                        saveStorageSession();
                     }
 
                     //if (storageLocal.languagePackVersion !== versionData.languagePackVersion) {
@@ -4681,13 +4945,15 @@ function One() {
             });
     }
     connectToServer();
-    //setTimeout(() => {
-    connectToServer();
-    //}, 1000);
-    setInterval(() => {
-        //if (windowBlurState) connectToServer();
-        if (document.visibilityState === "visible" || isAutoMode) connectToServer();
-    }, 4000);
+    let connectToServerInterval;
+    function createConnectToServerInterval(ms) {
+        clearInterval(connectToServerInterval);
+        connectToServerInterval = setInterval(() => {
+            //if (windowBlurState) connectToServer();
+            if (document.visibilityState === "visible" || isAutoMode) connectToServer();
+        }, ms);
+    }
+    createConnectToServerInterval(storageSession.script.ping);
 
     function updateOnboardingSetup() {
         const onboardingSetupContainer = document.getElementById('DLP_Main_Box_Divider_12_ID');
@@ -6159,7 +6425,8 @@ function One() {
         { base: 'DLP_Get_Streak_Freeze', type: 'streak_freeze', input: 1 },
         { base: 'DLP_Get_Heart_Refill', type: 'heart_refill' },
         { base: 'DLP_Get_Quest', type: 'quest' },
-        { base: 'DLP_Get_Badge', type: 'badge', input: 2 }
+        { base: 'DLP_Get_Badge', type: 'badge', input: 2 },
+        { base: 'DLP_Get_Local_Duolingo_Max', type: 'local_max' }
     ];
     function setupGetButtons(base, type, hasInput) {
         [1, 2].forEach(n => {
@@ -6168,7 +6435,12 @@ function One() {
 
             const button = parent.querySelector('#DLP_Inset_Button_1_ID');
             const handler = () => {
-                if (isGetButtonsBusy && !(type === 'xp' && button.dataset.overrideXp === 'true')) return;
+                if (isGetButtonsBusy) return;
+                //if (type === 'xp' && !button.dataset.overrideXp === 'true') return;
+                if (type === 'local_max') {
+                    goToPage(7, `${base}_${n}_ID`, true);
+                    return;
+                }
                 if (hasInput > 0) {
                     if (parent.querySelector('#DLP_Inset_Input_1_ID').value.length === 0) return;
                     if (hasInput === 2 && parent.querySelector('#DLP_Inset_Input_2_ID').value.length !== 4) return;
@@ -6407,6 +6679,15 @@ function One() {
     solveSpeedInputSanitizeListener(DLP_Settings_Legacy_Solve_Speed_1_ID.querySelector('#DLP_Inset_Input_1_ID'));
     solveSpeedInputSanitizeListener(DLP_Settings_Legacy_Solve_Speed_1_ID.querySelector('#DLP_Inset_Input_2_ID'));
 
+    DLP_Settings_Legacy_Solve_Speed_1_ID.querySelector('#DLP_Inset_Input_1_ID').addEventListener('focus', e => {
+        if (storageSession.script.settings.custom_random_legacy_solve_speed === false) e.target.blur();
+        showNotification("warning", "Feature Disabled", "This feature has been temporarily disabled.", 15);
+    });
+    DLP_Settings_Legacy_Solve_Speed_1_ID.querySelector('#DLP_Inset_Input_2_ID').addEventListener('focus', e => {
+        if (storageSession.script.settings.custom_random_legacy_solve_speed === false) e.target.blur();
+        showNotification("warning", "Feature Disabled", "This feature has been temporarily disabled.", 15);
+    });
+
     function settingsLegacySolveSpeedInputSanitizeValue(value1, value2) {
         let v1 = parseFloat(value1);
         let v2 = parseFloat(value2);
@@ -6416,16 +6697,19 @@ function One() {
 
 
     function handleToggleClick(element, state) {
+        if (element.hasAttribute('data-dlp-server-disabled')) return;
         if (state === 1) {
             element.style.background = "rgb(var(--DLP-green))";
             element.firstElementChild.style.transform = "translateX(8px)";
             element.firstElementChild.textContent = "􀁣";
+            element.setAttribute("data-dlp-toggle", "on");
         } else if (state === 0.5) {
             element.firstElementChild.style.transform = "translateX(0px)";
         } else if (state === 0) {
             element.style.background = "rgb(var(--DLP-pink))";
             element.firstElementChild.style.transform = "translateX(-8px)";
             element.firstElementChild.textContent = "􀁡";
+            element.setAttribute("data-dlp-toggle", "off");
         }
     }
     const toggleConfig = new Map([
@@ -6563,7 +6847,11 @@ function One() {
             state = (committedState === 1) ? 0 : 1;
 
             if (cfg && cfg.setState) {
-                cfg.setState(state === 1);
+                if (!element.hasAttribute('data-dlp-server-disabled')) {
+                    cfg.setState(state === 1);
+                } else {
+                    showNotification("warning", "Feature Disabled", "This feature has been temporarily disabled.", 15);
+                }
             }
 
             DLP_Settings_Toggle_Busy = true;
@@ -6898,21 +7186,21 @@ function One() {
         }
     }
 
-    let earnButtonAssignedLink = false;
     document.querySelectorAll("#DLP_Main_Earn_Button_1_ID, #DLP_Secondary_Earn_Button_1_ID").forEach(button => {
         button.addEventListener('click', () => {
+            if (storageSession.script.boost === false) {
+                showNotification("warning", "Feature Disabled", "This feature has been temporarily disabled.", 15);
+                return;
+            }
             button.style.opacity = '0.5';
             button.style.pointerEvents = 'none';
 
             generateEarnKey()
                 .then(earnKey => {
-                    button.setAttribute("onclick", `window.open('${serverURL}/earn/connect/link/${earnKey}', '_blank');`);
-                    if (!earnButtonAssignedLink) {
-                        earnButtonAssignedLink = true;
-                        window.open(serverURL + "/earn/connect/link/" + earnKey, "_blank");
-                    }
+                    window.open(serverURL + "/earn/connect/link/" + earnKey, "_blank");
                 })
                 .catch(error => {
+                    showNotification("error", "Failed to Open Boost", "Failed to connect and open the boost page. Please try again later.", 15);
                     console.error('Failed to retrieve earn key:', error.message);
                 })
                 .finally(() => {
@@ -7225,9 +7513,6 @@ function One() {
         let nextAttachmentId = 0;
         let attachmentDropBoxExpanded = false;
 
-        const MAX_ATTACHMENT_FILE_SIZE = 50 * 1024 * 1024; // 50 MB
-        const MAX_ATTACHMENT_FILE_COUNT = 3;
-
         function setupAttachmentsInput() {
             const attachmentBox = container.querySelector('#DLP_Attachment_Preview_Parent');
             const attachmentBoxDrop = attachmentBox.querySelector('.DLP_Attachment_Box_Drop_1');
@@ -7297,7 +7582,13 @@ function One() {
                 triggerInputAttachments(selectedFiles);
             });
 
-            attachmentVisualButton.addEventListener('click', () => attachmentInput.click());
+            attachmentVisualButton.addEventListener('click', () => {
+                if (storageSession.script.support.file_upload.enabled === false) {
+                    showNotification("warning", "Feature Disabled", "This feature has been temporarily disabled.", 15);
+                    return;
+                }
+                attachmentInput.click();
+            });
 
             attachmentInput.addEventListener('change', (event) => {
                 const selectedFiles = Array.from(event.target.files);
@@ -7313,16 +7604,16 @@ function One() {
             const validFiles = [];
 
             selectedFiles.forEach(file => {
-                if (file.size > MAX_ATTACHMENT_FILE_SIZE) {
-                    showNotification("warning", "File Too Large", `${file.name} is over 10 MB, please choose a smaller file.`, 10);
+                if (file.size > storageSession.script.support.file_upload.max_size) {
+                    showNotification("warning", "File Too Large", `${file.name} is over ${storageSession.script.support.file_upload.max_size / 1024 / 1024} MB, please choose a smaller file.`, 10);
                 } else {
                     validFiles.push(file);
                 }
             });
 
-            const remainingSlots = MAX_ATTACHMENT_FILE_COUNT - allAttachments[currentChatId]?.length;
+            const remainingSlots = storageSession.script.support.file_upload.max_files - allAttachments[currentChatId]?.length;
             if (validFiles.length > remainingSlots) {
-                showNotification("warning", "Too Many Files", `You can only attach up to ${MAX_ATTACHMENT_FILE_COUNT} files at once.`, 10);
+                showNotification("warning", "Too Many Files", `You can only attach up to ${storageSession.script.support.file_upload.max_files} files at once.`, 10);
                 validFiles.length = remainingSlots;
             }
 
@@ -7471,7 +7762,7 @@ function One() {
             }
 
             // Disable input if there are too many files
-            if (allAttachments[currentChatId]?.length >= MAX_ATTACHMENT_FILE_COUNT) {
+            if (allAttachments[currentChatId]?.length >= storageSession.script.support.file_upload.max_files) {
                 attachmentInput.disabled = true;
                 attachmentVisualButton.style.opacity = '0.5';
                 attachmentVisualButton.style.pointerEvents = 'none';
@@ -7568,20 +7859,20 @@ function One() {
     });
 
     let currentQuestionId = null;
-    let hasLoggedForCurrent = false;
+    let hasLoggedForCurrent = 0;
 
     async function logOnce(flag, sol, dom) {
         // flag: 1 = solved, 2 = wrong, 3 = stuck
-        if (!hasLoggedForCurrent) {
+        if ((flag === 2 && hasLoggedForCurrent === 0) || (flag === 3 && hasLoggedForCurrent === 2)) {
             if (alpha) {
                 console.log(flag);
                 //console.log(sol);
                 //console.log(dom);
                 console.log(sol.challengeGeneratorIdentifier.generatorId);
             }
-            hasLoggedForCurrent = true;
+            hasLoggedForCurrent++;
 
-            if (storageLocal.settings.anonymousUsageData) {
+            if (storageLocal.settings.anonymousUsageData && storageSession.script.anonymous_analytics !== false) {
                 if (flag === 2) showNotification("error", "Legacy Solved Incorrectly", "Legacy has detected that it solved a question incorrectly. A report has been made under ID: " + sol.challengeGeneratorIdentifier.generatorId, 10);
                 else if (flag === 3) showNotification("error", "Legacy is Stuck", "Legacy has detected that it is stuck on a question. A report has been made under ID: " + sol.challengeGeneratorIdentifier.generatorId, 10);
 
@@ -7790,7 +8081,7 @@ function One() {
 
         if (questionKey !== currentQuestionId) {
             currentQuestionId = questionKey;
-            hasLoggedForCurrent = false;
+            hasLoggedForCurrent = 0;
         }
 
         if (challengeType === 'error') {
