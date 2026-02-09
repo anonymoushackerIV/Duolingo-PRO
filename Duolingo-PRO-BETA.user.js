@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Duolingo PRO
 // @namespace    http://duolingopro.net
-// @version      3.1BETA.04.1
+// @version      3.1BETA.04.2
 // @description  The fastest Duolingo XP farmer, now with gems and free Duolingo Max, working as of February 2026.
 // @author       anonymousHackerIV
 // @match        *://*.duolingo.com/*
@@ -13,9 +13,9 @@
 const VERSION_NUMBER = "07";
 const STORAGE_LOCAL_VERSION = "07";
 const STORAGE_SESSION_VERSION = "07";
-const VERSION_NAME = "BETA.04.1";
-const VERSION_FULL = "3.1BETA.04.1";
-const VERSION_FORMAL = "3.1 BETA.04.1";
+const VERSION_NAME = "BETA.04.2";
+const VERSION_FULL = "3.1BETA.04.2";
+const VERSION_FORMAL = "3.1 BETA.04.2";
 let serverURL = "https://www.duolingopro.net";
 let apiURL = "https://api.duolingopro.net";
 let greasyfork = true;
@@ -40,6 +40,7 @@ const flag01 = false;
 const flag02 = false;
 const flag03 = false;
 const flag04 = false;
+const flag05 = false; // Support chat Markdown links ([text](url))
 
 // USAGE OR MODIFICATION OF THIS SCRIPT IMPLIES YOU AGREE TO THE TERMS AND CONDITIONS PRESENTED IN THE SCRIPT. IF YOU DO NOT AGREE, DO NOT USE OR MODIFY THIS SCRIPT.
 
@@ -199,8 +200,48 @@ function Two() {
     CSS1 = `
 @font-face {
     font-family: 'Duolingo PRO Rounded';
+    src: url(${serverURL}/static/fonts/V7R100DB1/Duolingo-PRO-Rounded-Thin.woff2) format('woff2');
+    font-weight: 100;
+}
+@font-face {
+    font-family: 'Duolingo PRO Rounded';
+    src: url(${serverURL}/static/fonts/V7R100DB1/Duolingo-PRO-Rounded-Ultralight.woff2) format('woff2');
+    font-weight: 200;
+}
+@font-face {
+    font-family: 'Duolingo PRO Rounded';
+    src: url(${serverURL}/static/fonts/V7R100DB1/Duolingo-PRO-Rounded-Light.woff2) format('woff2');
+    font-weight: 300;
+}
+@font-face {
+    font-family: 'Duolingo PRO Rounded';
+    src: url(${serverURL}/static/fonts/V7R100DB1/Duolingo-PRO-Rounded-Regular.woff2) format('woff2');
+    font-weight: 400;
+}
+@font-face {
+    font-family: 'Duolingo PRO Rounded';
+    src: url(${serverURL}/static/fonts/V7R100DB1/Duolingo-PRO-Rounded-Medium.woff2) format('woff2');
+    font-weight: 500;
+}
+@font-face {
+    font-family: 'Duolingo PRO Rounded';
     src: url(${serverURL}/static/fonts/V7R100DB1/Duolingo-PRO-Rounded-Semibold.woff2) format('woff2');
     font-weight: 600;
+}
+@font-face {
+    font-family: 'Duolingo PRO Rounded';
+    src: url(${serverURL}/static/fonts/V7R100DB1/Duolingo-PRO-Rounded-Bold.woff2) format('woff2');
+    font-weight: 700;
+}
+@font-face {
+    font-family: 'Duolingo PRO Rounded';
+    src: url(${serverURL}/static/fonts/V7R100DB1/Duolingo-PRO-Rounded-Heavy.woff2) format('woff2');
+    font-weight: 800;
+}
+@font-face {
+    font-family: 'Duolingo PRO Rounded';
+    src: url(${serverURL}/static/fonts/V7R100DB1/Duolingo-PRO-Rounded-Black.woff2) format('woff2');
+    font-weight: 900;
 }
 
 :root {
@@ -458,7 +499,7 @@ function Two() {
                             </div>
                         </div>
                     </div>
-                    <div class="DLP_VStack_8" id="DLP_Get_Local_Duolingo_Max_1_ID">
+                    <div class="DLP_VStack_8" id="DLP_Get_Local_Duolingo_Max_1_ID" style="display: none;">
                         <p class="DLP_Text_Style_1 DLP_NoSelect" style="align-self: stretch;">Would you like to enable on-client Duolingo Max?</p>
                         <div class="DLP_HStack_8">
                             <div class="DLP_Input_Button_Style_1_Active DLP_Magnetic_Hover_1" id="DLP_Inset_Button_1_ID" style="flex: 1 0 0;">
@@ -759,9 +800,9 @@ function Two() {
                                 <p class="DLP_Text_Style_1" style="color: rgba(var(--DLP-blue), 0.5);">􀆃</p>
                                 <div style="display: flex; align-items: center; gap: 8px; width: 100%; justify-content: flex-end;">
                                     <p class="DLP_Text_Style_1 DLP_NoSelect" style="color: rgba(var(--DLP-blue), 0.5);">Unit:</p>
-                                    <input type="text" value="1" placeholder="1" id="DLP_Inset_Input_3_ID" class="DLP_Input_Input_Style_1" style="width: 30px;">
+                                    <input type="text" placeholder="0" id="DLP_Inset_Input_3_ID" class="DLP_Input_Input_Style_1" style="width: 30px;">
                                     <p class="DLP_Text_Style_1 DLP_NoSelect" style="color: rgba(var(--DLP-blue), 0.5);">Lesson:</p>
-                                    <input type="text" value="1" placeholder="1" id="DLP_Inset_Input_4_ID" class="DLP_Input_Input_Style_1" style="width: 30px;">
+                                    <input type="text" placeholder="0" id="DLP_Inset_Input_4_ID" class="DLP_Input_Input_Style_1" style="width: 30px;">
                                 </div>
                             </div>
                         </div>
@@ -869,9 +910,9 @@ function Two() {
                             <div class="DLP_Input_Style_1_Active">
                                 <div style="display: flex; align-items: center; gap: 8px; width: 100%; justify-content: flex-end;">
                                     <p class="DLP_Text_Style_1 DLP_NoSelect" style="color: rgba(var(--DLP-blue), 0.5);">Unit:</p>
-                                    <input type="text" value="1" placeholder="1" id="DLP_Inset_Input_3_ID" class="DLP_Input_Input_Style_1" style="width: 30px;">
+                                    <input type="text" placeholder="0" id="DLP_Inset_Input_3_ID" class="DLP_Input_Input_Style_1" style="width: 30px;">
                                     <p class="DLP_Text_Style_1 DLP_NoSelect" style="color: rgba(var(--DLP-blue), 0.5);">Lesson:</p>
-                                    <input type="text" value="1" placeholder="1" id="DLP_Inset_Input_4_ID" class="DLP_Input_Input_Style_1" style="width: 30px;">
+                                    <input type="text" placeholder="0" id="DLP_Inset_Input_4_ID" class="DLP_Input_Input_Style_1" style="width: 30px;">
                                 </div>
                             </div>
                         </div>
@@ -950,9 +991,9 @@ function Two() {
         <div class="DLP_Main_Box_Divider" id="DLP_Main_Box_Divider_7_ID" style="display: none;">
             <div class="DLP_VStack_8" style="max-height: 80vh;">
                 <div class="DLP_HStack_Auto_Top">
-                    <div id="DLP_Universal_Back_1_Button_1_ID" class="DLP_HStack_4 DLP_Hover_1">
-                        <p class="DLP_Text_Style_2 DLP_NoSelect" style="font-size: 20px; background: url(${serverURL}/static/images/flow/primary/512/light.png) lightgray 0% / cover no-repeat; background-clip: text; -webkit-background-clip: text; -webkit-text-fill-color: transparent;">􀯶</p>
-                        <p class="DLP_Text_Style_2 DLP_NoSelect" style="background: url(${serverURL}/static/images/flow/primary/512/light.png) lightgray 50% / cover no-repeat; background-clip: text; -webkit-background-clip: text; -webkit-text-fill-color: transparent;">${systemText[systemLanguage][32]}</p>
+                    <div id="DLP_Universal_Back_1_Button_1_ID" class="DLP_HStack_4 DLP_Hover_1" style="background: url(${serverURL}/static/images/flow/primary/512/light.png) center / cover no-repeat; -webkit-background-clip: text; background-clip: text; color: transparent;">
+                        <p class="DLP_Text_Style_2 DLP_NoSelect" style="font-size: 20px; color: inherit;">􀯶</p>
+                        <p class="DLP_Text_Style_2 DLP_NoSelect" style="color: inherit;">${systemText[systemLanguage][32]}</p>
                     </div>
                     <p class="DLP_Text_Style_1 DLP_NoSelect" style="font-size: 14px; background: url(${serverURL}/static/images/flow/secondary/512/light.png) lightgray 50% / cover no-repeat; background-clip: text; -webkit-background-clip: text; -webkit-text-fill-color: transparent;">${VERSION_NAME}</p>
                 </div>
@@ -1103,9 +1144,9 @@ function Two() {
         <div clas="DLP_Main_Box_Divider" id="DLP_Main_Box_Divider_8_ID" style="display: none;">
             <div class="DLP_VStack_8">
                 <div class="DLP_HStack_Auto_Top">
-                    <div id="DLP_Universal_Back_1_Button_1_ID" class="DLP_HStack_4 DLP_Hover_1">
-                        <p class="DLP_Text_Style_2 DLP_NoSelect" style="font-size: 20px; background: url(${serverURL}/static/images/flow/primary/512/light.png) lightgray 0% / cover no-repeat; background-clip: text; -webkit-background-clip: text; -webkit-text-fill-color: transparent;">􀯶</p>
-                        <p class="DLP_Text_Style_2 DLP_NoSelect" style="background: url(${serverURL}/static/images/flow/primary/512/light.png) lightgray 50% / cover no-repeat; background-clip: text; -webkit-background-clip: text; -webkit-text-fill-color: transparent;">${systemText[systemLanguage][38]}</p>
+                    <div id="DLP_Universal_Back_1_Button_1_ID" class="DLP_HStack_4 DLP_Hover_1" style="background: url(${serverURL}/static/images/flow/primary/512/light.png) center / cover no-repeat; -webkit-background-clip: text; background-clip: text; color: transparent;">
+                        <p class="DLP_Text_Style_2 DLP_NoSelect" style="font-size: 20px; color: inherit;">􀯶</p>
+                        <p class="DLP_Text_Style_2 DLP_NoSelect" style="color: inherit;">${systemText[systemLanguage][38]}</p>
                     </div>
                     <p class="DLP_Text_Style_1 DLP_NoSelect" style="font-size: 14px; background: url(${serverURL}/static/images/flow/secondary/512/light.png) lightgray 50% / cover no-repeat; background-clip: text; -webkit-background-clip: text; -webkit-text-fill-color: transparent;">${VERSION_NAME}</p>
                 </div>
@@ -1114,7 +1155,7 @@ function Two() {
                         <p class="DLP_Text_Style_1 DLP_NoSelect" style="color: rgb(var(--DLP-blue));">􀁝</p>
                         <p class="DLP_Text_Style_1 DLP_NoSelect" style="align-self: stretch; color: rgb(var(--DLP-blue));">Need Support?</p>
                     </div>
-                    <p class="DLP_Text_Style_1 DLP_NoSelect" style="align-self: stretch; color: rgba(var(--DLP-blue), 0.5);">Get help from our <a href='https://www.duolingopro.net/faq' target='_blank' class='DLP_Link_Style_1'>FAQ page</a>, enhanced with AI, or join our <a href='https://www.duolingopro.net/discord' target='_blank' class='DLP_Link_Style_1'>Discord server</a> and talk with the devs.</p>
+                    <p class="DLP_Text_Style_1 DLP_NoSelect" style="align-self: stretch; color: rgba(var(--DLP-blue), 0.5);">Get help from our <a href='${serverURL}/faq' target='_blank' class='DLP_Link_Style_1'>FAQ page</a>, enhanced with AI, or join our <a href='${serverURL}/discord' target='_blank' class='DLP_Link_Style_1'>Discord server</a> and talk with the devs.</p>
                 </div>
                 <p class="DLP_Text_Style_1 DLP_NoSelect" style="align-self: stretch;">${systemText[systemLanguage][39]}</p>
                 <textarea id="DLP_Feedback_Text_Input_1_ID" class="DLP_Large_Input_Box_Style_1" style="height: 128px; max-height: 256px;" placeholder="${systemText[systemLanguage][40]}"/></textarea>
@@ -1151,9 +1192,9 @@ function Two() {
             <div class="DLP_VStack_8">
                 <div class="DLP_HStack_Auto_Top">
                     <p class="DLP_Text_Style_2 DLP_NoSelect" style="background: url(${serverURL}/static/images/flow/primary/512/light.png) lightgray 50% / cover no-repeat; background-clip: text; -webkit-background-clip: text; -webkit-text-fill-color: transparent; display: none;">${systemText[systemLanguage][48]}</p>
-                    <div id="DLP_Universal_Back_1_Button_1_ID" class="DLP_HStack_4 DLP_Hover_1">
-                        <p class="DLP_Text_Style_2 DLP_NoSelect" style="font-size: 20px; background: url(${serverURL}/static/images/flow/primary/512/light.png) lightgray 0% / cover no-repeat; background-clip: text; -webkit-background-clip: text; -webkit-text-fill-color: transparent;">􀯶</p>
-                        <p class="DLP_Text_Style_2 DLP_NoSelect" style="background: url(${serverURL}/static/images/flow/primary/512/light.png) lightgray 50% / cover no-repeat; background-clip: text; -webkit-background-clip: text; -webkit-text-fill-color: transparent;">${systemText[systemLanguage][48]}</p>
+                    <div id="DLP_Universal_Back_1_Button_1_ID" class="DLP_HStack_4 DLP_Hover_1" style="background: url(${serverURL}/static/images/flow/primary/512/light.png) center / cover no-repeat; -webkit-background-clip: text; background-clip: text; color: transparent;">
+                        <p class="DLP_Text_Style_2 DLP_NoSelect" style="font-size: 20px; color: inherit;">􀯶</p>
+                        <p class="DLP_Text_Style_2 DLP_NoSelect" style="color: inherit;">${systemText[systemLanguage][48]}</p>
                     </div>
                     <p class="DLP_Text_Style_1 DLP_NoSelect" style="font-size: 14px; background: url(${serverURL}/static/images/flow/secondary/512/light.png) lightgray 50% / cover no-repeat; background-clip: text; -webkit-background-clip: text; -webkit-text-fill-color: transparent;">${VERSION_NAME}</p>
                 </div>
@@ -1201,15 +1242,15 @@ function Two() {
         <div class="DLP_Main_Box_Divider" id="DLP_Main_Box_Divider_11_ID" style="display: none;">
             <div class="DLP_VStack_8" style="height: 640px; max-height: 80vh;">
                 <div class="DLP_HStack_Auto_Top">
-                    <div id="DLP_Universal_Back_1_Button_1_ID" class="DLP_HStack_4 DLP_Hover_1">
-                        <p class="DLP_Text_Style_2 DLP_NoSelect" style="font-size: 20px; background: url(${serverURL}/static/images/flow/primary/512/light.png) lightgray 0% / cover no-repeat; background-clip: text; -webkit-background-clip: text; -webkit-text-fill-color: transparent;">􀯶</p>
-                        <p class="DLP_Text_Style_2 DLP_NoSelect" style="background: url(${serverURL}/static/images/flow/primary/512/light.png) lightgray 50% / cover no-repeat; background-clip: text; -webkit-background-clip: text; -webkit-text-fill-color: transparent;">Support</p>
+                    <div id="DLP_Universal_Back_1_Button_1_ID" class="DLP_HStack_4 DLP_Hover_1" style="background: url(${serverURL}/static/images/flow/primary/512/light.png) center / cover no-repeat; -webkit-background-clip: text; background-clip: text; color: transparent;">
+                        <p class="DLP_Text_Style_2 DLP_NoSelect" style="font-size: 20px; color: inherit;">􀯶</p>
+                        <p class="DLP_Text_Style_2 DLP_NoSelect" style="color: inherit;">Support</p>
                     </div>
                     <p class="DLP_Text_Style_1 DLP_NoSelect" style="font-size: 14px; background: url(${serverURL}/static/images/flow/secondary/512/light.png) lightgray 50% / cover no-repeat; background-clip: text; -webkit-background-clip: text; -webkit-text-fill-color: transparent;">${VERSION_NAME}</p>
                 </div>
 
                 <div class="DLP_VStack_8" style="height: 100%;">
-                    <div id="DLP_Inset_Card_1" style="display: flex; padding: 16px; flex-direction: column; justify-content: flex-start; align-items: flex-start; gap: 4px; align-self: stretch; border-radius: 8px; outline: 2px solid rgba(var(--DLP-blue), 0.20); outline-offset: -2px; background: rgba(var(--DLP-blue), 0.10); overflow: hidden; transition: all 0.4s cubic-bezier(0.16, 1, 0.32, 1);">
+                    <div id="DLP_Inset_Card_1" style="display: flex; padding: 16px; flex-direction: column; justify-content: flex-start; align-items: flex-start; gap: 4px; align-self: stretch; border-radius: 8px; outline: 2px solid rgba(var(--DLP-blue), 0.20); outline-offset: -2px; background: rgba(var(--DLP-blue), 0.10); overflow: hidden; transition: all 0.4s cubic-bezier(0.16, 1, 0.32, 1); display: none;">
                         <div class="DLP_HStack_6">
                             <p class="DLP_Text_Style_1 DLP_NoSelect" style="color: rgb(var(--DLP-blue));">􀅵</p>
                             <p class="DLP_Text_Style_1 DLP_NoSelect" style="color: rgb(var(--DLP-blue)); flex: 1 0 0;">Response Times</p>
@@ -1219,11 +1260,12 @@ function Two() {
                     </div>
 
                     <div class="DLP_Chat_Box_1_ID_1" style="display: flex; flex-direction: column; align-items: center; gap: 8px; flex: 1 0 0; align-self: stretch; overflow-y: auto; margin: 0 -16px; padding: 0 16px; display: none;">
+                        <div class="DLP_Chat_Spacer"></div>
 
                     </div>
 
-                    <div class="DLP_VStack_8" id="DLP_Inset_Group_3" style="padding: 0px 32px; flex: 1 0 0;">
-                        <p class="DLP_Text_Style_1 DLP_NoSelect" style="background: url(https://www.duolingopro.net/static/images/flow/primary/512/light.png) lightgray 50% / cover no-repeat; background-clip: text; -webkit-background-clip: text; -webkit-text-fill-color: transparent; font-size: 24px;">􀘲</p>
+                    <div class="DLP_VStack_8" id="DLP_Inset_Group_5" style="padding: 0px 32px; flex: 1 0 0;">
+                        <p class="DLP_Text_Style_1 DLP_NoSelect" style="background: url(${serverURL}/static/images/flow/primary/512/light.png) lightgray 50% / cover no-repeat; background-clip: text; -webkit-background-clip: text; -webkit-text-fill-color: transparent; font-size: 24px;">􀘲</p>
                         <p class="DLP_Text_Style_1 DLP_NoSelect" style="align-self: stretch; text-align: center;">Send a message to start talking with a support member.</p>
                     </div>
 
@@ -1292,7 +1334,7 @@ function Two() {
                     <div id="setting-1" style="display: none; flex-direction: column; justify-content: center; align-items: flex-start; gap: 8px; align-self: stretch; transition: filter 0.4s cubic-bezier(0.25, 0.46, 0.45, 0.94), opacity 0.4s cubic-bezier(0.25, 0.46, 0.45, 0.94);">
                         <div class="DLP_HStack_12">
                             <div style="display: flex; flex-direction: column; align-items: flex-start; gap: 8px; flex: 1 0 0;">
-                                <p class="DLP_Text_Style_2 DLP_NoSelect" style="font-size: 32px; background: url(https://www.duolingopro.net/static/images/flow/primary/512/light.png) lightgray 0% / cover no-repeat; background-clip: text; -webkit-background-clip: text; -webkit-text-fill-color: transparent;">􀣉</p>
+                                <p class="DLP_Text_Style_2 DLP_NoSelect" style="font-size: 32px; background: url(${serverURL}/static/images/flow/primary/512/light.png) lightgray 0% / cover no-repeat; background-clip: text; -webkit-background-clip: text; -webkit-text-fill-color: transparent;">􀣉</p>
                                 <p class="DLP_Text_Style_2" style="align-self: stretch;">Help Improve Duolingo PRO</p>
                             </div>
                             <div id="DLP_Inset_Toggle_1_ID" class="DLP_Toggle_Style_1 DLP_Hover_1" style="${alpha ? 'opacity: 0.5; pointer-events: none; cursor: not-allowed;' : ''}">
@@ -1331,7 +1373,7 @@ function Two() {
     font-family: "Duolingo PRO Rounded";
     font-size: 16px;
     font-style: normal;
-    font-weight: 500;
+    font-weight: 600;
     line-height: normal;
 
     color: rgb(var(--color-wolf), 0.8);
@@ -1343,22 +1385,59 @@ function Two() {
     font-family: "Duolingo PRO Rounded";
     font-size: 24px;
     font-style: normal;
-    font-weight: 500;
+    font-weight: 600;
     line-height: normal;
 
     margin: 0;
     -webkit-font-smoothing: antialiased;
 }
+.DLP_Text_Style_1 strong,
+.DLP_Text_Style_1 em,
+.DLP_Text_Style_1 u,
+.DLP_Text_Style_1 s {
+    font-family: inherit;
+    font-size: inherit;
+    line-height: inherit;
+    font-style: inherit;
+    font-weight: inherit;
+}
+.DLP_Text_Style_1 strong {
+    font-weight: 800;
+}
+.DLP_Text_Style_1 em {
+    font-style: italic;
+}
+.DLP_Text_Style_1 u {
+    text-decoration: underline;
+}
+.DLP_Text_Style_1 s {
+    text-decoration: line-through;
+}
 .DLP_Link_Style_1 {
     font-family: "Duolingo PRO Rounded";
     font-size: 16px;
     font-style: normal;
-    font-weight: 500;
+    font-weight: 600;
     line-height: normal;
 
     text-decoration: underline;
     color: rgb(var(--DLP-blue));
 
+    margin: 0;
+    -webkit-font-smoothing: antialiased;
+}
+.DLP_Mention_Style_1 {
+    display: inline-flex;
+    align-items: center;
+    padding: 0 2px;
+    border-radius: 4px;
+    background: rgba(var(--color-wolf), 0.2);
+    color: rgb(var(--color-wolf));
+    font-family: "Duolingo PRO Rounded";
+    font-size: 16px;
+    font-style: normal;
+    font-weight: 600;
+    line-height: normal;
     margin: 0;
     -webkit-font-smoothing: antialiased;
 }
@@ -1610,6 +1689,13 @@ svg {
     gap: 12px;
     align-self: stretch;
 }
+.DLP_Chat_Spacer {
+    flex: 1 1 0;
+    min-height: 0;
+    margin-top: -8px;
+    align-self: stretch;
+    pointer-events: none;
+}
 .DLP_Hide_Scrollbar {
     scrollbar-width: none;
     -ms-overflow-style: none;
@@ -1636,7 +1722,7 @@ svg {
     font-family: "Duolingo PRO Rounded";
     font-size: 16px;
     font-style: normal;
-    font-weight: 500;
+    font-weight: 600;
     line-height: normal;
     color: rgb(var(--DLP-blue));
 
@@ -1668,7 +1754,7 @@ svg {
     font-family: "Duolingo PRO Rounded";
     font-size: 16px;
     font-style: normal;
-    font-weight: 500;
+    font-weight: 600;
     line-height: normal;
     color: rgb(var(--DLP-blue));
 
@@ -1759,7 +1845,7 @@ svg {
     font-family: "Duolingo PRO Rounded";
     font-size: 16px;
     font-style: normal;
-    font-weight: 500;
+    font-weight: 600;
     line-height: normal;
     color: rgb(var(--color-wolf));
     margin: 0;
@@ -1820,14 +1906,14 @@ svg {
 
     color: rgb(var(--color-eel), 0.50);
     font-size: 16px;
-    font-weight: 500;
+    font-weight: 600;
     font-family: Duolingo PRO Rounded, 'din-round' !important;
 
     resize: vertical;
     transition: .2s;
 }
 .DLP_Large_Input_Box_Style_1::placeholder {
-    font-weight: 500;
+    font-weight: 600;
     color: rgb(var(--color-eel), 0.25);
 }
 .DLP_Large_Input_Box_Style_1:focus {
@@ -2217,7 +2303,7 @@ svg {
     font-family: "Duolingo PRO Rounded";
     font-size: 16px;
     font-style: normal;
-    font-weight: 500;
+    font-weight: 600;
     line-height: normal;
 
     margin: 0;
@@ -2227,7 +2313,7 @@ svg {
     font-family: "Duolingo PRO Rounded";
     font-size: 24px;
     font-style: normal;
-    font-weight: 500;
+    font-weight: 600;
     line-height: normal;
 
     margin: 0;
@@ -2574,9 +2660,9 @@ function One() {
                     amount: 0
                 },
                 lesson: {
-                    section: 1,
-                    unit: 1,
-                    level: 1,
+                    section: 0,
+                    unit: 0,
+                    level: 0,
                     type: "lesson",
                     amount: 0
                 }
@@ -2840,6 +2926,25 @@ function One() {
                     setButtonState(button, { button: 'rgb(var(--color-snow), 0.84)', outline: 'rgb(var(--color-swan))', text: 'rgb(var(--color-black-text))', icon: 'rgb(var(--color-black-text))' }, { text: 'Infinity', icon: '􀯠' }, { text: '', icon: '' });
                 } else if (storageSession.legacy[storageSession.legacy.status].type === 'xp' && text.textContent !== String(storageSession.legacy[storageSession.legacy.status].amount + ' XP Left')) {
                     setButtonState(button, { button: 'rgb(var(--color-snow), 0.84)', outline: 'rgb(var(--color-swan))', text: 'rgb(var(--color-black-text))', icon: 'rgb(var(--color-black-text))' }, { text: String(storageSession.legacy[storageSession.legacy.status].amount + ' XP Left'), icon: '' }, { text: '', icon: '' });
+                } else if (storageSession.legacy[storageSession.legacy.status].type === 'time') {
+                    const totalSeconds = storageSession.legacy[storageSession.legacy.status].amount;
+                    let timeText;
+                    if (totalSeconds <= 0) {
+                        timeText = 'Finishing Up';
+                    } else {
+                        const minutes = Math.floor(totalSeconds / 60);
+                        const seconds = totalSeconds % 60;
+                        if (minutes > 0 && seconds > 0) {
+                            timeText = `${minutes}m ${seconds}s Left`;
+                        } else if (minutes > 0) {
+                            timeText = `${minutes}m Left`;
+                        } else {
+                            timeText = `${seconds}s Left`;
+                        }
+                    }
+                    if (text.textContent !== timeText) {
+                        setButtonState(button, { button: 'rgb(var(--color-snow), 0.84)', outline: 'rgb(var(--color-swan))', text: 'rgb(var(--color-black-text))', icon: 'rgb(var(--color-black-text))' }, { text: timeText, icon: '􀐬' }, { text: '', icon: '' });
+                    }
                 } else if (window.location.pathname === '/practice') {
                     if (storageSession.legacy[storageSession.legacy.status].amount === 1 && text.textContent !== 'Last Practice') {
                         setButtonState(button, { button: 'rgb(var(--color-snow), 0.84)', outline: 'rgb(var(--color-swan))', text: 'rgb(var(--color-black-text))', icon: 'rgb(var(--color-black-text))' }, { text: 'Last Practice', icon: '' }, { text: '', icon: '' });
@@ -2859,6 +2964,21 @@ function One() {
                 }
             }
             updateCounter();
+
+            // Time mode countdown timer
+            if (storageSession.legacy[storageSession.legacy.status].type === 'time') {
+                const legacyTimeInterval = setInterval(() => {
+                    if (!storageSession.legacy.status || storageSession.legacy[storageSession.legacy.status].type !== 'time') {
+                        clearInterval(legacyTimeInterval);
+                        return;
+                    }
+                    if (storageSession.legacy[storageSession.legacy.status].amount > 0) {
+                        storageSession.legacy[storageSession.legacy.status].amount -= 1;
+                        saveStorageSession();
+                        updateCounter();
+                    }
+                }, 1000);
+            }
 
             let isTheBarThingButtonBusy = false;
             function handleMuteTab(visualOnly = false) {
@@ -2916,6 +3036,12 @@ function One() {
                 document.addEventListener('click', function handler2916(e) {
                     const el = document.querySelector('._3fmUm.c1Mv-._1ursp._7jW2t._3GC5C._2xxrg.vSCTx._27kss');
                     if (el && el.contains(e.target)) {
+                        // For time mode, convert remaining seconds to minutes (rounded up)
+                        const status = storageSession.legacy.status;
+                        if (status && storageSession.legacy[status]?.type === 'time') {
+                            const remainingSeconds = storageSession.legacy[status].amount;
+                            storageSession.legacy[status].amount = Math.ceil(remainingSeconds / 60);
+                        }
                         storageSession.legacy.status = false;
                         saveStorageSession();
                     } else {
@@ -3024,14 +3150,14 @@ function One() {
         if (duolingoPROSolveButtonsObserver) duolingoPROSolveButtonsObserver.disconnect();
         let initDuolingoPROSolveButtonsObserverTimeout = null;
 
-        if (document.querySelector('[data-test="player-next"], [data-test="stories-player-continue"], [data-test="stories-player-done"]')) {
+        if (document.querySelector('[data-test="player-next"], [data-test="stories-player-continue"], [data-test="stories-player-done"], [data-test="story-start"]')) {
             addButtons();
             return;
         }
 
         duolingoPROSolveButtonsObserver = new MutationObserver((mutations) => {
             if (initDuolingoPROSolveButtonsObserverTimeout) return;
-            if (document.querySelector('[data-test="player-next"], [data-test="stories-player-continue"], [data-test="stories-player-done"]')) {
+            if (document.querySelector('[data-test="player-next"], [data-test="stories-player-continue"], [data-test="stories-player-done"], [data-test="story-start"]')) {
                 initDuolingoPROSolveButtonsObserverTimeout = setTimeout(() => {
                     addButtons();
                     initDuolingoPROSolveButtonsObserverTimeout = null;
@@ -3309,7 +3435,6 @@ function One() {
         let toPage = document.querySelector(`#DLP_Main_Box_Divider_${toNumber}_ID`);
 
         let mainBoxNewToBeWidth = mainBox.offsetWidth;
-        console.log(pageHistory);
 
         if (buttonID === 'DLP_Terms_Back_Button_1_ID') {
             pageHistory.splice(pageHistory.length - 1, 1);
@@ -3394,7 +3519,7 @@ function One() {
         } else if (buttonID === 'DLP_Main_Feedback_1_Button_1_ID') {
             setTimeout(() => {
                 const chatBox = document.querySelector('#DLP_Main_Box_Divider_11_ID')?.querySelector('.DLP_Chat_Box_1_ID_1');
-                chatBox.scrollTop = chatBox.scrollHeight;
+                scrollChatToBottom(chatBox, true);
             }, 420);
         } else if (toNumber === 7) {
             const trackingSinceDateString = new Date(storageLocal.stats.tracking_since).toLocaleDateString(systemLanguage, { month: 'short', day: 'numeric', year: 'numeric' });
@@ -3429,6 +3554,8 @@ function One() {
         }
 
         if (toNumber === 2) mainBoxNewToBeWidth = "600";
+        //else if (toNumber === 3) mainBoxNewToBeWidth = "328";
+        //else if (toNumber === 4) mainBoxNewToBeWidth = "328";
         else if (toNumber === 5) mainBoxNewToBeWidth = "400";
         else if (toNumber === 7) mainBoxNewToBeWidth = "400";
         else if (toNumber === 8) mainBoxNewToBeWidth = "400";
@@ -3581,8 +3708,6 @@ function One() {
     document.querySelector(`#DLP_Switch_Legacy_Button_1_ID`).style.filter = "blur(8px)";
     document.querySelector(`#DLP_Switch_Legacy_Button_1_ID`).style.opacity = "0";
     document.querySelector(`#DLP_Switch_Legacy_Button_1_ID`).style.display = "none";
-    hidden = storageSession.hidden;
-    hide(hidden);
     function legacyButtonVisibility(value) {
         let legacyButton = document.querySelector(`#DLP_Switch_Legacy_Button_1_ID`);
         legacyButton.style.transition = 'width 0.8s cubic-bezier(0.77,0,0.18,1), opacity 0.8s cubic-bezier(0.16, 1, 0.32, 1), filter 0.8s cubic-bezier(0.16, 1, 0.32, 1), transform 0.4s cubic-bezier(0.16, 1, 0.32, 1)';
@@ -3714,6 +3839,19 @@ function One() {
     const DLP_Get_LESSON_1_ID = document.getElementById("DLP_Get_LESSON_1_ID");
     const DLP_Get_LESSON_2_ID = document.getElementById("DLP_Get_LESSON_2_ID");
 
+    function getLegacyPlaceholder(category, mode) {
+        const isPracticeLike = category === 'practice' || category === 'listen';
+        if (mode === 'lesson') return isPracticeLike ? '0 practices' : '0 lessons';
+        if (mode === 'xp') return '0 XP';
+        if (mode === 'time') return '0 minutes';
+        return '0';
+    }
+
+    function setLegacyPlaceholder(input, category, mode) {
+        if (!input) return;
+        input.placeholder = getLegacyPlaceholder(category, mode);
+    }
+
     function inputCheck2() {
         const ids = {
             "DLP_Get_PATH_1_ID": ["path"],
@@ -3725,90 +3863,6 @@ function One() {
             "DLP_Get_LESSON_1_ID": ["lesson"],
             "DLP_Get_LESSON_2_ID": ["lesson"]
         };
-
-        Object.keys(ids).forEach(id => {
-            const element = document.getElementById(id);
-            if (!element) return;
-            const input = element.querySelector('#DLP_Inset_Input_1_ID');
-            const button = element.querySelector('#DLP_Inset_Button_1_ID');
-            if (!input || !button) return;
-            function updateButtonState() {
-                const isEmpty = input.value.length === 0;
-                button.style.opacity = isEmpty ? '0.5' : '';
-                button.style.pointerEvents = isEmpty ? 'none' : '';
-            };
-            const category = ids[id][0];
-            input.addEventListener("input", function () {
-                this.value = this.value.replace(/[^0-9]/g, "");
-                if (this.value.length === 1 && this.value[0] === '0') this.value = this.value.slice(1);
-                if (this.value.length > 6) this.value = this.value.slice(0, 6);
-                updateButtonState();
-                //if (!storageSession.legacy[category]) storageSession.legacy[category] = [];
-                storageSession.legacy[category].amount = Number(this.value);
-                saveStorageSession();
-            });
-            if (['DLP_Get_LESSON_1_ID', 'DLP_Get_LESSON_2_ID'].includes(id)) {
-                const input3 = element.querySelector('#DLP_Inset_Input_3_ID');
-                const input4 = element.querySelector('#DLP_Inset_Input_4_ID');
-
-                input3.addEventListener("input", function () {
-                    this.value = this.value.replace(/[^0-9]/g, "");
-                    if (this.value.length === 1 && this.value[0] === '0') this.value = this.value.slice(1);
-                    if (this.value.length > 2) this.value = this.value.slice(0, 2);
-                    //if (!storageSession.legacy[category]) storageSession.legacy[category] = [];
-                    storageSession.legacy[category].unit = Number(this.value);
-                    saveStorageSession();
-                });
-                input3.addEventListener("blur", function () {
-                    if (this.value.trim() === "") {
-                        this.value = "1";
-                        storageSession.legacy[category].unit = 1;
-                        saveStorageSession();
-                    }
-                });
-
-                input4.addEventListener("input", function () {
-                    this.value = this.value.replace(/[^0-9]/g, "");
-                    if (this.value.length === 1 && this.value[0] === '0') this.value = this.value.slice(1);
-                    if (this.value.length > 2) this.value = this.value.slice(0, 2);
-                    //if (!storageSession.legacy[category]) storageSession.legacy[category] = [];
-                    storageSession.legacy[category].level = Number(this.value);
-                    saveStorageSession();
-                });
-                input4.addEventListener("blur", function () {
-                    if (this.value.trim() === "") {
-                        this.value = "1";
-                        storageSession.legacy[category].level = 1;
-                        saveStorageSession();
-                    }
-                });
-            }
-            if (storageSession.legacy[category].amount !== 0) input.value = storageSession.legacy[category].amount; updateButtonState();
-        });
-
-        Object.keys(ids).forEach(id => {
-            const element = document.getElementById(id);
-            if (!element) return;
-            const input = element.querySelector('#DLP_Inset_Input_1_ID');
-            const button = element.querySelector('#DLP_Inset_Button_1_ID');
-            if (!input || !button) return;
-            function updateButtonState() {
-                const isEmpty = input.value.length === 0;
-                button.style.opacity = isEmpty ? '0.5' : '';
-                button.style.pointerEvents = isEmpty ? 'none' : '';
-            };
-            const category = ids[id][0];
-            input.addEventListener("input", function () {
-                this.value = this.value.replace(/[^0-9]/g, "");
-                if (this.value.length === 1 && this.value[0] === '0') this.value = this.value.slice(1);
-                if (this.value.length > 6) this.value = this.value.slice(0, 6);
-                updateButtonState();
-                if (!storageSession.legacy[category]) storageSession.legacy[category] = [];
-                storageSession.legacy[category].amount = Number(this.value);
-                saveStorageSession();
-            });
-            if (storageSession.legacy[category].amount !== 0) input.value = storageSession.legacy[category].amount; updateButtonState();
-        });
 
         function updatePinnedItems() {
             const pinnedIds = storageLocal.pins.legacy || [];
@@ -3826,6 +3880,126 @@ function One() {
             }
         };
         updatePinnedItems();
+
+        function updateButtonState(input, button) {
+            const isEmpty = input.value.length === 0;
+            button.style.opacity = isEmpty ? '0.5' : '';
+            button.style.pointerEvents = isEmpty ? 'none' : '';
+        };
+
+        Object.keys(ids).forEach(id => {
+            const element = document.getElementById(id);
+            if (!element) return;
+            const input = element.querySelector('#DLP_Inset_Input_1_ID');
+            const button = element.querySelector('#DLP_Inset_Button_1_ID');
+            if (!input || !button) return;
+            const category = ids[id][0];
+            
+            const isLesson = ids[id].includes("lesson");
+            let input3 = null;
+            let input4 = null;
+            function updateLessonButtonState() {
+                const isReady = input.value.length > 0 && input3?.value.length > 0 && input4?.value.length > 0;
+                button.style.opacity = isReady ? '' : '0.5';
+                button.style.pointerEvents = isReady ? '' : 'none';
+            }
+
+            setLegacyPlaceholder(input, category, storageSession.legacy[category].type);
+
+            input.addEventListener("input", function () {
+                this.value = this.value.replace(/[^0-9]/g, "");
+                if (this.value.length === 1 && this.value[0] === '0') this.value = this.value.slice(1);
+                if (this.value.length > 6) this.value = this.value.slice(0, 6);
+                if (isLesson) updateLessonButtonState();
+                else updateButtonState(input, button);
+                storageSession.legacy[category].amount = Number(this.value);
+                saveStorageSession();
+            });
+            if (isLesson) {
+                input3 = element.querySelector('#DLP_Inset_Input_3_ID');
+                input4 = element.querySelector('#DLP_Inset_Input_4_ID');
+
+                autosizeInput(input3, true, 4);
+                autosizeInput(input4, true, 2);
+
+                input3.addEventListener("input", function () {
+                    this.value = this.value.replace(/[^0-9]/g, "");
+                    if (this.value.length === 1 && this.value[0] === '0') this.value = this.value.slice(1);
+                    if (this.value.length > 4) this.value = this.value.slice(0, 4);
+                    //if (!storageSession.legacy[category]) storageSession.legacy[category] = [];
+                    storageSession.legacy[category].unit = Number(this.value);
+                    autosizeInput(this);
+                    updateLessonButtonState();
+                    saveStorageSession();
+                });
+
+                input4.addEventListener("input", function () {
+                    this.value = this.value.replace(/[^0-9]/g, "");
+                    if (this.value.length === 1 && this.value[0] === '0') this.value = this.value.slice(1);
+                    if (this.value.length > 2) this.value = this.value.slice(0, 2);
+                    //if (!storageSession.legacy[category]) storageSession.legacy[category] = [];
+                    storageSession.legacy[category].level = Number(this.value);
+                    autosizeInput(this);
+                    updateLessonButtonState();
+                    saveStorageSession();
+                });
+
+                updateLessonButtonState();
+            }
+        });
+        function updateInputsAfterPageSwitch() {
+            Object.keys(ids).forEach(id => {
+                const element = document.getElementById(id);
+                if (!element) return;
+                const input = element.querySelector('#DLP_Inset_Input_1_ID');
+                const button = element.querySelector('#DLP_Inset_Button_1_ID');
+                if (!input || !button) return;
+                const category = ids[id][0];
+                setLegacyPlaceholder(input, category, storageSession.legacy[category].type);
+                if (storageSession.legacy[category].amount !== 0) {
+                    if (storageSession.legacy[category].type === 'time') {
+                        input.value = Math.ceil(storageSession.legacy[category].amount / 60);
+                    } else {
+                        input.value = storageSession.legacy[category].amount;
+                    }
+                    if (!ids[id].includes("lesson")) {
+                        updateButtonState(input, button);
+                    }
+                }
+                if (ids[id].includes("lesson")) {
+                    const input3 = element.querySelector('#DLP_Inset_Input_3_ID');
+                    const input4 = element.querySelector('#DLP_Inset_Input_4_ID');
+                    if (storageSession.legacy[category].unit !== 0) {
+                        input3.value = storageSession.legacy[category].unit;
+                    }
+                    if (storageSession.legacy[category].level !== 0) {
+                        input4.value = storageSession.legacy[category].level;
+                    }
+                    autosizeInput(input3);
+                    autosizeInput(input4);
+                }
+            });
+        }
+        updateInputsAfterPageSwitch();
+
+        (function () {
+            let url = location.href;
+            function onChange() {
+                if (location.href !== url) {
+                    updateInputsAfterPageSwitch();
+                    url = location.href;
+                }
+            }
+            ['pushState', 'replaceState'].forEach(method => {
+                const orig = history[method];
+                history[method] = function () {
+                const res = orig.apply(this, arguments);
+                onChange();
+                return res;
+                };
+            });
+            addEventListener('popstate', onChange);
+        })();
 
         Object.keys(ids).forEach(id => {
             if (id.endsWith("2_ID")) {
@@ -3879,11 +4053,20 @@ function One() {
             const buttonElement = document.querySelector(`#${baseId}_ID`).querySelector('#DLP_Inset_Button_1_ID');
 
             if (!storageSession.legacy.status && (storageSession.legacy[type].amount > 0 || storageSession.legacy[type].type === "infinity")) {
+                // Convert minutes to seconds for time mode when starting
+                if (storageSession.legacy[type].type === "time") {
+                    storageSession.legacy[type].amount = storageSession.legacy[type].amount * 60;
+                }
                 setButtonState(buttonElement, { button: 'linear-gradient(0deg, rgba(var(--DLP-blue), 0.10) 0%, rgba(var(--DLP-blue), 0.10) 100%), rgba(var(--color-snow), 0.80)', outline: 'rgba(var(--DLP-blue), 0.20)', text: 'rgb(var(--DLP-blue))', icon: 'rgb(var(--DLP-blue))' }, { text: systemText[systemLanguage][107], icon: '􀊆' }, { text: '', icon: '' });
                 storageSession.legacy.page = page;
                 storageSession.legacy.status = type;
                 saveStorageSession();
             } else if (storageSession.legacy.status === type || storageSession.legacy[type].type === "infinity") {
+                // For time mode, convert remaining seconds to minutes (rounded up)
+                if (storageSession.legacy[type].type === "time") {
+                    const remainingSeconds = storageSession.legacy[type].amount;
+                    storageSession.legacy[type].amount = Math.ceil(remainingSeconds / 60);
+                }
                 setButtonState(buttonElement, { button: 'rgb(var(--DLP-blue))', outline: 'rgba(0, 0, 0, 0.20)', text: '#FFF', icon: '#FFF' }, { text: systemText[systemLanguage][18], icon: '􀰫' }, { text: '', icon: '' });
                 storageSession.legacy.status = false;
                 saveStorageSession();
@@ -3903,6 +4086,10 @@ function One() {
                 const buttonElement = document.querySelector(`#${baseId}_ID`).querySelector('#DLP_Inset_Button_1_ID');
 
                 if (!storageSession.legacy.status && (storageSession.legacy[type].amount > 0) || storageSession.legacy[type].type === "infinity") {
+                    // Convert minutes to seconds for time mode when starting
+                    if (storageSession.legacy[type].type === "time") {
+                        storageSession.legacy[type].amount = storageSession.legacy[type].amount * 60;
+                    }
                     setButtonState(buttonElement, { button: 'linear-gradient(0deg, rgba(var(--DLP-blue), 0.10) 0%, rgba(var(--DLP-blue), 0.10) 100%), rgba(var(--color-snow), 0.80)', outline: 'rgba(var(--DLP-blue), 0.20)', text: 'rgb(var(--DLP-blue))', icon: 'rgb(var(--DLP-blue))' }, { text: systemText[systemLanguage][107], icon: '􀊆' }, { text: '', icon: '' });
                     storageSession.legacy.page = page;
                     storageSession.legacy.status = type;
@@ -3923,42 +4110,12 @@ function One() {
             const input = button2.parentElement.querySelector('#DLP_Inset_Input_1_ID');
             const button1 = button2.parentElement.querySelector('#DLP_Inset_Button_1_ID');
 
-            function animateElement(element, visibility, duration = 400) {
-                if (visibility) {
-                    element.style.display = 'block';
-                    element.style.filter = 'blur(4px)';
-                    element.style.opacity = '0';
-                    element.style.transition = '0.4s';
-
-                    requestAnimationFrame(() => {
-                        element.style.filter = 'blur(0px)';
-                        element.style.opacity = '1';
-                    });
-
-                    setTimeout(() => {
-                        element.style.filter = '';
-                        element.style.opacity = '';
-
-                        element.style.transition = '';
-                    }, duration);
-                } else {
-                    element.style.display = 'block';
-                    element.style.filter = 'blur(0px)';
-                    element.style.opacity = '1';
-                    element.style.transition = '0.4s';
-
-                    requestAnimationFrame(() => {
-                        element.style.filter = 'blur(4px)';
-                        element.style.opacity = '0';
-                    });
-
-                    setTimeout(() => {
-                        element.style.display = 'none';
-                        element.style.filter = '';
-                        element.style.opacity = '';
-                        element.style.transition = '';
-                    }, duration);
-                }
+            function setElementVisibility(element, visibility) {
+                if (!element) return;
+                element.style.display = visibility ? 'block' : 'none';
+                element.style.filter = '';
+                element.style.opacity = '';
+                element.style.transition = '';
             }
 
             function syncGetButtonState(mode) {
@@ -3967,7 +4124,12 @@ function One() {
                     button1.style.opacity = '';
                     button1.style.pointerEvents = '';
                 } else {
-                    const isEmpty = input && input.value.length === 0;
+                    let isEmpty = input && input.value.length === 0;
+                    if (mode === 'lesson') {
+                        const input3 = button2.parentElement.querySelector('#DLP_Inset_Input_3_ID');
+                        const input4 = button2.parentElement.querySelector('#DLP_Inset_Input_4_ID');
+                        isEmpty = isEmpty || !input3 || input3.value.length === 0 || !input4 || input4.value.length === 0;
+                    }
                     button1.style.opacity = isEmpty ? '0.5' : '';
                     button1.style.pointerEvents = isEmpty ? 'none' : '';
                 }
@@ -3981,27 +4143,30 @@ function One() {
 
                 syncGetButtonState('lesson');
 
-                animateElement(icon, false);
-                setTimeout(() => {
-                    icon.textContent = '􀆃';
-                    animateElement(icon, true);
-                }, 400);
-                if (inputTo === 'show') setTimeout(() => animateElement(input, true), 400);
+                icon.textContent = '􀆃';
+                if (inputTo === 'show') setElementVisibility(input, true);
 
             } else if (storageSession.legacy[type].type === 'xp') {
                 let inputTo;
-                button2.title = 'Switch to Infinity Mode';
+                button2.title = 'Switch to Time Mode';
 
                 if (input.style.display === 'none') inputTo = 'show';
 
                 syncGetButtonState('xp');
 
-                animateElement(icon, false);
-                setTimeout(() => {
-                    icon.textContent = 'XP';
-                    animateElement(icon, true);
-                }, 400);
-                if (inputTo === 'show') setTimeout(() => animateElement(input, true), 400);
+                icon.textContent = 'XP';
+                if (inputTo === 'show') setElementVisibility(input, true);
+
+            } else if (storageSession.legacy[type].type === 'time') {
+                let inputTo;
+                button2.title = 'Switch to Infinity Mode';
+
+                if (input.style.display === 'none') inputTo = 'show';
+
+                syncGetButtonState('time');
+
+                icon.textContent = '􀐬';
+                if (inputTo === 'show') setElementVisibility(input, true);
 
             } else if (storageSession.legacy[type].type === 'infinity') {
                 let inputTo;
@@ -4011,24 +4176,23 @@ function One() {
 
                 syncGetButtonState('infinity');
 
-                animateElement(icon, false);
-                setTimeout(() => {
-                    icon.textContent = '􀯠';
-                    animateElement(icon, true);
-                }, 400);
-                if (inputTo === 'hide') animateElement(input, false);
+                icon.textContent = '􀯠';
+                if (inputTo === 'hide') setElementVisibility(input, false);
 
             }
+
+            setLegacyPlaceholder(input, type, storageSession.legacy[type].type);
         };
         clickHandler();
 
         button2.addEventListener('click', () => {
-            if (isGetButtonsBusy) return;
-            isGetButtonsBusy = true;
             if (storageSession.legacy[type].type === 'lesson') {
                 storageSession.legacy[type].type = 'xp';
                 saveStorageSession();
             } else if (storageSession.legacy[type].type === 'xp') {
+                storageSession.legacy[type].type = 'time';
+                saveStorageSession();
+            } else if (storageSession.legacy[type].type === 'time') {
                 storageSession.legacy[type].type = 'infinity';
                 saveStorageSession();
             } else if (storageSession.legacy[type].type === 'infinity') {
@@ -4036,9 +4200,6 @@ function One() {
                 saveStorageSession();
             }
             clickHandler();
-            setTimeout(() => {
-                isGetButtonsBusy = false;
-            }, 800);
         });
     }
 
@@ -4183,6 +4344,24 @@ function One() {
 
         if (!storageLocal.settings.showSuper) document.querySelector('#DLP_Get_SUPER_2_ID').style.display = 'none';
 
+        function updatePinnedItems() {
+            const pinnedIds = storageLocal.pins.home || [];
+            for (const id in ids) {
+                if (id.endsWith("1_ID")) {
+                    const element = document.getElementById(id);
+                    if (element) {
+                        if (pinnedIds.includes(id)) {
+                            if (!storageLocal.settings.showSuper && id.includes("DLP_Get_SUPER")) continue;
+                            element.style.display = 'flex';
+                        } else {
+                            element.style.display = 'none';
+                        }
+                    }
+                }
+            }
+        };
+        updatePinnedItems();
+
         Object.keys(ids).forEach(id => {
             const element = document.getElementById(id);
             if (!element) return;
@@ -4235,24 +4414,6 @@ function One() {
             updateButtonState();
         });
 
-        function updatePinnedItems() {
-            const pinnedIds = storageLocal.pins.home || [];
-            for (const id in ids) {
-                if (id.endsWith("1_ID")) {
-                    const element = document.getElementById(id);
-                    if (element) {
-                        if (pinnedIds.includes(id)) {
-                            if (!storageLocal.settings.showSuper && id.includes("DLP_Get_SUPER")) continue;
-                            element.style.display = 'flex';
-                        } else {
-                            element.style.display = 'none';
-                        }
-                    }
-                }
-            }
-        };
-        updatePinnedItems();
-
         Object.keys(ids).forEach(id => {
             if (id.endsWith("2_ID")) {
                 const pinIcon = document.querySelector(`#${id} > .DLP_HStack_8 > .DLP_Inset_Icon_1_ID`);
@@ -4292,6 +4453,8 @@ function One() {
         });
     }
     inputCheck1();
+    hidden = storageSession.hidden;
+    hide(hidden);
 
 
     function initializeMagneticHover(element) {
@@ -4546,8 +4709,9 @@ function One() {
     }
     let newReplyButtonActive = false;
     let userBioData = false;
-    let kqjzvmbt = false;
     let onboardingProcessing = false;
+    let lastTypingChat = 0;
+    let lastTypingSent = false;
     function connectToServer() {
         let mainInputsDiv1 = document.getElementById('DLP_Main_Inputs_1_Divider_1_ID');
 
@@ -4562,7 +4726,8 @@ function One() {
             body: JSON.stringify({
                 version: VERSION_FULL,
                 key: storageLocal.random16,
-                ...(chatKeyValue && { chat_key: chatKeyValue })
+                ...(chatKeyValue && { chat_key: chatKeyValue }),
+                ...(chatKeyValue && !lastTypingSent && Date.now() - lastTypingChat <= 5000 && { typing: true })
             })
         })
             .then(response => response.json())
@@ -4573,13 +4738,11 @@ function One() {
                     }
 
                     if (chatKeyValue) {
-                        if (!data.chats) {
-                            if (kqjzvmbt) {
-                                storageLocal.chatKey.shift();
-                                saveStorageLocal();
-                            }
-                            kqjzvmbt = true;
-                        } else {
+                        if (data.chats?.closed) {
+                            console.log('CHAT CLOSED');
+                            storageLocal.chatKey.shift();
+                            saveStorageLocal();
+                        } else if (data.chats) {
                             buildChat(data);
                         }
                     }
@@ -4590,7 +4753,7 @@ function One() {
                         if (!chatBox) return;
 
                         if (typeof data === 'undefined' || typeof data.chats === 'undefined' || !Array.isArray(data.chats.messages)) return;
-                        if (chatParent?.querySelector('#DLP_Inset_Group_3')?.style.display !== 'none') chatParent.querySelector('#DLP_Inset_Group_3').style.display = 'none';
+                        if (chatParent?.querySelector('#DLP_Inset_Group_5')?.style.display !== 'none') chatParent.querySelector('#DLP_Inset_Group_5').style.display = 'none';
                         if (chatBox?.style.display === 'none') chatBox.style.display = 'flex';
 
                         if (data.chats.solved) {
@@ -4598,16 +4761,95 @@ function One() {
                             chatParent.querySelector('#DLP_Inset_Group_2').style.display = '';
                         }
 
+                        const chatSupportStack = chatParent.querySelector('div.DLP_VStack_8');
+                        const closedChatGroup = chatSupportStack?.querySelector('#DLP_Inset_Group_2');
+                        const typingEntries = Array.isArray(data.chats.typing)
+                            ? data.chats.typing.filter(entry => entry && typeof entry === 'object' && (entry.author || entry.accent))
+                            : [];
+                        const typingWasAtBottom = isChatAtBottom(chatBox);
+                        const shouldShowTyping = typingEntries.length > 0;
+                        const existingTypingGroup = chatSupportStack?.querySelector('#DLP_Inset_Group_3');
+                        const typingVisibilityChanged = !!existingTypingGroup !== shouldShowTyping;
+
+                        if (chatSupportStack && closedChatGroup) {
+                            if (shouldShowTyping) {
+                                let typingGroup = existingTypingGroup;
+                                if (!typingGroup) {
+                                    typingGroup = document.createElement('div');
+                                    typingGroup.className = 'DLP_HStack_4';
+                                    typingGroup.id = 'DLP_Inset_Group_3';
+                                }
+
+                                typingGroup.innerHTML = '';
+
+                                function appendText(text, color, withDataAttr = false) {
+                                    const element = document.createElement('p');
+                                    element.className = 'DLP_Text_Style_1 DLP_NoSelect';
+                                    if (withDataAttr) element.setAttribute('data-time-element', 'true');
+                                    if (color) {
+                                        element.style.cssText = buildMentionAccentStyle(color, 'text');
+                                    }
+                                    element.textContent = text;
+                                    typingGroup.appendChild(element);
+                                };
+
+                                const nameItems = typingEntries.map(entry => ({
+                                    name: entry.author || 'Someone',
+                                    color: entry.accent || ''
+                                }));
+
+                                if (!document.querySelector('#dlp-typing-dots-style')) {
+                                    const style = document.createElement('style');
+                                    style.id = 'dlp-typing-dots-style';
+                                    style.textContent = `@keyframes dlpTypingDot { 0%, 100% { opacity: 0.2; } 50% { opacity: 1; } }`;
+                                    document.head.appendChild(style);
+                                }
+
+                                const dotSpans = '<span class="dlp-typing-dot" style="animation: dlpTypingDot 1.4s infinite ease-in-out; animation-delay: 0s;">.</span>' +
+                                    '<span class="dlp-typing-dot" style="animation: dlpTypingDot 1.4s infinite ease-in-out; animation-delay: 0.2s;">.</span>' +
+                                    '<span class="dlp-typing-dot" style="animation: dlpTypingDot 1.4s infinite ease-in-out; animation-delay: 0.4s;">.</span>';
+
+                                if (nameItems.length === 1) {
+                                    appendText(nameItems[0].name, nameItems[0].color);
+                                    appendText('is typing', '', true);
+                                } else if (nameItems.length === 2) {
+                                    appendText(nameItems[0].name, nameItems[0].color);
+                                    appendText('&', '');
+                                    appendText(nameItems[1].name, nameItems[1].color);
+                                    appendText('are typing', '', true);
+                                } else {
+                                    appendText(nameItems[0].name, nameItems[0].color);
+                                    appendText(`& ${nameItems.length - 1} others are typing`, '', true);
+                                }
+
+                                const dotEl = typingGroup.querySelector('[data-time-element="true"]');
+                                if (dotEl) dotEl.insertAdjacentHTML('beforeend', dotSpans);
+
+                                if (typingGroup.parentElement !== chatSupportStack) {
+                                    chatSupportStack.insertBefore(typingGroup, closedChatGroup);
+                                } else if (typingGroup.nextElementSibling !== closedChatGroup) {
+                                    chatSupportStack.insertBefore(typingGroup, closedChatGroup);
+                                }
+                            } else if (existingTypingGroup) {
+                                existingTypingGroup.remove();
+                            }
+                        }
+                        if (typingWasAtBottom && typingVisibilityChanged && chatBox) {
+                            scrollChatToBottom(chatBox, true);
+                        }
+
                         const incomingMessages = data.chats.messages.filter(msg => !msg?.deleted && msg?.status !== 'deleted');
                         const nextFingerprints = incomingMessages.map(computeMessageFingerprint);
-                        const hasChanges = nextFingerprints.length !== chatMemoryFingerprints.length || nextFingerprints.some((fingerprint, index) => fingerprint !== chatMemoryFingerprints[index]);
+                            const hasChanges = nextFingerprints.length !== chatMemoryFingerprints.length || nextFingerprints.some((fingerprint, index) => fingerprint !== chatMemoryFingerprints[index]);
 
                         if (hasChanges) {
                             const previousLength = chatMemory.length;
-                            const wasAtBottom = Math.abs(chatBox.scrollHeight - (chatBox.scrollTop + chatBox.clientHeight)) < 5;
-                            const scrollOffsetFromBottom = chatBox.scrollHeight - chatBox.scrollTop;
+                            const wasAtBottom = chatPinnedToBottom || isChatAtBottom(chatBox, 12);
+                            const previousScrollTop = chatBox.scrollTop;
+                            const previousFingerprintSet = new Set(chatMemoryFingerprints);
 
                             chatBox.innerHTML = '';
+                            ensureChatSpacer(chatBox);
                             const combinedMessages = [];
                             let sequenceCounter = 0;
                             const resolveTimestamp = (msg) => {
@@ -4665,11 +4907,16 @@ function One() {
                             });
 
                             const hasNewMessages = incomingMessages.length > previousLength;
-                            if (hasNewMessages || wasAtBottom) {
-                                chatBox.scrollTop = chatBox.scrollHeight;
+                            const newMessages = incomingMessages.filter((message, index) => !previousFingerprintSet.has(nextFingerprints[index]));
+                            const hasNonUserNewMessages = newMessages.some(message => message?.role !== "You");
+                            if (hasNonUserNewMessages && !wasAtBottom) {
+                                showNewMessageIndicator(chatBox);
+                            }
+                            if (hasNewMessages && wasAtBottom) {
+                                scrollChatToBottom(chatBox, true);
                             } else {
-                                const newScrollTop = chatBox.scrollHeight - scrollOffsetFromBottom;
-                                chatBox.scrollTop = newScrollTop < 0 ? 0 : newScrollTop;
+                                const maxScrollTop = Math.max(0, chatBox.scrollHeight - chatBox.clientHeight);
+                                chatBox.scrollTop = Math.min(Math.max(previousScrollTop, 0), maxScrollTop);
                             }
                         }
 
@@ -5087,8 +5334,438 @@ function One() {
         userBioData = {
             username: (userData.name && userData.name.trim().length > 0) ? userData.name : userData.username,
             profile_picture: "https:" + userData.picture + "/xlarge"
-        };
+    };
         fetchingUserBioData = false;
+    }
+
+    function escapeChatHtml(value) {
+        return String(value)
+            .replace(/&/g, '&amp;')
+            .replace(/</g, '&lt;')
+            .replace(/>/g, '&gt;')
+            .replace(/"/g, '&quot;')
+            .replace(/'/g, '&#39;');
+    }
+
+    function parseStructuredMention(rawPayload) {
+        if (typeof rawPayload !== 'string' || rawPayload.trim() === '') return null;
+        try {
+            const parsed = JSON.parse(`{${rawPayload}}`);
+            if (!parsed || typeof parsed !== 'object') return null;
+            if (!Object.prototype.hasOwnProperty.call(parsed, 'name')) return null;
+            if (!Object.prototype.hasOwnProperty.call(parsed, 'accent')) return null;
+            return {
+                name: parsed.name,
+                accent: parsed.accent
+            };
+        } catch (error) {
+            return null;
+        }
+    }
+
+    let tickerRefreshState = {
+        symbols: {},
+        intervalId: null
+    };
+
+    async function fetchTickerData(symbol) {
+        if (typeof symbol !== 'string') return false;
+        let normalizedSymbol = symbol.trim().toUpperCase();
+        if (!/^[A-Z][A-Z0-9._-]{0,14}$/.test(normalizedSymbol)) return false;
+
+        try {
+            let response = await fetch(apiURL + "/chats/stock_data", {
+                method: "POST",
+                headers: alpha ? {
+                    "Content-Type": "application/json",
+                    'Authorization': `Bearer ${document.cookie.split(';').find(cookie => cookie.includes('jwt_token')).split('=')[1]}`,
+                    'X-Chat-Key': `${storageLocal.chatKey[0]}`
+                } : {
+                    "Content-Type": "application/json",
+                    'X-Chat-Key': `${storageLocal.chatKey[0]}`
+                },
+                body: JSON.stringify({
+                    symbol: normalizedSymbol
+                })
+            });
+
+            let responseData = await response.json();
+            if (!response.ok || !responseData || typeof responseData !== "object") {
+                return false;
+            }
+
+            return responseData;
+        } catch (error) {
+            console.error("Failed to fetch ticker data:", error);
+            return false;
+        }
+    }
+
+    function hydrateTickerMentions(containerElement) {
+        const scope = containerElement instanceof Element ? containerElement : document;
+        const tickerElements = scope.querySelectorAll('span[data-dlp-ticker]');
+        const now = Date.now();
+
+        tickerElements.forEach((tickerElement) => {
+            if (!(tickerElement instanceof HTMLElement)) return;
+
+            const tickerSymbol = String(tickerElement.dataset.dlpTicker || '').trim().toUpperCase();
+            if (!/^[A-Z][A-Z0-9._-]{0,14}$/.test(tickerSymbol)) {
+                tickerElement.dataset.dlpTickerState = 'done';
+                return;
+            }
+
+            if (!tickerRefreshState.symbols[tickerSymbol]) {
+                tickerRefreshState.symbols[tickerSymbol] = {
+                    elements: new Set(),
+                    nextFetchAt: now,
+                    fetching: false,
+                    hasPercent: false,
+                    displayText: tickerSymbol,
+                    colorVariable: null
+                };
+            }
+
+            const tickerEntry = tickerRefreshState.symbols[tickerSymbol];
+            tickerEntry.elements.add(tickerElement);
+
+            if (tickerEntry.hasPercent && tickerEntry.colorVariable) {
+                tickerElement.style.background = `rgba(var(${tickerEntry.colorVariable}), 0.2)`;
+                tickerElement.style.color = `rgb(var(${tickerEntry.colorVariable}))`;
+                tickerElement.textContent = tickerEntry.displayText;
+                tickerElement.dataset.dlpTickerState = 'done';
+            } else if (tickerEntry.hasPercent) {
+                tickerElement.removeAttribute('style');
+                tickerElement.textContent = tickerEntry.displayText;
+                tickerElement.dataset.dlpTickerState = 'done';
+            } else {
+                tickerElement.style.background = 'rgba(var(--color-wolf), 0.2)';
+                tickerElement.style.color = 'rgb(var(--color-wolf))';
+                tickerElement.textContent = tickerSymbol;
+                tickerElement.dataset.dlpTickerState = 'done';
+            }
+        });
+
+        const symbols = Object.keys(tickerRefreshState.symbols);
+        let activeTickerCount = 0;
+        for (let i = 0; i < symbols.length; i++) {
+            const tickerSymbol = symbols[i];
+            const tickerEntry = tickerRefreshState.symbols[tickerSymbol];
+            if (!tickerEntry) continue;
+
+            tickerEntry.elements.forEach((tickerElement) => {
+                if (!(tickerElement instanceof HTMLElement) || !document.contains(tickerElement)) {
+                    tickerEntry.elements.delete(tickerElement);
+                }
+            });
+
+            if (tickerEntry.elements.size === 0) {
+                continue;
+            }
+            activeTickerCount++;
+
+            if (tickerEntry.fetching || now < tickerEntry.nextFetchAt) {
+                continue;
+            }
+
+            tickerEntry.fetching = true;
+            tickerEntry.nextFetchAt += 60000;
+            while (tickerEntry.nextFetchAt <= now) {
+                tickerEntry.nextFetchAt += 60000;
+            }
+
+            fetchTickerData(tickerSymbol).then((tickerData) => {
+                tickerEntry.fetching = false;
+
+                if (tickerData && typeof tickerData === 'object') {
+                    const rawPercentChange = tickerData.percent_change ?? tickerData.percent_change_since_open;
+                    const percentChange = Number(rawPercentChange);
+                    if (Number.isFinite(percentChange)) {
+                        const roundedPercent = Number(percentChange.toFixed(2));
+                        const normalizedPercent = Object.is(roundedPercent, -0) ? 0 : roundedPercent;
+                        tickerEntry.hasPercent = true;
+                        if (normalizedPercent === 0) {
+                            tickerEntry.colorVariable = null;
+                            tickerEntry.displayText = `${tickerSymbol} 0%`;
+                        } else {
+                            const absolutePercentText = Number(Math.abs(normalizedPercent).toFixed(2)).toString();
+                            const signedPercentText = `${normalizedPercent > 0 ? '+' : '-'}${absolutePercentText}%`;
+                            const isPositive = normalizedPercent > 0;
+                            tickerEntry.colorVariable = isPositive ? '--DLP-green' : '--DLP-pink';
+                            tickerEntry.displayText = `${tickerSymbol} ${signedPercentText} ${isPositive ? '􀄯' : '􀄱'}`;
+                        }
+                    } else {
+                        tickerEntry.hasPercent = false;
+                        tickerEntry.colorVariable = null;
+                        tickerEntry.displayText = tickerSymbol;
+                    }
+                } else {
+                    tickerEntry.hasPercent = false;
+                    tickerEntry.colorVariable = null;
+                    tickerEntry.displayText = tickerSymbol;
+                }
+
+                tickerEntry.elements.forEach((tickerElement) => {
+                    if (!(tickerElement instanceof HTMLElement) || !document.contains(tickerElement)) {
+                        tickerEntry.elements.delete(tickerElement);
+                        return;
+                    }
+                    if (tickerEntry.hasPercent && tickerEntry.colorVariable) {
+                        tickerElement.style.background = `rgba(var(${tickerEntry.colorVariable}), 0.2)`;
+                        tickerElement.style.color = `rgb(var(${tickerEntry.colorVariable}))`;
+                        tickerElement.textContent = tickerEntry.displayText;
+                    } else if (tickerEntry.hasPercent) {
+                        tickerElement.removeAttribute('style');
+                        tickerElement.textContent = tickerEntry.displayText;
+                    } else {
+                        tickerElement.style.background = 'rgba(var(--color-wolf), 0.2)';
+                        tickerElement.style.color = 'rgb(var(--color-wolf))';
+                        tickerElement.textContent = tickerSymbol;
+                    }
+                    tickerElement.dataset.dlpTickerState = 'done';
+                });
+            }).catch((error) => {
+                tickerEntry.fetching = false;
+                console.error('Failed to hydrate ticker mention', error);
+            });
+        }
+
+        if (activeTickerCount === 0) {
+            if (tickerRefreshState.intervalId) {
+                clearInterval(tickerRefreshState.intervalId);
+                tickerRefreshState.intervalId = null;
+            }
+            return;
+        }
+
+        if (!tickerRefreshState.intervalId) {
+            tickerRefreshState.intervalId = setInterval(() => {
+                hydrateTickerMentions(document);
+            }, 1000);
+        }
+    }
+
+    function normalizeHexToSix(hexValue) {
+        if (typeof hexValue !== 'string') return null;
+        const cleanedHex = hexValue.trim().replace(/^#/, '');
+        if (/^[0-9a-fA-F]{3}$/.test(cleanedHex)) {
+            return cleanedHex.split('').map((char) => `${char}${char}`).join('').toUpperCase();
+        }
+        if (/^[0-9a-fA-F]{6}$/.test(cleanedHex)) {
+            return cleanedHex.toUpperCase();
+        }
+        if (/^[0-9a-fA-F]{8}$/.test(cleanedHex)) {
+            return cleanedHex.slice(0, 6).toUpperCase();
+        }
+        return null;
+    }
+
+    function buildMentionAccentStyle(accentValue, mode = 'mention') {
+        const fallbackMentionStyle = 'background: rgba(var(--color-wolf), 0.2); color: rgb(var(--color-wolf));';
+        const fallbackTextStyle = 'color: rgb(var(--DLP-blue));';
+        const fallbackStyle = mode === 'text' ? fallbackTextStyle : fallbackMentionStyle;
+        if (typeof accentValue !== 'string') return fallbackStyle;
+
+        const trimmedAccent = accentValue.trim();
+        if (trimmedAccent === '') return fallbackStyle;
+
+        const rgbMatch = trimmedAccent.match(/^rgba?\(\s*(\d{1,3})\s*,\s*(\d{1,3})\s*,\s*(\d{1,3})(?:\s*,\s*(?:0|1|0?\.\d+))?\s*\)$/i);
+        if (rgbMatch) {
+            const r = Number(rgbMatch[1]);
+            const g = Number(rgbMatch[2]);
+            const b = Number(rgbMatch[3]);
+            if ([r, g, b].every((value) => Number.isInteger(value) && value >= 0 && value <= 255)) {
+                if (mode === 'text') {
+                    return `color: ${trimmedAccent};`;
+                }
+                return `background: rgba(${r}, ${g}, ${b}, 0.2); color: ${trimmedAccent};`;
+            }
+        }
+
+        const normalizedHex = normalizeHexToSix(trimmedAccent);
+        if (normalizedHex) {
+            if (mode === 'text') {
+                return `color: ${trimmedAccent};`;
+            }
+            return `background: #${normalizedHex}33; color: ${trimmedAccent};`;
+        }
+
+        const imageAccentPattern = /^https?:\/\/[^\s]+\.[^\s]+$/i;
+        if (imageAccentPattern.test(trimmedAccent)) {
+            if (mode === 'text') {
+                return [
+                    `background: url(${trimmedAccent}) center / cover no-repeat`,
+                    '-webkit-background-clip: text',
+                    'background-clip: text',
+                    'color: transparent'
+                ].join('; ') + ';';
+            }
+
+            const imageOpacityUrl = trimmedAccent.includes('?')
+                ? `${trimmedAccent}&opacity=0.2`
+                : `${trimmedAccent}?opacity=0.2`;
+
+            return [
+                `background: url(${trimmedAccent}) center / cover no-repeat, url(${imageOpacityUrl}) center / cover no-repeat`,
+                '-webkit-background-clip: text, padding-box',
+                'background-clip: text, padding-box',
+                'color: transparent'
+            ].join('; ') + ';';
+        }
+
+        if (mode === 'text') {
+            return `color: ${trimmedAccent};`;
+        }
+
+        return fallbackStyle;
+    }
+
+    function formatSupportChatMessage(rawText) {
+        if (rawText === null || rawText === undefined) return '';
+        let text = String(rawText);
+        if (text === '') return '';
+
+        const mentionTokens = [];
+        const tickerTokens = [];
+        text = text.replace(/<@&?:("name"\s*:\s*(?:null|"(?:\\.|[^"\\])*")\s*,\s*"accent"\s*:\s*(?:null|"(?:\\.|[^"\\])*"))>/g, (match, payload) => {
+            const parsedMention = parseStructuredMention(payload);
+            if (!parsedMention) return match;
+            const token = `DLPMENTIONTOKEN${mentionTokens.length}DLP`;
+            mentionTokens.push(parsedMention);
+            return token;
+        });
+
+        text = text.replace(/<@&?:((?!"name":)[^>\r\n]+)>/g, (match, displayName) => {
+            const cleanDisplayName = String(displayName || '').trim();
+            if (cleanDisplayName === '') return match;
+            const token = `DLPMENTIONTOKEN${mentionTokens.length}DLP`;
+            mentionTokens.push({
+                name: cleanDisplayName,
+                accent: null
+            });
+            return token;
+        });
+
+        text = text.replace(/<\$:("ticker"\s*:\s*"(?:\\.|[^"\\])*")>/g, (match, payload) => {
+            let parsedTicker;
+            try {
+                parsedTicker = JSON.parse(`{${payload}}`);
+            } catch (error) {
+                return match;
+            }
+            if (!parsedTicker || typeof parsedTicker !== 'object') return match;
+            const normalizedTicker = String(parsedTicker.ticker ?? '').trim().toUpperCase();
+            if (!/^[A-Z][A-Z0-9._-]{0,14}$/.test(normalizedTicker)) return match;
+            const token = `DLPTICKERTOKEN${tickerTokens.length}DLP`;
+            tickerTokens.push(normalizedTicker);
+            return token;
+        });
+
+        text = text.replace(/<\$:([A-Za-z][A-Za-z0-9._-]{0,14})>/g, (match, tickerSymbol) => {
+            const normalizedTicker = String(tickerSymbol || '').trim().toUpperCase();
+            if (!/^[A-Z][A-Z0-9._-]{0,14}$/.test(normalizedTicker)) return match;
+            const token = `DLPTICKERTOKEN${tickerTokens.length}DLP`;
+            tickerTokens.push(normalizedTicker);
+            return token;
+        });
+
+        text = escapeChatHtml(text);
+
+        const markdownUrlTokens = [];
+        const markdownTextTokens = [];
+        const markdownUrlPattern = /\[([^\]]+?)\]\((https?:\/\/[^\s)]+\.[^\s)]+)\)/g;
+        if (flag05) {
+            text = text.replace(markdownUrlPattern, (match, label, url) => {
+                const token = `DLPURLTOKEN${markdownUrlTokens.length}DLP`;
+                markdownUrlTokens.push(url);
+                return `[${label}](${token})`;
+            });
+        } else {
+            text = text.replace(markdownUrlPattern, (match) => {
+                const token = `DLPMARKDOWNTOKEN${markdownTextTokens.length}DLP`;
+                markdownTextTokens.push(match);
+                return token;
+            });
+        }
+
+        const wrap = (pattern, tag) => {
+            text = text.replace(pattern, (match, content) => `<${tag}>${content}</${tag}>`);
+        };
+
+        wrap(/~~([\s\S]+?)~~/g, 's');
+        wrap(/__([\s\S]+?)__/g, 'u');
+        wrap(/\*\*([\s\S]+?)\*\*/g, 'strong');
+
+        text = text.replace(/(^|[^*])\*([^*]+)\*(?!\*)/g, (match, prefix, content) => `${prefix}<em>${content}</em>`);
+        text = text.replace(/(^|[^_])_([^_]+)_(?!_)/g, (match, prefix, content) => `${prefix}<em>${content}</em>`);
+
+        if (flag05 && markdownUrlTokens.length) {
+            text = text.replace(/DLPURLTOKEN(\d+)DLP/g, (match, index) => {
+                const tokenIndex = Number(index);
+                return Number.isInteger(tokenIndex) && markdownUrlTokens[tokenIndex] ? markdownUrlTokens[tokenIndex] : match;
+            });
+        }
+
+        if (flag05) {
+            text = text.replace(markdownUrlPattern, (match, label, url) => {
+                return `<a href="${url}" target="_blank" rel="noopener noreferrer" class="DLP_Link_Style_1">${label}</a>`;
+            });
+        }
+
+        const anchorTokens = [];
+        text = text.replace(/<a\b[^>]*>[\s\S]*?<\/a>/gi, (match) => {
+            const token = `DLPLINKTOKEN${anchorTokens.length}DLP`;
+            anchorTokens.push(match);
+            return token;
+        });
+
+        const linkPattern = /\bhttps?:\/\/[^\s<>]+\.[^\s<>]+/g;
+        text = text.replace(linkPattern, (match) => {
+            return `<a href="${match}" target="_blank" rel="noopener noreferrer" class="DLP_Link_Style_1">${match}</a>`;
+        });
+
+        if (anchorTokens.length) {
+            text = text.replace(/DLPLINKTOKEN(\d+)DLP/g, (match, index) => {
+                const tokenIndex = Number(index);
+                return Number.isInteger(tokenIndex) && anchorTokens[tokenIndex] ? anchorTokens[tokenIndex] : match;
+            });
+        }
+
+        if (!flag05 && markdownTextTokens.length) {
+            text = text.replace(/DLPMARKDOWNTOKEN(\d+)DLP/g, (match, index) => {
+                const tokenIndex = Number(index);
+                return Number.isInteger(tokenIndex) && markdownTextTokens[tokenIndex] ? markdownTextTokens[tokenIndex] : match;
+            });
+        }
+
+        if (mentionTokens.length) {
+            text = text.replace(/DLPMENTIONTOKEN(\d+)DLP/g, (match, index) => {
+                const tokenIndex = Number(index);
+                if (!Number.isInteger(tokenIndex) || !mentionTokens[tokenIndex]) return match;
+
+                const mention = mentionTokens[tokenIndex];
+                const rawName = mention?.name;
+                const safeDisplayName = (typeof rawName === 'string' && rawName.trim() !== '')
+                    ? escapeChatHtml(rawName.trim())
+                    : 'Private User';
+
+                const mentionStyle = buildMentionAccentStyle(mention?.accent);
+                return `<span class="DLP_Mention_Style_1" style="${mentionStyle}">@${safeDisplayName}</span>`;
+            });
+        }
+
+        if (tickerTokens.length) {
+            text = text.replace(/DLPTICKERTOKEN(\d+)DLP/g, (match, index) => {
+                const tokenIndex = Number(index);
+                if (!Number.isInteger(tokenIndex) || !tickerTokens[tokenIndex]) return match;
+
+                const tickerSymbol = tickerTokens[tokenIndex];
+                const safeTickerSymbol = escapeChatHtml(tickerSymbol);
+                return `<span class="DLP_Mention_Style_1" data-dlp-ticker="${safeTickerSymbol}" data-dlp-ticker-state="pending">${safeTickerSymbol}</span>`;
+            });
+        }
+
+        return text;
     }
 
     function createMessage(message, isBefore = false, isTemp = false) {
@@ -5109,7 +5786,7 @@ function One() {
             const years = Math.floor(days / 365);
 
             if (seconds < 60) {
-                return "now";
+                return "just now";
             } else if (minutes < 60) {
                 return `${minutes}m ago`;
             } else if (hours < 24) {
@@ -5249,6 +5926,13 @@ function One() {
                                 result.author = authorText.trim();
                             }
                             let accentColor = authorElement.style?.color?.trim();
+                            const authorStyleAttr = authorElement.getAttribute('style') || '';
+                            if (!accentColor || accentColor === '' || accentColor === 'transparent' || accentColor === 'rgba(0, 0, 0, 0)') {
+                                const accentUrlMatch = authorStyleAttr.match(/background\s*:\s*url\((['"]?)(.*?)\1\)/i);
+                                if (accentUrlMatch && accentUrlMatch[2]) {
+                                    accentColor = accentUrlMatch[2];
+                                }
+                            }
                             if ((!accentColor || accentColor === '') && typeof window !== 'undefined' && document.contains(authorElement)) {
                                 try {
                                     accentColor = window.getComputedStyle(authorElement).color;
@@ -5256,7 +5940,7 @@ function One() {
                                     console.error('Failed to compute accent color for reply preview', error);
                                 }
                             }
-                            if (accentColor) {
+                            if (accentColor && accentColor !== 'transparent' && accentColor !== 'rgba(0, 0, 0, 0)') {
                                 result.accent = accentColor;
                             }
                         }
@@ -5337,10 +6021,12 @@ function One() {
             const targetKey = resolveMessageKey(targetMessage) ?? replyKey;
             const targetSendTime = targetMessage?.send_time ?? '';
             const previewAccent = targetMessage?.accent && targetMessage.accent !== '' ? targetMessage.accent : (message?.accent || 'rgb(var(--DLP-blue))');
+            const previewAccentStyle = buildMentionAccentStyle(previewAccent, 'text');
             const previewAuthor = targetMessage?.author ?? message?.author ?? 'Unknown user';
             const previewAvatar = targetMessage?.profile_picture ?? message?.profile_picture ?? '';
             const avatarBackground = previewAvatar ? `background: url(${previewAvatar}) 50% center / cover no-repeat white;` : 'background: rgba(var(--color-snow), 1);';
-            const previewMessage = (targetMessage?.message && targetMessage.message.trim() !== '') ? targetMessage.message : 'Original message unavailable';
+            const previewMessageRaw = (targetMessage?.message && targetMessage.message.trim() !== '') ? targetMessage.message : 'Original message unavailable';
+            const previewMessage = formatSupportChatMessage(previewMessageRaw);
 
             previewWrapper.innerHTML = `
                 <div class="DLP_HStack_8" data-reply-preview="true" style="padding-left: 24px; position: relative;">
@@ -5349,7 +6035,7 @@ function One() {
                     </svg>
                     <div class="DLP_HStack_6">
                         <div style="width: 20px; height: 20px; border-radius: 16px; outline: rgba(0, 0, 0, 0.2) solid 2px; outline-offset: -2px; ${avatarBackground}"></div>
-                        <p class="DLP_Text_Style_1 DLP_NoSelect" style="color: ${previewAccent}; white-space: pre;">${previewAuthor}</p>
+                        <p class="DLP_Text_Style_1 DLP_NoSelect" style="${previewAccentStyle} white-space: pre;">${previewAuthor}</p>
                     </div>
                     <p class="DLP_Text_Style_1" data-message-id="${targetKey}" data-message-sent="${targetSendTime}" style="align-self: stretch; white-space: nowrap; overflow-wrap: anywhere; word-break: break-word; text-overflow: ellipsis; -webkit-line-clamp: 1; overflow: hidden; display: -webkit-box; -webkit-box-orient: vertical;">${previewMessage}</p>
                 </div>
@@ -5381,22 +6067,28 @@ function One() {
             const previewElement = createReplyPreview(message);
             if (previewElement) {
                 container.insertBefore(previewElement, headerElement);
+                hydrateTickerMentions(previewElement);
             }
         }
 
         function createStartersMessage(message) {
+            const headerAccentStyle = buildMentionAccentStyle(message.accent, 'text');
+            const headerUsesImageAccent = /background:\s*url\(/i.test(headerAccentStyle);
+            const roleMetaStackStyle = headerUsesImageAccent ? ` style="${headerAccentStyle}"` : '';
+            const roleMetaTextStyle = headerUsesImageAccent ? 'color: inherit;' : headerAccentStyle;
+
             const temp = document.createElement('div');
             temp.innerHTML = `
                 <div class="DLP_VStack_4" data-group-id="${messageKey}" data-group-sent="${message.send_time ?? ''}" data-author-name="${message.author}">
                     <div data-chat-header="true" style="display: flex; justify-content: space-between; align-items: center; align-self: stretch;">
                         <div class="DLP_HStack_6">
                             <div style="width: 20px; height: 20px; border-radius: 16px; outline: rgba(0, 0, 0, 0.2) solid 2px; outline-offset: -2px; background: url(${message.profile_picture}) 50% center / cover no-repeat white;"></div>
-                            <p class="DLP_Text_Style_1 DLP_NoSelect" style="color: ${message.accent};">${message.author}</p>
+                            <p class="DLP_Text_Style_1 DLP_NoSelect" style="${headerAccentStyle}">${message.author}</p>
                         </div>
-                        <div class="DLP_HStack_6">
-                            <p class="DLP_Text_Style_1 DLP_NoSelect" style="color: ${message.accent};">${message.role}</p>
-                            <p class="DLP_Text_Style_1 DLP_NoSelect" style="color: ${message.accent}; font-size: 4px;">􀀁</p>
-                            <p class="DLP_Text_Style_1 DLP_NoSelect" data-time-element="true" style="color: ${message.accent};">${formatTimeAgo(message.send_time)}</p>
+                        <div class="DLP_HStack_6"${roleMetaStackStyle}>
+                            <p class="DLP_Text_Style_1 DLP_NoSelect" style="${roleMetaTextStyle}">${message.role}</p>
+                            <p class="DLP_Text_Style_1 DLP_NoSelect" style="${roleMetaTextStyle} font-size: 4px;">􀀁</p>
+                            <p class="DLP_Text_Style_1 DLP_NoSelect" data-time-element="true" style="${roleMetaTextStyle}">${formatTimeAgo(message.send_time)}</p>
                         </div>
                     </div>
                 </div>
@@ -5435,7 +6127,8 @@ function One() {
                 ensureReplyPreview(lastChatChild, message);
             }
 
-            if (message.message !== "") {
+            const formattedMessage = formatSupportChatMessage(message.message);
+            if (formattedMessage !== "") {
                 const continuationStyles = [
                     'align-self: stretch',
                     'white-space: pre-line',
@@ -5451,10 +6144,11 @@ function One() {
                 const continuationStyleAttr = continuationStyles.join('; ') + ';';
                 const temp = document.createElement('div');
                 temp.innerHTML = `
-                    <p class="DLP_Text_Style_1" data-message-id="${messageKey}" data-message-sent="${message.send_time ?? ''}"${isTemp ? ` data-is-temp="${isTemp}"` : ''} style="${continuationStyleAttr}">${message.message}</p>
+                    <p class="DLP_Text_Style_1" data-message-id="${messageKey}" data-message-sent="${message.send_time ?? ''}"${isTemp ? ` data-is-temp="${isTemp}"` : ''} style="${continuationStyleAttr}">${formattedMessage}</p>
                 `;
                 const newElement = temp.firstElementChild;
                 lastChatChild.appendChild(newElement);
+                hydrateTickerMentions(newElement);
             }
             createAttachmentMessage(message);
         }
@@ -6428,6 +7122,124 @@ function One() {
         { base: 'DLP_Get_Badge', type: 'badge', input: 2 },
         { base: 'DLP_Get_Local_Duolingo_Max', type: 'local_max' }
     ];
+    function autosizeInput(input, autoSize = true, length) {
+        if (!input) return;
+        const inputId = input.getAttribute('id');
+        const existingMeasure = inputId ? document.querySelector(`span[data-dlp-autosize-for="${inputId}"]`) : null;
+
+        // Apply native maxlength for extra enforcement
+        if (length > 0) {
+            input.setAttribute('maxlength', String(length));
+        }
+
+        // Hidden measuring element (only created if autoSize is true)
+        const measure = autoSize ? (existingMeasure || document.createElement('span')) : null;
+        const isNewMeasure = !!(measure && !existingMeasure);
+        if (isNewMeasure) {
+            measure.style.position = 'absolute';
+            measure.style.visibility = 'hidden';
+            measure.style.whiteSpace = 'pre'; // measure spaces exactly
+            measure.style.padding = '0';
+            measure.style.border = '0';
+            measure.style.margin = '0';
+            if (inputId) measure.setAttribute('data-dlp-autosize-for', inputId);
+            document.body.appendChild(measure);
+        }
+
+        // Copy computed font-related styles from input to measure for accurate width
+        function syncMeasureStyles() {
+            if (!measure) return;
+            const cs = getComputedStyle(input);
+            measure.style.font = cs.font;
+            measure.style.fontSize = cs.fontSize;
+            measure.style.fontFamily = cs.fontFamily;
+            measure.style.fontWeight = cs.fontWeight;
+            measure.style.letterSpacing = cs.letterSpacing;
+            measure.style.textTransform = cs.textTransform;
+            measure.style.fontVariant = cs.fontVariant;
+            measure.style.fontFeatureSettings = cs.fontFeatureSettings;
+            measure.style.lineHeight = cs.lineHeight;
+        }
+
+        // Text to measure: input value, or placeholder when empty
+        function textToMeasure() {
+            const v = input.value;
+            if (v && v.length > 0) return v;
+            const ph = input.getAttribute('placeholder') || '';
+            return ph.length ? ph : ' ';
+        }
+
+        // Update input width to fit text plus horizontal paddings/borders
+        function updateWidth() {
+            if (!autoSize || !measure) return;
+
+            syncMeasureStyles();
+            measure.textContent = textToMeasure();
+
+            const textWidth = measure.getBoundingClientRect().width;
+            const cs = getComputedStyle(input);
+
+            const paddingX = parseFloat(cs.paddingLeft) + parseFloat(cs.paddingRight);
+            const borderX = parseFloat(cs.borderLeftWidth) + parseFloat(cs.borderRightWidth);
+
+            const widthPx = Math.ceil(textWidth + paddingX + borderX);
+
+            const minWidth = parseFloat(cs.minWidth) || 0;
+            const maxWidth = parseFloat(cs.maxWidth) || Infinity;
+
+            input.style.boxSizing = cs.boxSizing; // preserve existing box-sizing
+            input.style.width = Math.min(Math.max(widthPx, minWidth), maxWidth) + 'px';
+        }
+
+        // Initial sizing
+        updateWidth();
+
+        if (existingMeasure) return;
+
+        // Enforce max length on input events
+        function enforceMaxLength() {
+            if (length > 0 && input.value.length > length) {
+                const pos = input.selectionStart;
+                input.value = input.value.slice(0, length);
+                if (typeof pos === 'number') {
+                    const newPos = Math.min(pos, length);
+                    input.setSelectionRange(newPos, newPos);
+                }
+            }
+            updateWidth();
+        }
+
+        // Bind events
+        input.addEventListener('input', enforceMaxLength);
+
+        // Observe placeholder changes to keep width in sync when autoSize is true
+        const observer = autoSize ? new MutationObserver(updateWidth) : null;
+        if (observer) {
+            observer.observe(input, { attributes: true, attributeFilter: ['placeholder'] });
+        }
+
+        // Optional: update on resize and when fonts finish loading
+        function handleResize() { updateWidth(); }
+        if (autoSize) {
+            window.addEventListener('resize', handleResize);
+            if (document.fonts && document.fonts.addEventListener) {
+                document.fonts.addEventListener('loadingdone', updateWidth);
+            }
+        }
+
+        // Return a disposer for cleanup
+        return function dispose() {
+            input.removeEventListener('input', enforceMaxLength);
+            if (autoSize) {
+                window.removeEventListener('resize', handleResize);
+                if (document.fonts && document.fonts.removeEventListener) {
+                    document.fonts.removeEventListener('loadingdone', updateWidth);
+                }
+                if (observer) observer.disconnect();
+                if (measure) measure.remove();
+            }
+        };
+    }
     function setupGetButtons(base, type, hasInput) {
         [1, 2].forEach(n => {
             const parent = document.getElementById(`${base}_${n}_ID`);
@@ -6463,119 +7275,6 @@ function One() {
             if (base === 'DLP_Get_Badge') {
                 parent.querySelector('#DLP_Inset_Input_1_ID').placeholder = String(new Date().getMonth() + 1);
                 parent.querySelector('#DLP_Inset_Input_2_ID').placeholder = String(new Date().getFullYear());
-
-                function autosizeInput(input, autoSize = true, length) {
-                    if (!input) return;
-
-                    // Apply native maxlength for extra enforcement
-                    if (length > 0) {
-                        input.setAttribute('maxlength', String(length));
-                    }
-
-                    // Hidden measuring element (only created if autoSize is true)
-                    const measure = autoSize ? document.createElement('span') : null;
-                    if (measure) {
-                        measure.style.position = 'absolute';
-                        measure.style.visibility = 'hidden';
-                        measure.style.whiteSpace = 'pre'; // measure spaces exactly
-                        measure.style.padding = '0';
-                        measure.style.border = '0';
-                        measure.style.margin = '0';
-                        document.body.appendChild(measure);
-                    }
-
-                    // Copy computed font-related styles from input to measure for accurate width
-                    function syncMeasureStyles() {
-                        if (!measure) return;
-                        const cs = getComputedStyle(input);
-                        measure.style.font = cs.font;
-                        measure.style.fontSize = cs.fontSize;
-                        measure.style.fontFamily = cs.fontFamily;
-                        measure.style.fontWeight = cs.fontWeight;
-                        measure.style.letterSpacing = cs.letterSpacing;
-                        measure.style.textTransform = cs.textTransform;
-                        measure.style.fontVariant = cs.fontVariant;
-                        measure.style.fontFeatureSettings = cs.fontFeatureSettings;
-                        measure.style.lineHeight = cs.lineHeight;
-                    }
-
-                    // Text to measure: input value, or placeholder when empty
-                    function textToMeasure() {
-                        const v = input.value;
-                        if (v && v.length > 0) return v;
-                        const ph = input.getAttribute('placeholder') || '';
-                        return ph.length ? ph : ' ';
-                    }
-
-                    // Update input width to fit text plus horizontal paddings/borders
-                    function updateWidth() {
-                        if (!autoSize || !measure) return;
-
-                        syncMeasureStyles();
-                        measure.textContent = textToMeasure();
-
-                        const textWidth = measure.getBoundingClientRect().width;
-                        const cs = getComputedStyle(input);
-
-                        const paddingX = parseFloat(cs.paddingLeft) + parseFloat(cs.paddingRight);
-                        const borderX = parseFloat(cs.borderLeftWidth) + parseFloat(cs.borderRightWidth);
-
-                        const widthPx = Math.ceil(textWidth + paddingX + borderX);
-
-                        const minWidth = parseFloat(cs.minWidth) || 0;
-                        const maxWidth = parseFloat(cs.maxWidth) || Infinity;
-
-                        input.style.boxSizing = cs.boxSizing; // preserve existing box-sizing
-                        input.style.width = Math.min(Math.max(widthPx, minWidth), maxWidth) + 'px';
-                    }
-
-                    // Enforce max length on input events
-                    function enforceMaxLength() {
-                        if (length > 0 && input.value.length > length) {
-                            const pos = input.selectionStart;
-                            input.value = input.value.slice(0, length);
-                            if (typeof pos === 'number') {
-                                const newPos = Math.min(pos, length);
-                                input.setSelectionRange(newPos, newPos);
-                            }
-                        }
-                        updateWidth();
-                    }
-
-                    // Initial sizing
-                    updateWidth();
-
-                    // Bind events
-                    input.addEventListener('input', enforceMaxLength);
-
-                    // Observe placeholder changes to keep width in sync when autoSize is true
-                    const observer = autoSize ? new MutationObserver(updateWidth) : null;
-                    if (observer) {
-                        observer.observe(input, { attributes: true, attributeFilter: ['placeholder'] });
-                    }
-
-                    // Optional: update on resize and when fonts finish loading
-                    function handleResize() { updateWidth(); }
-                    if (autoSize) {
-                        window.addEventListener('resize', handleResize);
-                        if (document.fonts && document.fonts.addEventListener) {
-                            document.fonts.addEventListener('loadingdone', updateWidth);
-                        }
-                    }
-
-                    // Return a disposer for cleanup
-                    return function dispose() {
-                        input.removeEventListener('input', enforceMaxLength);
-                        if (autoSize) {
-                            window.removeEventListener('resize', handleResize);
-                            if (document.fonts && document.fonts.removeEventListener) {
-                                document.fonts.removeEventListener('loadingdone', updateWidth);
-                            }
-                            if (observer) observer.disconnect();
-                            if (measure) measure.remove();
-                        }
-                    };
-                }
 
                 autosizeInput(parent.querySelector('#DLP_Inset_Input_1_ID'), false, 2);
                 autosizeInput(parent.querySelector('#DLP_Inset_Input_2_ID'), true, 4);
@@ -7216,6 +7915,91 @@ function One() {
     let currentChatId = 1;
     let allTexts = {}; // { [chatId]: text }
     let allAttachments = {}; // { [chatId]: [ {id, file}, … ] }
+    let chatPinnedToBottom = true;
+
+    function scrollChatToBottom(chatBox, suppressScrollbar = false, smooth = false) {
+        if (!chatBox) return;
+        removeNewMessageIndicator();
+        chatPinnedToBottom = true;
+        if (suppressScrollbar) {
+            if (chatBox.dataset.dlpScrollSuppressed === '1') return;
+            chatBox.dataset.dlpScrollSuppressed = '1';
+            chatBox.classList.add('DLP_Hide_Scrollbar');
+        }
+
+        if (smooth) {
+            chatBox.scrollTo({ top: chatBox.scrollHeight, behavior: 'smooth' });
+        } else {
+            chatBox.scrollTop = chatBox.scrollHeight;
+        }
+
+        requestAnimationFrame(() => {
+            if (!smooth) {
+                chatBox.scrollTop = chatBox.scrollHeight;
+            }
+            if (suppressScrollbar) {
+                chatBox.classList.remove('DLP_Hide_Scrollbar');
+                delete chatBox.dataset.dlpScrollSuppressed;
+            }
+        });
+    }
+
+    function isChatAtBottom(chatBox, threshold = 5) {
+        if (!chatBox) return false;
+        return (chatBox.scrollHeight - (chatBox.scrollTop + chatBox.clientHeight)) <= threshold;
+    }
+
+    function getSupportStack() {
+        return document.querySelector("#DLP_Main_Box_Divider_11_ID > div > div.DLP_VStack_8");
+    }
+
+    function getNewMessageIndicator() {
+        return getSupportStack()?.querySelector('#DLP_Inset_Group_4');
+    }
+
+    function removeNewMessageIndicator() {
+        const indicator = getNewMessageIndicator();
+        if (indicator) indicator.remove();
+    }
+
+    function showNewMessageIndicator(chatBox) {
+        if (!chatBox) return;
+        if (getNewMessageIndicator()) return;
+        const supportStack = getSupportStack();
+        if (!supportStack) return;
+
+        const indicator = document.createElement('div');
+        indicator.className = 'DLP_HStack_Auto DLP_Hover_1';
+        indicator.id = 'DLP_Inset_Group_4';
+        indicator.innerHTML = `
+            <p class="DLP_Text_Style_1 DLP_NoSelect" style="color: #007AFF;">􀄩</p>
+            <p class="DLP_Text_Style_1 DLP_NoSelect" style="color: #007AFF;">New Messages</p>
+            <p class="DLP_Text_Style_1 DLP_NoSelect" data-time-element="true" style="color: #007AFF;">􀄩</p>
+        `;
+
+        indicator.addEventListener('click', () => {
+            indicator.remove();
+            scrollChatToBottom(chatBox, false, true);
+        });
+
+        const typingGroup = supportStack.querySelector('#DLP_Inset_Group_3');
+        const closedChatGroup = supportStack.querySelector('#DLP_Inset_Group_2');
+        if (typingGroup) {
+            supportStack.insertBefore(indicator, typingGroup);
+        } else if (closedChatGroup) {
+            supportStack.insertBefore(indicator, closedChatGroup);
+        } else {
+            supportStack.appendChild(indicator);
+        }
+    }
+
+    function ensureChatSpacer(chatBox) {
+        if (!chatBox) return;
+        if (chatBox.querySelector('.DLP_Chat_Spacer')) return;
+        const spacer = document.createElement('div');
+        spacer.className = 'DLP_Chat_Spacer';
+        chatBox.insertBefore(spacer, chatBox.firstChild);
+    }
 
     function setupSupportPage() {
         const container = document.getElementById("DLP_Main_Box_Divider_11_ID");
@@ -7226,6 +8010,14 @@ function One() {
         const messageInput = container.querySelector("#DLP_Inset_Input_1_ID");
         const activeContainer = container.querySelector('.DLP_Input_Style_1_Active');
         let messageSendInProgress = false;
+
+        ensureChatSpacer(chatBox);
+        chatBox.addEventListener('scroll', () => {
+            chatPinnedToBottom = isChatAtBottom(chatBox, 12);
+            if (chatPinnedToBottom) {
+                removeNewMessageIndicator();
+            }
+        });
 
         function resetMessageInputState() {
             messageInput.value = '';
@@ -7358,8 +8150,12 @@ function One() {
         function setupSendButton() {
             sendButton.addEventListener('click', async () => {
                 if (messageSendInProgress) return;
+                messageSendInProgress = true;
+                checkSendButton();
+                lastTypingSent = true;
+                
                 if (!storageLocal.chatKey || storageLocal.chatKey.length === 0) {
-                    if (container?.querySelector('#DLP_Inset_Group_3')?.style.display !== 'none') container.querySelector('#DLP_Inset_Group_3').style.display = 'none';
+                    if (container?.querySelector('#DLP_Inset_Group_5')?.style.display !== 'none') container.querySelector('#DLP_Inset_Group_5').style.display = 'none';
                     if (chatBox?.style.display === 'none') chatBox.style.display = 'flex';
 
                     try {
@@ -7417,24 +8213,20 @@ function One() {
 
                 chatTempSendList.push(chatTempSendNumber);
 
-                chatBox.scrollTop = chatBox.scrollHeight;
+                scrollChatToBottom(chatBox, true);
                 allAttachments[currentChatId] = [];
                 renderAttachmentsPreview();
-                messageSendInProgress = true;
-                checkSendButton();
                 resetMessageInputState();
 
                 try {
                     let response = await fetch(apiURL + "/chats/send_message", {
                         method: "POST",
-                        headers: alpha
-                            ? {
-                                'Authorization': `Bearer ${document.cookie.split(';').find(cookie => cookie.includes('jwt_token')).split('=')[1]}`,
-                                'X-Chat-Key': `${storageLocal.chatKey[0]}`
-                            }
-                            : {
-                                'X-Chat-Key': `${storageLocal.chatKey[0]}`
-                            },
+                        headers: alpha ? {
+                            'Authorization': `Bearer ${document.cookie.split(';').find(cookie => cookie.includes('jwt_token')).split('=')[1]}`,
+                            'X-Chat-Key': `${storageLocal.chatKey[0]}`
+                        } : {
+                            'X-Chat-Key': `${storageLocal.chatKey[0]}`
+                        },
                         body: formData
                     });
 
@@ -7453,7 +8245,7 @@ function One() {
                         }
                         pendingTempMessages.delete(chatTempSendNumber);
                         if (wasAtBottom) {
-                            chatBox.scrollTop = chatBox.scrollHeight;
+                            scrollChatToBottom(chatBox, true);
                         }
                     } else {
                         if (responseData?.status === false && responseData?.notification) {
@@ -7480,6 +8272,9 @@ function One() {
             resetMessageInputState();
 
             messageInput.addEventListener('input', function () {
+                lastTypingChat = Date.now();
+                lastTypingSent = false;
+
                 messageInput.style.height = '1.2em';
 
                 const lineHeight = parseInt(getComputedStyle(messageInput).lineHeight);
@@ -7643,6 +8438,8 @@ function One() {
         function renderAttachmentsPreview() {
             const attachmentBox = container.querySelector('#DLP_Attachment_Preview_Parent');
             const attachmentBoxDrop = attachmentBox.querySelector('.DLP_Attachment_Box_Drop_1');
+            const previewWasVisible = attachmentBox.style.display !== 'none';
+            const wasAtBottom = Math.abs(chatBox.scrollHeight - (chatBox.scrollTop + chatBox.clientHeight)) < 5;
 
             const currentIds = new Set(allAttachments[currentChatId]?.map(a => a.id));
 
@@ -7748,17 +8545,19 @@ function One() {
             if ((allAttachments[currentChatId]?.length ?? 0) === 0 && attachmentDropBoxExpanded) {
                 attachmentBox.style.display = 'none';
                 attachmentDropBoxExpanded = false;
-                chatBox.scrollTop = chatBox.scrollHeight;
                 //const nav = document.querySelector('#DLP_Main_Navigation_Box_5_ID .DLP_Col.DLP_Fill_Col.DLP_Fill_Row.DLP_Gap_8');
                 //nav.style.paddingBottom = `${parseFloat(getComputedStyle(nav).paddingBottom) - 104}px`;
             } else if (allAttachments[currentChatId]?.length > 0 && !attachmentDropBoxExpanded) {
                 attachmentBox.style.display = '';
                 attachmentDropBoxExpanded = true;
-                chatBox.scrollTop = chatBox.scrollHeight;
                 //const nav = document.querySelector('#DLP_Main_Navigation_Box_5_ID .DLP_Col.DLP_Fill_Col.DLP_Fill_Row.DLP_Gap_8');
                 //nav.style.paddingBottom = `${parseFloat(getComputedStyle(nav).paddingBottom) + 104}px`;
                 //void container.offsetHeight;
                 //document.querySelector('#DLP_Main_Navigation_Box_5_ID').scrollTop += 104;
+            }
+            const previewIsVisible = attachmentBox.style.display !== 'none';
+            if (wasAtBottom && previewWasVisible !== previewIsVisible) {
+                scrollChatToBottom(chatBox, true);
             }
 
             // Disable input if there are too many files
@@ -7792,6 +8591,7 @@ function One() {
                     saveStorageLocal();
 
                     chatBox.innerHTML = '';
+                    ensureChatSpacer(chatBox);
 
                     container.querySelector('#DLP_Inset_Group_1').style.display = "";
                     container.querySelector('#DLP_Inset_Group_2').style.display = "none";
@@ -8042,6 +8842,25 @@ function One() {
                 } else {
                     location.reload();
                 }
+            } else if (type === 'time') {
+                (((storageLocal.stats ??= {}).legacy ??= {})[status] ??= { lessons: 0 }).lessons++;
+                saveStorageLocal();
+                amount = status ? storageSession.legacy[status]?.amount : null;
+                if (amount > 0) {
+                    if (practiceAgain !== null) {
+                        practiceAgain.click();
+                        return;
+                    } else {
+                        location.reload();
+                    }
+                } else {
+                    // Timer expired, stop the session
+                    storageSession.legacy[status].amount = 0;
+                    storageSession.legacy.status = false;
+                    saveStorageSession();
+                    window.location.href = "https://duolingo.com";
+                    return;
+                }
             }
         }
 
@@ -8100,7 +8919,8 @@ function One() {
                     handleChallenge(challengeType),
                     new Promise(resolve => setTimeout(resolve, 2000))
                 ]);
-                await new Promise(r => requestAnimationFrame(r));
+                // await new Promise(r => requestAnimationFrame(r));
+                await new Promise(r => setTimeout(r, 50));
             }
 
             let skipInsteadOfCheck = false;
@@ -8109,7 +8929,8 @@ function One() {
                     clickCheck(),
                     new Promise(resolve => setTimeout(resolve, 500))
                 ]);
-                await new Promise(r => requestAnimationFrame(r));
+                // await new Promise(r => requestAnimationFrame(r));
+                await new Promise(r => setTimeout(r, 50));
             } else if (check && (playerFooter1 && !playerFooter1.matches('._3rB4d._1VTif._2HXQ9')) || ((!playerFooter1 && document.querySelector('._2i9lj')) && !document.querySelector('[data-test="stories-player-continue"]').disabled)) { // id="session/PlayerFooter" - NOT Neutral
                 skipInsteadOfCheck = true;
             }
@@ -8149,7 +8970,8 @@ function One() {
                 } else if (String(nextButtonAriaValue) === 'false' && (nextButton.classList.length === 7 && nextButton.matches('._1rcV8._1VYyp._1ursp._7jW2t._3DbUj._38g3s._2oGJR'))) { // Case: Button is Enabled (Click "Check")
                     nextButton.click();
 
-                    await new Promise(r => requestAnimationFrame(r)); // Wait one tick for the UI to update with success/fail classes
+                    // await new Promise(r => requestAnimationFrame(r)); // Wait one tick for the UI to update with success/fail classes
+                    await new Promise(r => setTimeout(r, 50));
 
                     if (nextButton && nextButton.classList.contains('_2oGJR')) { // Green / Correct
                         logOnce(1, window.sol, document.querySelector('.RMEuZ._1GVfY'));
