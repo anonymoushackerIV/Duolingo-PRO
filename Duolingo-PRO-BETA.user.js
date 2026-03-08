@@ -1,8 +1,8 @@
 // ==UserScript==
 // @name         Duolingo PRO
 // @namespace    http://duolingopro.net
-// @version      3.1BETA.04.2
-// @description  The fastest Duolingo XP farmer, now with gems and free Duolingo Max, working as of February 2026.
+// @version      3.1BETA.04.3
+// @description  The fastest Duolingo XP farmer, now with Gems and Free Duolingo Max, working as of March 2026.
 // @author       anonymousHackerIV
 // @match        *://*.duolingo.com/*
 // @match        *://*.duolingo.cn/*
@@ -10,12 +10,12 @@
 // @grant        GM_log
 // ==/UserScript==
 
-const VERSION_NUMBER = "07";
-const STORAGE_LOCAL_VERSION = "07";
-const STORAGE_SESSION_VERSION = "07";
-const VERSION_NAME = "BETA.04.2";
-const VERSION_FULL = "3.1BETA.04.2";
-const VERSION_FORMAL = "3.1 BETA.04.2";
+const VERSION_NUMBER = "08";
+const STORAGE_LOCAL_VERSION = "08";
+const STORAGE_SESSION_VERSION = "08";
+const VERSION_NAME = "BETA.04.3";
+const VERSION_FULL = "3.1BETA.04.3";
+const VERSION_FORMAL = "3.1 BETA.04.3";
 let serverURL = "https://www.duolingopro.net";
 let apiURL = "https://api.duolingopro.net";
 let greasyfork = true;
@@ -34,6 +34,9 @@ let solvingLoopRunning = false;
 let isAutoMode = false;
 let findReactMainElementClass = '_3yE3H';
 let reactTraverseUp = 1;
+
+const region = new Intl.Locale(navigator.language).maximize().region;
+const measurementSystem = ["US", "LR", "MM"].includes(region) ? "ussystem" : "metric";
 
 const debug = false;
 const flag01 = false;
@@ -341,7 +344,7 @@ function Two() {
                             <p class="DLP_Text_Style_1 DLP_NoSelect DLP_Inset_Icon_1_ID" style="color: rgb(var(--color-eel)); animation: 4s ease-in-out 0s infinite normal none running DLP_Rotate_360_Animation_1;">􀓞</p>
                             <p class="DLP_Text_Style_1 DLP_NoSelect DLP_Inset_Text_1_ID" style="color: rgb(var(--color-eel));">${systemText[systemLanguage][3]}</p>
                         </div>
-                        <div class="DLP_Button_Style_1 DLP_Magnetic_Hover_1" id="DLP_Main_Donate_Button_1_ID" style="outline: 2px solid rgba(0, 0, 0, 0.20); outline-offset: -2px; background: url(${serverURL}/static/images/flow/primary/512/light.png) lightgray 50% / cover no-repeat; padding: 10px 0px 10px 10px;">
+                        <div class="DLP_Button_Style_1 DLP_Magnetic_Hover_1" id="DLP_Main_Donate_Button_1_ID" style="outline: 2px solid rgba(0, 0, 0, 0.20); outline-offset: -2px; background: url(${serverURL}/static/images/flow/primary/256/light.png) lightgray 50% / cover no-repeat; padding: 10px 0px 10px 10px;">
                             <svg width="17" height="19" viewBox="0 0 17 19" fill="#FFF" xmlns="http://www.w3.org/2000/svg">
                                 <path d="M16.5 5.90755C16.4968 3.60922 14.6997 1.72555 12.5913 1.04588C9.97298 0.201877 6.51973 0.324211 4.01956 1.49921C0.989301 2.92355 0.0373889 6.04355 0.00191597 9.15522C-0.0271986 11.7136 0.229143 18.4517 4.04482 18.4997C6.87998 18.5356 7.30214 14.8967 8.61397 13.1442C9.5473 11.8974 10.749 11.5452 12.2284 11.1806C14.7709 10.5537 16.5037 8.55506 16.5 5.90755Z"/>
                             </svg>
@@ -359,7 +362,7 @@ function Two() {
                         </div>
                     </div>
                     <div class="DLP_HStack_8">
-                        <div class="DLP_Button_Style_1 DLP_Magnetic_Hover_1" id="DLP_Secondary_Earn_Button_1_ID" style="outline: 2px solid rgba(0, 0, 0, 0.20); outline-offset: -2px; background: url(${serverURL}/static/images/flow/secondary/512/light.png) lightgray 50% / cover no-repeat; padding: 10px 0px 10px 10px;">
+                        <div class="DLP_Button_Style_1 DLP_Magnetic_Hover_1" id="DLP_Secondary_Earn_Button_1_ID" style="outline: 2px solid rgba(0, 0, 0, 0.20); outline-offset: -2px; background: url(${serverURL}/static/images/flow/secondary/256/light.png) lightgray 50% / cover no-repeat; padding: 10px 0px 10px 10px;">
                             <p class="DLP_Text_Style_1 DLP_NoSelect DLP_Inset_Icon_1_ID" style="color: #FFF;">􀋦</p>
                             <p class="DLP_Text_Style_1 DLP_NoSelect DLP_Inset_Text_1_ID" style="color: #FFF;">Boost</p>
                         </div>
@@ -383,9 +386,9 @@ function Two() {
                 <div class="DLP_HStack_Auto_Top">
                     <div class="DLP_HStack_4">
                         <p class="DLP_Text_Style_2 DLP_NoSelect">Duolingo</p>
-                        <p class="DLP_Text_Style_2 DLP_NoSelect" style="background: url(${serverURL}/static/images/flow/primary/512/light.png) lightgray 50% / cover no-repeat; background-clip: text; -webkit-background-clip: text; -webkit-text-fill-color: transparent;">PRO 3.1</p>
+                        <p class="DLP_Text_Style_2 DLP_NoSelect" style="background: url(${serverURL}/static/images/flow/primary/256/light.png) lightgray 50% / cover no-repeat; background-clip: text; -webkit-background-clip: text; -webkit-text-fill-color: transparent;">PRO 3.1</p>
                     </div>
-                    <p class="DLP_Text_Style_1 DLP_NoSelect" style="margin-top: 2px; font-size: 14px; background: url(${serverURL}/static/images/flow/secondary/512/light.png) lightgray 50% / cover no-repeat; background-clip: text; -webkit-background-clip: text; -webkit-text-fill-color: transparent;">${VERSION_NAME}</p>
+                    <p class="DLP_Text_Style_1 DLP_NoSelect" style="margin-top: 2px; font-size: 14px; background: url(${serverURL}/static/images/flow/secondary/256/light.png) lightgray 50% / cover no-repeat; background-clip: text; -webkit-background-clip: text; -webkit-text-fill-color: transparent;">${VERSION_NAME}</p>
                 </div>
                 <p id="DLP_Main_Warning_1_ID" class="DLP_Text_Style_1" style="transition: 0.4s cubic-bezier(0.25, 0.46, 0.45, 0.94); text-align: center; opacity: 0.5; display: none;"></p>
                 <div class="DLP_VStack_8" id="DLP_Main_Inputs_1_Divider_1_ID" style="opacity: 0.5; pointer-events: none; transition: 0.4s cubic-bezier(0.25, 0.46, 0.45, 0.94);">
@@ -531,9 +534,9 @@ function Two() {
                     <div class="DLP_HStack_4 DLP_Hover_1" id="DLP_Universal_Back_1_Button_1_ID">
                         <p class="DLP_Text_Style_2 DLP_NoSelect" style="font-size: 20px;">􀯶</p>
                         <p class="DLP_Text_Style_2 DLP_NoSelect">Duolingo</p>
-                        <p class="DLP_Text_Style_2 DLP_NoSelect" style="background: url(${serverURL}/static/images/flow/primary/512/light.png) lightgray 50% / cover no-repeat; background-clip: text; -webkit-background-clip: text; -webkit-text-fill-color: transparent;">PRO 3.1</p>
+                        <p class="DLP_Text_Style_2 DLP_NoSelect" style="background: url(${serverURL}/static/images/flow/primary/256/light.png) lightgray 50% / cover no-repeat; background-clip: text; -webkit-background-clip: text; -webkit-text-fill-color: transparent;">PRO 3.1</p>
                     </div>
-                    <p class="DLP_Text_Style_1 DLP_NoSelect" style="font-size: 14px; background: url(${serverURL}/static/images/flow/secondary/512/light.png) lightgray 50% / cover no-repeat; background-clip: text; -webkit-background-clip: text; -webkit-text-fill-color: transparent;">${VERSION_NAME}</p>
+                    <p class="DLP_Text_Style_1 DLP_NoSelect" style="font-size: 14px; background: url(${serverURL}/static/images/flow/secondary/256/light.png) lightgray 50% / cover no-repeat; background-clip: text; -webkit-background-clip: text; -webkit-text-fill-color: transparent;">${VERSION_NAME}</p>
                 </div>
                 <div id="DLP_Main_Inputs_1_Divider_1_ID" style="display: grid; grid-template-columns: repeat(2, 1fr); gap: 8px;">
                     <div class="DLP_VStack_8" id="DLP_Get_XP_2_ID" style="flex: 1 0 0;">
@@ -698,7 +701,7 @@ function Two() {
                             <p class="DLP_Text_Style_1 DLP_Inset_Icon_1_ID" style="color: rgb(var(--DLP-blue)); animation: 4s ease-in-out 0s infinite normal none running DLP_Rotate_360_Animation_1;">􀓞</p>
                             <p class="DLP_Text_Style_1 DLP_Inset_Text_1_ID" style="color: #000; transition: 0.4s;">${systemText[systemLanguage][3]}</p>
                         </div>
-                        <div class="DLP_Button_Style_1 DLP_Magnetic_Hover_1" id="DLP_Secondary_Donate_Button_1_ID" style="outline: 2px solid rgba(0, 0, 0, 0.20); outline-offset: -2px; background: url(${serverURL}/static/images/flow/primary/512/light.png) lightgray 50% / cover no-repeat; padding: 10px 0px 10px 10px;">
+                        <div class="DLP_Button_Style_1 DLP_Magnetic_Hover_1" id="DLP_Secondary_Donate_Button_1_ID" style="outline: 2px solid rgba(0, 0, 0, 0.20); outline-offset: -2px; background: url(${serverURL}/static/images/flow/primary/256/light.png) lightgray 50% / cover no-repeat; padding: 10px 0px 10px 10px;">
                             <svg width="17" height="19" viewBox="0 0 17 19" fill="#FFF" xmlns="http://www.w3.org/2000/svg">
                                 <path d="M16.5 5.90755C16.4968 3.60922 14.6997 1.72555 12.5913 1.04588C9.97298 0.201877 6.51973 0.324211 4.01956 1.49921C0.989301 2.92355 0.0373889 6.04355 0.00191597 9.15522C-0.0271986 11.7136 0.229143 18.4517 4.04482 18.4997C6.87998 18.5356 7.30214 14.8967 8.61397 13.1442C9.5473 11.8974 10.749 11.5452 12.2284 11.1806C14.7709 10.5537 16.5037 8.55506 16.5 5.90755Z"/>
                             </svg>
@@ -716,7 +719,7 @@ function Two() {
                         </div>
                     </div>
                     <div class="DLP_HStack_8">
-                        <div class="DLP_Button_Style_1 DLP_Magnetic_Hover_1" id="DLP_Main_Earn_Button_1_ID" style="outline: 2px solid rgba(0, 0, 0, 0.20); outline-offset: -2px; background: url(${serverURL}/static/images/flow/secondary/512/light.png) lightgray 50% / cover no-repeat; padding: 10px 0px 10px 10px;">
+                        <div class="DLP_Button_Style_1 DLP_Magnetic_Hover_1" id="DLP_Main_Earn_Button_1_ID" style="outline: 2px solid rgba(0, 0, 0, 0.20); outline-offset: -2px; background: url(${serverURL}/static/images/flow/secondary/256/light.png) lightgray 50% / cover no-repeat; padding: 10px 0px 10px 10px;">
                             <p class="DLP_Text_Style_1 DLP_NoSelect DLP_Inset_Icon_1_ID" style="color: #FFF;">􀋦</p>
                             <p class="DLP_Text_Style_1 DLP_NoSelect DLP_Inset_Text_1_ID" style="color: #FFF;">Boost</p>
                         </div>
@@ -740,9 +743,9 @@ function Two() {
                 <div class="DLP_HStack_Auto_Top">
                     <div class="DLP_HStack_4">
                         <p class="DLP_Text_Style_2 DLP_NoSelect">Duolingo</p>
-                        <p class="DLP_Text_Style_2 DLP_NoSelect" style="background: url(${serverURL}/static/images/flow/primary/512/light.png) lightgray 50% / cover no-repeat; background-clip: text; -webkit-background-clip: text; -webkit-text-fill-color: transparent;">PRO LE</p>
+                        <p class="DLP_Text_Style_2 DLP_NoSelect" style="background: url(${serverURL}/static/images/flow/primary/256/light.png) lightgray 50% / cover no-repeat; background-clip: text; -webkit-background-clip: text; -webkit-text-fill-color: transparent;">PRO LE</p>
                     </div>
-                    <p class="DLP_Text_Style_1 DLP_NoSelect" style="font-size: 14px; background: url(${serverURL}/static/images/flow/secondary/512/light.png) lightgray 50% / cover no-repeat; background-clip: text; -webkit-background-clip: text; -webkit-text-fill-color: transparent;">${VERSION_NAME}</p>
+                    <p class="DLP_Text_Style_1 DLP_NoSelect" style="font-size: 14px; background: url(${serverURL}/static/images/flow/secondary/256/light.png) lightgray 50% / cover no-repeat; background-clip: text; -webkit-background-clip: text; -webkit-text-fill-color: transparent;">${VERSION_NAME}</p>
                 </div>
                 <p class="DLP_Text_Style_1" style="display: none; transition: 0.4s cubic-bezier(0.25, 0.46, 0.45, 0.94); opacity: 0; filter: blur(4px);">You are using an outdated version of Duolingo PRO. <br><br>Please update Duolingo PRO or turn on automatic updates. </p>
                 <p class="DLP_Text_Style_1" style="display: none; transition: 0.4s cubic-bezier(0.25, 0.46, 0.45, 0.94); opacity: 0; filter: blur(4px);">Duolingo PRO failed to connect. This might be happening because of an issue on our system or your device. <br><br>Try updating Duolingo PRO. If the issue persists afterwards, join our Discord Server to get support. </p>
@@ -842,9 +845,9 @@ function Two() {
                     <div class="DLP_HStack_4 DLP_Hover_1" id="DLP_Universal_Back_1_Button_1_ID">
                         <p class="DLP_Text_Style_2 DLP_NoSelect" style="font-size: 20px;">􀯶</p>
                         <p class="DLP_Text_Style_2 DLP_NoSelect">Duolingo</p>
-                        <p class="DLP_Text_Style_2 DLP_NoSelect" style="background: url(${serverURL}/static/images/flow/primary/512/light.png) lightgray 50% / cover no-repeat; background-clip: text; -webkit-background-clip: text; -webkit-text-fill-color: transparent;">PRO LE</p>
+                        <p class="DLP_Text_Style_2 DLP_NoSelect" style="background: url(${serverURL}/static/images/flow/primary/256/light.png) lightgray 50% / cover no-repeat; background-clip: text; -webkit-background-clip: text; -webkit-text-fill-color: transparent;">PRO LE</p>
                     </div>
-                    <p class="DLP_Text_Style_1 DLP_NoSelect" style="font-size: 14px; background: url(${serverURL}/static/images/flow/secondary/512/light.png) lightgray 50% / cover no-repeat; background-clip: text; -webkit-background-clip: text; -webkit-text-fill-color: transparent;">${VERSION_NAME}</p>
+                    <p class="DLP_Text_Style_1 DLP_NoSelect" style="font-size: 14px; background: url(${serverURL}/static/images/flow/secondary/256/light.png) lightgray 50% / cover no-repeat; background-clip: text; -webkit-background-clip: text; -webkit-text-fill-color: transparent;">${VERSION_NAME}</p>
                 </div>
                 <div class="DLP_VStack_8" id="DLP_Main_Inputs_1_Divider_1_ID">
                     <div class="DLP_VStack_8" id="DLP_Get_PATH_2_ID">
@@ -939,9 +942,9 @@ function Two() {
                 <div class="DLP_HStack_Auto_Top">
                     <div class="DLP_HStack_4">
                         <p class="DLP_Text_Style_2 DLP_NoSelect">Duolingo</p>
-                        <p class="DLP_Text_Style_2 DLP_NoSelect" style="background: url(${serverURL}/static/images/flow/primary/512/light.png) lightgray 50% / cover no-repeat; background-clip: text; -webkit-background-clip: text; -webkit-text-fill-color: transparent;">PRO 3.1</p>
+                        <p class="DLP_Text_Style_2 DLP_NoSelect" style="background: url(${serverURL}/static/images/flow/primary/256/light.png) lightgray 50% / cover no-repeat; background-clip: text; -webkit-background-clip: text; -webkit-text-fill-color: transparent;">PRO 3.1</p>
                     </div>
-                    <p class="DLP_Text_Style_1 DLP_NoSelect" style="font-size: 14px; background: url(${serverURL}/static/images/flow/secondary/512/light.png) lightgray 50% / cover no-repeat; background-clip: text; -webkit-background-clip: text; -webkit-text-fill-color: transparent;">${VERSION_NAME}</p>
+                    <p class="DLP_Text_Style_1 DLP_NoSelect" style="font-size: 14px; background: url(${serverURL}/static/images/flow/secondary/256/light.png) lightgray 50% / cover no-repeat; background-clip: text; -webkit-background-clip: text; -webkit-text-fill-color: transparent;">${VERSION_NAME}</p>
                 </div>
                 <p class="DLP_Text_Style_1 DLP_NoSelect" id="DLP_Terms_1_Text_1_ID">${systemText[systemLanguage][25]}</p>
                 <p class="DLP_Text_Style_1 DLP_NoSelect" id="DLP_Terms_1_Text_2_ID" style="display: none; align-self: stretch;">${systemText[systemLanguage][26]}</p>
@@ -973,9 +976,9 @@ function Two() {
                 <div class="DLP_HStack_Auto_Top">
                     <div class="DLP_HStack_4">
                         <p class="DLP_Text_Style_2 DLP_NoSelect">Duolingo</p>
-                        <p class="DLP_Text_Style_2 DLP_NoSelect" style="background: url(${serverURL}/static/images/flow/primary/512/light.png) lightgray 50% / cover no-repeat; background-clip: text; -webkit-background-clip: text; -webkit-text-fill-color: transparent;">PRO 3.1</p>
+                        <p class="DLP_Text_Style_2 DLP_NoSelect" style="background: url(${serverURL}/static/images/flow/primary/256/light.png) lightgray 50% / cover no-repeat; background-clip: text; -webkit-background-clip: text; -webkit-text-fill-color: transparent;">PRO 3.1</p>
                     </div>
-                    <p class="DLP_Text_Style_1 DLP_NoSelect" style="font-size: 14px; background: url(${serverURL}/static/images/flow/secondary/512/light.png) lightgray 50% / cover no-repeat; background-clip: text; -webkit-background-clip: text; -webkit-text-fill-color: transparent;">${VERSION_NAME}</p>
+                    <p class="DLP_Text_Style_1 DLP_NoSelect" style="font-size: 14px; background: url(${serverURL}/static/images/flow/secondary/256/light.png) lightgray 50% / cover no-repeat; background-clip: text; -webkit-background-clip: text; -webkit-text-fill-color: transparent;">${VERSION_NAME}</p>
                 </div>
                 <p class="DLP_Text_Style_1 DLP_NoSelect">${systemText[systemLanguage][30]}</p>
                 <div class="DLP_HStack_8">
@@ -991,11 +994,11 @@ function Two() {
         <div class="DLP_Main_Box_Divider" id="DLP_Main_Box_Divider_7_ID" style="display: none;">
             <div class="DLP_VStack_8" style="max-height: 80vh;">
                 <div class="DLP_HStack_Auto_Top">
-                    <div id="DLP_Universal_Back_1_Button_1_ID" class="DLP_HStack_4 DLP_Hover_1" style="background: url(${serverURL}/static/images/flow/primary/512/light.png) center / cover no-repeat; -webkit-background-clip: text; background-clip: text; color: transparent;">
+                    <div id="DLP_Universal_Back_1_Button_1_ID" class="DLP_HStack_4 DLP_Hover_1" style="background: url(${serverURL}/static/images/flow/primary/256/light.png) center / cover no-repeat; -webkit-background-clip: text; background-clip: text; color: transparent;">
                         <p class="DLP_Text_Style_2 DLP_NoSelect" style="font-size: 20px; color: inherit;">􀯶</p>
                         <p class="DLP_Text_Style_2 DLP_NoSelect" style="color: inherit;">${systemText[systemLanguage][32]}</p>
                     </div>
-                    <p class="DLP_Text_Style_1 DLP_NoSelect" style="font-size: 14px; background: url(${serverURL}/static/images/flow/secondary/512/light.png) lightgray 50% / cover no-repeat; background-clip: text; -webkit-background-clip: text; -webkit-text-fill-color: transparent;">${VERSION_NAME}</p>
+                    <p class="DLP_Text_Style_1 DLP_NoSelect" style="font-size: 14px; background: url(${serverURL}/static/images/flow/secondary/256/light.png) lightgray 50% / cover no-repeat; background-clip: text; -webkit-background-clip: text; -webkit-text-fill-color: transparent;">${VERSION_NAME}</p>
                 </div>
                 <div style="overflow-y: auto; margin: 0 -16px; padding: 0 16px;">
                     <div class="DLP_VStack_8">
@@ -1144,11 +1147,11 @@ function Two() {
         <div clas="DLP_Main_Box_Divider" id="DLP_Main_Box_Divider_8_ID" style="display: none;">
             <div class="DLP_VStack_8">
                 <div class="DLP_HStack_Auto_Top">
-                    <div id="DLP_Universal_Back_1_Button_1_ID" class="DLP_HStack_4 DLP_Hover_1" style="background: url(${serverURL}/static/images/flow/primary/512/light.png) center / cover no-repeat; -webkit-background-clip: text; background-clip: text; color: transparent;">
+                    <div id="DLP_Universal_Back_1_Button_1_ID" class="DLP_HStack_4 DLP_Hover_1" style="background: url(${serverURL}/static/images/flow/primary/256/light.png) center / cover no-repeat; -webkit-background-clip: text; background-clip: text; color: transparent;">
                         <p class="DLP_Text_Style_2 DLP_NoSelect" style="font-size: 20px; color: inherit;">􀯶</p>
                         <p class="DLP_Text_Style_2 DLP_NoSelect" style="color: inherit;">${systemText[systemLanguage][38]}</p>
                     </div>
-                    <p class="DLP_Text_Style_1 DLP_NoSelect" style="font-size: 14px; background: url(${serverURL}/static/images/flow/secondary/512/light.png) lightgray 50% / cover no-repeat; background-clip: text; -webkit-background-clip: text; -webkit-text-fill-color: transparent;">${VERSION_NAME}</p>
+                    <p class="DLP_Text_Style_1 DLP_NoSelect" style="font-size: 14px; background: url(${serverURL}/static/images/flow/secondary/256/light.png) lightgray 50% / cover no-repeat; background-clip: text; -webkit-background-clip: text; -webkit-text-fill-color: transparent;">${VERSION_NAME}</p>
                 </div>
                 <div class="DLP_VStack_4" style="padding: 16px; border-radius: 8px; outline: 2px solid rgba(var(--DLP-blue), 0.20); outline-offset: -2px; background: rgba(var(--DLP-blue), 0.10); box-sizing: border-box;">
                     <div class="DLP_HStack_4">
@@ -1191,12 +1194,12 @@ function Two() {
         <div class="DLP_Main_Box_Divider" id="DLP_Main_Box_Divider_9_ID" style="display: none;">
             <div class="DLP_VStack_8">
                 <div class="DLP_HStack_Auto_Top">
-                    <p class="DLP_Text_Style_2 DLP_NoSelect" style="background: url(${serverURL}/static/images/flow/primary/512/light.png) lightgray 50% / cover no-repeat; background-clip: text; -webkit-background-clip: text; -webkit-text-fill-color: transparent; display: none;">${systemText[systemLanguage][48]}</p>
-                    <div id="DLP_Universal_Back_1_Button_1_ID" class="DLP_HStack_4 DLP_Hover_1" style="background: url(${serverURL}/static/images/flow/primary/512/light.png) center / cover no-repeat; -webkit-background-clip: text; background-clip: text; color: transparent;">
+                    <p class="DLP_Text_Style_2 DLP_NoSelect" style="background: url(${serverURL}/static/images/flow/primary/256/light.png) lightgray 50% / cover no-repeat; background-clip: text; -webkit-background-clip: text; -webkit-text-fill-color: transparent; display: none;">${systemText[systemLanguage][48]}</p>
+                    <div id="DLP_Universal_Back_1_Button_1_ID" class="DLP_HStack_4 DLP_Hover_1" style="background: url(${serverURL}/static/images/flow/primary/256/light.png) center / cover no-repeat; -webkit-background-clip: text; background-clip: text; color: transparent;">
                         <p class="DLP_Text_Style_2 DLP_NoSelect" style="font-size: 20px; color: inherit;">􀯶</p>
                         <p class="DLP_Text_Style_2 DLP_NoSelect" style="color: inherit;">${systemText[systemLanguage][48]}</p>
                     </div>
-                    <p class="DLP_Text_Style_1 DLP_NoSelect" style="font-size: 14px; background: url(${serverURL}/static/images/flow/secondary/512/light.png) lightgray 50% / cover no-repeat; background-clip: text; -webkit-background-clip: text; -webkit-text-fill-color: transparent;">${VERSION_NAME}</p>
+                    <p class="DLP_Text_Style_1 DLP_NoSelect" style="font-size: 14px; background: url(${serverURL}/static/images/flow/secondary/256/light.png) lightgray 50% / cover no-repeat; background-clip: text; -webkit-background-clip: text; -webkit-text-fill-color: transparent;">${VERSION_NAME}</p>
                 </div>
                 <div class="DLP_VStack_8" id="DLP_Release_Notes_List_1_ID" style="height: 256px;"></div>
                 <div class="DLP_HStack_8" id="DLP_Release_Notes_Controls_1_ID">
@@ -1220,10 +1223,10 @@ function Two() {
             <div class="DLP_VStack_8">
                 <div class="DLP_VStack_8" style="padding: 8px 0; max-width: 312px; align-self: center;">
                     <div class="DLP_VStack_0">
-                        <p class="DLP_Text_Style_1 DLP_NoSelect" style="font-size: 14px; background: url(${serverURL}/static/images/flow/secondary/512/light.png) lightgray 50% / cover no-repeat; background-clip: text; -webkit-background-clip: text; -webkit-text-fill-color: transparent;">${systemText[systemLanguage][52]}</p>
+                        <p class="DLP_Text_Style_1 DLP_NoSelect" style="font-size: 14px; background: url(${serverURL}/static/images/flow/secondary/256/light.png) lightgray 50% / cover no-repeat; background-clip: text; -webkit-background-clip: text; -webkit-text-fill-color: transparent;">${systemText[systemLanguage][52]}</p>
                         <div class="DLP_HStack_4" style="align-self: auto;">
                             <p class="DLP_Text_Style_2 DLP_NoSelect">Duolingo</p>
-                            <p class="DLP_Text_Style_2 DLP_NoSelect" style="background: url(${serverURL}/static/images/flow/primary/512/light.png) lightgray 50% / cover no-repeat; background-clip: text; -webkit-background-clip: text; -webkit-text-fill-color: transparent;">PRO 3.1</p>
+                            <p class="DLP_Text_Style_2 DLP_NoSelect" style="background: url(${serverURL}/static/images/flow/primary/256/light.png) lightgray 50% / cover no-repeat; background-clip: text; -webkit-background-clip: text; -webkit-text-fill-color: transparent;">PRO 3.1</p>
                         </div>
                     </div>
                     <p class="DLP_Text_Style_1" style="align-self: stretch; text-align: center;">${systemText[systemLanguage][53]}</p>
@@ -1242,11 +1245,11 @@ function Two() {
         <div class="DLP_Main_Box_Divider" id="DLP_Main_Box_Divider_11_ID" style="display: none;">
             <div class="DLP_VStack_8" style="height: 640px; max-height: 80vh;">
                 <div class="DLP_HStack_Auto_Top">
-                    <div id="DLP_Universal_Back_1_Button_1_ID" class="DLP_HStack_4 DLP_Hover_1" style="background: url(${serverURL}/static/images/flow/primary/512/light.png) center / cover no-repeat; -webkit-background-clip: text; background-clip: text; color: transparent;">
+                    <div id="DLP_Universal_Back_1_Button_1_ID" class="DLP_HStack_4 DLP_Hover_1" style="background: url(${serverURL}/static/images/flow/primary/256/light.png) center / cover no-repeat; -webkit-background-clip: text; background-clip: text; color: transparent;">
                         <p class="DLP_Text_Style_2 DLP_NoSelect" style="font-size: 20px; color: inherit;">􀯶</p>
                         <p class="DLP_Text_Style_2 DLP_NoSelect" style="color: inherit;">Support</p>
                     </div>
-                    <p class="DLP_Text_Style_1 DLP_NoSelect" style="font-size: 14px; background: url(${serverURL}/static/images/flow/secondary/512/light.png) lightgray 50% / cover no-repeat; background-clip: text; -webkit-background-clip: text; -webkit-text-fill-color: transparent;">${VERSION_NAME}</p>
+                    <p class="DLP_Text_Style_1 DLP_NoSelect" style="font-size: 14px; background: url(${serverURL}/static/images/flow/secondary/256/light.png) lightgray 50% / cover no-repeat; background-clip: text; -webkit-background-clip: text; -webkit-text-fill-color: transparent;">${VERSION_NAME}</p>
                 </div>
 
                 <div class="DLP_VStack_8" style="height: 100%;">
@@ -1265,7 +1268,7 @@ function Two() {
                     </div>
 
                     <div class="DLP_VStack_8" id="DLP_Inset_Group_5" style="padding: 0px 32px; flex: 1 0 0;">
-                        <p class="DLP_Text_Style_1 DLP_NoSelect" style="background: url(${serverURL}/static/images/flow/primary/512/light.png) lightgray 50% / cover no-repeat; background-clip: text; -webkit-background-clip: text; -webkit-text-fill-color: transparent; font-size: 24px;">􀘲</p>
+                        <p class="DLP_Text_Style_1 DLP_NoSelect" style="background: url(${serverURL}/static/images/flow/primary/256/light.png) lightgray 50% / cover no-repeat; background-clip: text; -webkit-background-clip: text; -webkit-text-fill-color: transparent; font-size: 24px;">􀘲</p>
                         <p class="DLP_Text_Style_1 DLP_NoSelect" style="align-self: stretch; text-align: center;">Send a message to start talking with a support member.</p>
                     </div>
 
@@ -1286,7 +1289,7 @@ function Two() {
 
                     <div class="DLP_VStack_8" id="DLP_Inset_Group_1">
                         <div id="DLP_Attachment_Preview_Parent" class="DLP_Row DLP_Left DLP_Gap_8" style="width: 100%; overflow-y: scroll; display: none;">
-                            <div class="DLP_Attachment_Box_Drop_1 DLP_Fill_Col" style="height: 96px; display: none;">
+                            <div class="DLP_Attachment_Box_Drop_1 DLP_Fill_Col" style="height: 128px; display: none;">
                                 <div class="DLP_Row DLP_Gap_6" style="opacity: 0.5;">
                                     <p class="DLP_Text_Style_1 DLP_NoSelect" style="color: rgb(var(--DLP-blue));">􀉂</p>
                                     <p class="DLP_Text_Style_1 DLP_NoSelect" style="color: rgb(var(--DLP-blue));">Drop here to attach</p>
@@ -1315,8 +1318,8 @@ function Two() {
         <div class="DLP_Main_Box_Divider" id="DLP_Main_Box_Divider_12_ID" style="display: none;">
             <div class="DLP_VStack_8">
                 <div class="DLP_HStack_Auto_Top">
-                    <p class="DLP_Text_Style_2 DLP_NoSelect" style="background: url(${serverURL}/static/images/flow/primary/512/light.png) lightgray 50% / cover no-repeat; background-clip: text; -webkit-background-clip: text; -webkit-text-fill-color: transparent;">${systemText[systemLanguage][32]}</p>
-                    <p class="DLP_Text_Style_1 DLP_NoSelect" style="font-size: 14px; background: url(${serverURL}/static/images/flow/secondary/512/light.png) lightgray 50% / cover no-repeat; background-clip: text; -webkit-background-clip: text; -webkit-text-fill-color: transparent;">${VERSION_NAME}</p>
+                    <p class="DLP_Text_Style_2 DLP_NoSelect" style="background: url(${serverURL}/static/images/flow/primary/256/light.png) lightgray 50% / cover no-repeat; background-clip: text; -webkit-background-clip: text; -webkit-text-fill-color: transparent;">${systemText[systemLanguage][32]}</p>
+                    <p class="DLP_Text_Style_1 DLP_NoSelect" style="font-size: 14px; background: url(${serverURL}/static/images/flow/secondary/256/light.png) lightgray 50% / cover no-repeat; background-clip: text; -webkit-background-clip: text; -webkit-text-fill-color: transparent;">${VERSION_NAME}</p>
                 </div>
                 <div class="DLP_VStack_8" id="DLP_Onboarding_Setup_List_1_ID" style="height: 256px;">
                     <div id="setting-0" style="display: flex; flex-direction: column; justify-content: center; align-items: flex-start; gap: 8px; align-self: stretch; transition: filter 0.4s cubic-bezier(0.25, 0.46, 0.45, 0.94), opacity 0.4s cubic-bezier(0.25, 0.46, 0.45, 0.94);">
@@ -1334,7 +1337,7 @@ function Two() {
                     <div id="setting-1" style="display: none; flex-direction: column; justify-content: center; align-items: flex-start; gap: 8px; align-self: stretch; transition: filter 0.4s cubic-bezier(0.25, 0.46, 0.45, 0.94), opacity 0.4s cubic-bezier(0.25, 0.46, 0.45, 0.94);">
                         <div class="DLP_HStack_12">
                             <div style="display: flex; flex-direction: column; align-items: flex-start; gap: 8px; flex: 1 0 0;">
-                                <p class="DLP_Text_Style_2 DLP_NoSelect" style="font-size: 32px; background: url(${serverURL}/static/images/flow/primary/512/light.png) lightgray 0% / cover no-repeat; background-clip: text; -webkit-background-clip: text; -webkit-text-fill-color: transparent;">􀣉</p>
+                                <p class="DLP_Text_Style_2 DLP_NoSelect" style="font-size: 32px; background: url(${serverURL}/static/images/flow/primary/256/light.png) lightgray 0% / cover no-repeat; background-clip: text; -webkit-background-clip: text; -webkit-text-fill-color: transparent;">􀣉</p>
                                 <p class="DLP_Text_Style_2" style="align-self: stretch;">Help Improve Duolingo PRO</p>
                             </div>
                             <div id="DLP_Inset_Toggle_1_ID" class="DLP_Toggle_Style_1 DLP_Hover_1" style="${alpha ? 'opacity: 0.5; pointer-events: none; cursor: not-allowed;' : ''}">
@@ -1394,7 +1397,8 @@ function Two() {
 .DLP_Text_Style_1 strong,
 .DLP_Text_Style_1 em,
 .DLP_Text_Style_1 u,
-.DLP_Text_Style_1 s {
+.DLP_Text_Style_1 s,
+.DLP_Text_Style_1 span {
     font-family: inherit;
     font-size: inherit;
     line-height: inherit;
@@ -1413,6 +1417,7 @@ function Two() {
 .DLP_Text_Style_1 s {
     text-decoration: line-through;
 }
+.DLP_Text_Style_1 a,
 .DLP_Link_Style_1 {
     font-family: "Duolingo PRO Rounded";
     font-size: 16px;
@@ -1993,8 +1998,8 @@ svg {
     border-radius: 20px !important;
 }
 .DLP_Attachment_Box_1 {
-    width: 96px;
-    height: 96px;
+    width: 128px;
+    height: 128px;
     aspect-ratio: 1/1;
     object-fit: cover;
     overflow: hidden;
@@ -2744,67 +2749,70 @@ function One() {
     document.body.insertAdjacentHTML('beforeend', HTML2);
     document.head.appendChild(Object.assign(document.createElement('style'), { type: 'text/css', textContent: CSS2 }));
 
-    document.body.insertAdjacentHTML('beforeend', HTML5);
-    document.head.appendChild(Object.assign(document.createElement('style'), { type: 'text/css', textContent: CSS5 }));
+    if (storageLocal.settings.showAutoServerButton && alpha) {
+        document.body.insertAdjacentHTML('beforeend', HTML5);
+        document.head.appendChild(Object.assign(document.createElement('style'), { type: 'text/css', textContent: CSS5 }));
+    }
 
     let DPAutoServerButtonMainMenuElement = null;
     let DPAutoServerButtonMainMenuStyle = null;
 
     function DPAutoServerButtonMainMenuFunction() {
         try {
-            if (storageLocal.settings.showAutoServerButton && alpha) {
-                let targetElement = document.querySelector('._2uLXp');
-                if (!targetElement || document.querySelector('.DPAutoServerButtonMainMenu')) return;
+            let targetElement = document.querySelector('._2uLXp');
+            if (!targetElement || document.querySelector('.DPAutoServerButtonMainMenu')) return;
 
-                DPAutoServerButtonMainMenuStyle = document.createElement('style');
-                DPAutoServerButtonMainMenuStyle.type = 'text/css';
-                DPAutoServerButtonMainMenuStyle.innerHTML = CSS6;
-                document.head.appendChild(DPAutoServerButtonMainMenuStyle);
+            DPAutoServerButtonMainMenuStyle = document.createElement('style');
+            DPAutoServerButtonMainMenuStyle.type = 'text/css';
+            DPAutoServerButtonMainMenuStyle.innerHTML = CSS6;
+            document.head.appendChild(DPAutoServerButtonMainMenuStyle);
 
-                let targetDivLast = document.querySelector('[data-test="profile-tab"]');
+            let targetDivLast = document.querySelector('[data-test="profile-tab"]');
 
-                if (targetElement && targetDivLast) {
-                    targetElement.lastChild.insertAdjacentHTML('beforebegin', HTML6);
+            if (targetElement && targetDivLast) {
+                targetElement.lastChild.insertAdjacentHTML('beforebegin', HTML6);
 
-                    let otherTargetDiv = document.querySelector('.DPAutoServerButtonMainMenu');
-                    otherTargetDiv.addEventListener('click', () => {
-                        manageAutoServerWindowVisibility(true);
-                    });
+                let otherTargetDiv = document.querySelector('.DPAutoServerButtonMainMenu');
+                otherTargetDiv.addEventListener('click', () => {
+                    manageAutoServerWindowVisibility(true);
+                });
 
-                    let lastWidth = targetElement.offsetWidth;
-                    const resizeObserver = new ResizeObserver(entries => {
-                        for (let entry of entries) {
-                            if (entry.target.offsetWidth !== lastWidth) {
-                                otherTargetDiv.remove();
-                                DPAutoServerButtonMainMenuFunction();
-                                lastWidth = entry.target.offsetWidth;
-                            }
+                let lastWidth = targetElement.offsetWidth;
+                const resizeObserver = new ResizeObserver(entries => {
+                    for (let entry of entries) {
+                        if (entry.target.offsetWidth !== lastWidth) {
+                            otherTargetDiv.remove();
+                            DPAutoServerButtonMainMenuFunction();
+                            lastWidth = entry.target.offsetWidth;
                         }
-                    });
-                    resizeObserver.observe(targetElement);
-
-                    if (targetElement.offsetWidth < 100) {
-                        otherTargetDiv.classList.add('DPAutoServerButtonMainMenuMedium');
-                        document.querySelectorAll('.DPAutoServerElementsMenu').forEach(function (element) {
-                            element.remove();
-                        });
-                    } else {
-                        otherTargetDiv.classList.add('DPAutoServerButtonMainMenuLarge');
                     }
+                });
+                resizeObserver.observe(targetElement);
+
+                if (targetElement.offsetWidth < 100) {
+                    otherTargetDiv.classList.add('DPAutoServerButtonMainMenuMedium');
+                    document.querySelectorAll('.DPAutoServerElementsMenu').forEach(function (element) {
+                        element.remove();
+                    });
+                } else {
+                    otherTargetDiv.classList.add('DPAutoServerButtonMainMenuLarge');
                 }
             }
         } catch (error) { }
     }
-    setInterval(DPAutoServerButtonMainMenuFunction, 500);
+    if (storageLocal.settings.showAutoServerButton && alpha) {
+        setInterval(DPAutoServerButtonMainMenuFunction, 500);
 
-    document.querySelector('.DLP_AutoServer_Mother_Box').querySelector('#DLP_AutoServer_Close_Button_1_ID').addEventListener('click', () => {
-        manageAutoServerWindowVisibility(false);
-    });
-    document.querySelector('.DLP_AutoServer_Mother_Box').addEventListener('click', (event) => {
-        if (event.target === event.currentTarget) {
+        document.querySelector('.DLP_AutoServer_Mother_Box').querySelector('#DLP_AutoServer_Close_Button_1_ID').addEventListener('click', () => {
             manageAutoServerWindowVisibility(false);
-        }
-    });
+        });
+        document.querySelector('.DLP_AutoServer_Mother_Box').addEventListener('click', (event) => {
+            if (event.target === event.currentTarget) {
+                manageAutoServerWindowVisibility(false);
+            }
+        });
+    }
+
     function manageAutoServerWindowVisibility(state) {
         if (state) {
             document.querySelector('.DLP_AutoServer_Mother_Box').style.display = "";
@@ -4392,11 +4400,11 @@ function One() {
                 });
             }
 
-            // Input 1: numeric-only, no leading zero, max length 9
+            // Input 1: numeric-only, no leading zero, max length 10
             input1.addEventListener("input", function () {
                 this.value = this.value.replace(/[^0-9]/g, "");
                 if (this.value.length === 1 && this.value[0] === '0') this.value = this.value.slice(1);
-                if (this.value.length > 9) this.value = this.value.slice(0, 9);
+                if (this.value.length > 10) this.value = this.value.slice(0, 10);
                 updateButtonState();
             });
 
@@ -4405,7 +4413,7 @@ function One() {
                 input2.addEventListener("input", function () {
                     this.value = this.value.replace(/[^0-9]/g, "");
                     if (this.value.length === 1 && this.value[0] === '0') this.value = this.value.slice(1);
-                    if (this.value.length > 9) this.value = this.value.slice(0, 9);
+                    if (this.value.length > 10) this.value = this.value.slice(0, 10);
                     updateButtonState();
                 });
             }
@@ -4672,6 +4680,7 @@ function One() {
             message_id: message?.message_id ?? null,
             message: message?.message ?? '',
             profile_picture: message?.profile_picture ?? '',
+            profile_picture_deco: message?.profile_picture_deco ?? '',
             role: message?.role ?? '',
             send_time: message?.send_time ?? null,
             status: message?.status ?? '',
@@ -5347,6 +5356,278 @@ function One() {
             .replace(/'/g, '&#39;');
     }
 
+    function escapeChatAttribute(value) {
+        return escapeChatHtml(value ?? '');
+    }
+
+    function sanitizeChatUrl(rawUrl, { allowBlob = false } = {}) {
+        if (rawUrl === null || rawUrl === undefined) return '';
+        const trimmedUrl = String(rawUrl).trim();
+        if (!trimmedUrl) return '';
+
+        try {
+            const parsedUrl = new URL(trimmedUrl, window.location.origin);
+            const protocol = parsedUrl.protocol.toLowerCase();
+            if (protocol === 'http:' || protocol === 'https:' || (allowBlob && protocol === 'blob:')) {
+                return parsedUrl.href;
+            }
+        } catch (error) {}
+
+        return '';
+    }
+
+    function wireAnimatedAvatarDecoration(containerElement, decorationUrl) {
+        if (!(containerElement instanceof Element)) return;
+
+        const safeDecorationUrl = sanitizeChatUrl(decorationUrl, { allowBlob: true });
+        if (!/\/avatar-decoration-presets\/a_[^/?]+/i.test(safeDecorationUrl)) return;
+
+        const previewElement = containerElement.matches('[data-reply-preview="true"]')
+            ? containerElement
+            : containerElement.closest('[data-reply-preview="true"]');
+        const groupElement = containerElement.closest('[data-group-id]');
+        const hoverElement = previewElement || groupElement;
+        if (!(hoverElement instanceof Element)) return;
+
+        const avatarContainer = containerElement.querySelector('.DLP_HStack_6 div');
+        if (!(avatarContainer instanceof HTMLDivElement)) return;
+        avatarContainer.setAttribute('data-dlp-deco-src', safeDecorationUrl);
+
+        const animatedImage = avatarContainer.querySelector('img.DLP_NoSelect');
+        if (!(animatedImage instanceof HTMLImageElement)) return;
+
+        if (animatedImage.dataset.dlpAnimatedDecoBound === safeDecorationUrl) return;
+        animatedImage.dataset.dlpAnimatedDecoBound = safeDecorationUrl;
+
+        let loopDurationMs = 1000;
+        let animatedPlaybackUrl = safeDecorationUrl;
+        let isPlaying = false;
+        let playStartedAt = 0;
+        let pauseTimer = null;
+        let pauseTicket = 0;
+        let lastPausedDataUrl = '';
+
+        const clearPauseTimer = () => {
+            if (pauseTimer !== null) {
+                clearTimeout(pauseTimer);
+                pauseTimer = null;
+            }
+        };
+
+        const showAnimated = () => {
+            animatedImage.style.display = '';
+        };
+
+        const showPaused = () => {
+            if (!lastPausedDataUrl) return;
+            animatedImage.setAttribute('src', lastPausedDataUrl);
+            isPlaying = false;
+            playStartedAt = 0;
+        };
+
+        const snapshotCurrentFrame = () => {
+            try {
+                if (!animatedImage.naturalWidth || !animatedImage.naturalHeight) return false;
+                const canvas = document.createElement('canvas');
+                canvas.width = animatedImage.naturalWidth;
+                canvas.height = animatedImage.naturalHeight;
+                const ctx = canvas.getContext('2d');
+                if (!ctx) return false;
+                ctx.drawImage(animatedImage, 0, 0, canvas.width, canvas.height);
+                lastPausedDataUrl = canvas.toDataURL('image/png');
+                return true;
+            } catch (error) {
+                return false;
+            }
+        };
+
+        const durationPromise = (async () => {
+            try {
+                const response = await fetch(safeDecorationUrl, { cache: 'force-cache' });
+                if (!response.ok) return { duration: 1000, objectUrl: null };
+                const buffer = await response.arrayBuffer();
+                const bytes = new Uint8Array(buffer);
+                const view = new DataView(buffer);
+                const contentType = response.headers.get('content-type') || 'image/png';
+                const objectUrl = URL.createObjectURL(new Blob([buffer], { type: contentType }));
+
+                const isPng = bytes.length >= 8 &&
+                    bytes[0] === 137 && bytes[1] === 80 && bytes[2] === 78 && bytes[3] === 71 &&
+                    bytes[4] === 13 && bytes[5] === 10 && bytes[6] === 26 && bytes[7] === 10;
+
+                if (isPng) {
+                    let offset = 8;
+                    let totalMs = 0;
+                    let frames = 0;
+                    while (offset + 12 <= view.byteLength) {
+                        const length = view.getUint32(offset, false); offset += 4;
+                        if (offset + 8 > view.byteLength) break;
+                        const type = String.fromCharCode(
+                            view.getUint8(offset),
+                            view.getUint8(offset + 1),
+                            view.getUint8(offset + 2),
+                            view.getUint8(offset + 3)
+                        );
+                        offset += 4;
+                        if (offset + length + 4 > view.byteLength) break;
+                        if (type === 'fcTL' && length >= 26) {
+                            const delayNum = view.getUint16(offset + 20, false);
+                            let delayDen = view.getUint16(offset + 22, false);
+                            if (delayDen === 0) delayDen = 100;
+                            let frameMs = Math.round((delayNum * 1000) / delayDen);
+                            if (frameMs <= 0) frameMs = 100;
+                            totalMs += frameMs;
+                            frames += 1;
+                        }
+                        offset += length + 4;
+                        if (type === 'IEND') break;
+                    }
+                    if (frames > 0 && totalMs > 0) return { duration: totalMs, objectUrl };
+                }
+
+                const isGif = bytes.length >= 6 &&
+                    bytes[0] === 71 && bytes[1] === 73 && bytes[2] === 70 &&
+                    bytes[3] === 56 && (bytes[4] === 55 || bytes[4] === 57) && bytes[5] === 97;
+
+                if (isGif) {
+                    let offset = 13;
+                    const packed = view.getUint8(10);
+                    if (packed & 0x80) {
+                        offset += 3 * (2 ** ((packed & 0x07) + 1));
+                    }
+                    let totalMs = 0;
+                    while (offset < view.byteLength) {
+                        const marker = view.getUint8(offset); offset += 1;
+                        if (marker === 0x21) {
+                            if (offset >= view.byteLength) break;
+                            const label = view.getUint8(offset); offset += 1;
+                            if (label === 0xF9) {
+                                if (offset + 6 > view.byteLength) break;
+                                const size = view.getUint8(offset); offset += 1;
+                                if (size === 4) {
+                                    offset += 1;
+                                    const delay = view.getUint16(offset, true); offset += 2;
+                                    offset += 2;
+                                    let frameMs = delay * 10;
+                                    if (frameMs <= 0) frameMs = 100;
+                                    totalMs += frameMs;
+                                } else {
+                                    offset += size;
+                                    if (offset < view.byteLength && view.getUint8(offset) === 0x00) offset += 1;
+                                }
+                            } else {
+                                while (offset < view.byteLength) {
+                                    const subSize = view.getUint8(offset); offset += 1;
+                                    if (subSize === 0) break;
+                                    offset += subSize;
+                                }
+                            }
+                        } else if (marker === 0x2C) {
+                            if (offset + 9 > view.byteLength) break;
+                            offset += 9;
+                            const localPacked = view.getUint8(offset - 1);
+                            if (localPacked & 0x80) {
+                                offset += 3 * (2 ** ((localPacked & 0x07) + 1));
+                            }
+                            if (offset >= view.byteLength) break;
+                            offset += 1;
+                            while (offset < view.byteLength) {
+                                const subSize = view.getUint8(offset); offset += 1;
+                                if (subSize === 0) break;
+                                offset += subSize;
+                            }
+                        } else if (marker === 0x3B) {
+                            break;
+                        } else {
+                            break;
+                        }
+                    }
+                    if (totalMs > 0) return { duration: totalMs, objectUrl };
+                }
+            } catch (error) {}
+            return { duration: 1000, objectUrl: null };
+        })();
+
+        durationPromise.then((meta) => {
+            if (meta && Number.isFinite(meta.duration) && meta.duration > 0) {
+                loopDurationMs = meta.duration;
+            }
+            if (meta && meta.objectUrl) {
+                animatedPlaybackUrl = meta.objectUrl;
+            }
+            console.log(`[DLP] Avatar decoration loop duration: ${loopDurationMs}ms`, safeDecorationUrl);
+            const bootstrapImage = new Image();
+            bootstrapImage.onload = () => {
+                try {
+                    const canvas = document.createElement('canvas');
+                    canvas.width = bootstrapImage.naturalWidth || 24;
+                    canvas.height = bootstrapImage.naturalHeight || 24;
+                    const ctx = canvas.getContext('2d');
+                    if (!ctx) return;
+                    ctx.drawImage(bootstrapImage, 0, 0, canvas.width, canvas.height);
+                    lastPausedDataUrl = canvas.toDataURL('image/png');
+                    if (!isPlaying && !hoverElement.matches(':hover')) {
+                        showPaused();
+                    }
+                } catch (error) {}
+            };
+            bootstrapImage.setAttribute('src', animatedPlaybackUrl);
+        });
+
+        const play = async (resumeOnly = false) => {
+            clearPauseTimer();
+            pauseTicket += 1;
+            if (resumeOnly && isPlaying) {
+                return;
+            }
+            await durationPromise;
+            if (resumeOnly && isPlaying) {
+                return;
+            }
+            if (isPlaying) {
+                return;
+            }
+            playStartedAt = performance.now();
+            animatedImage.setAttribute('src', animatedPlaybackUrl);
+            isPlaying = true;
+            showAnimated();
+        };
+
+        const pauseAtLoopEnd = async () => {
+            const ticket = ++pauseTicket;
+            await durationPromise;
+            if (ticket !== pauseTicket) return;
+            if (!isPlaying || playStartedAt <= 0) {
+                return;
+            }
+            const elapsed = performance.now() - playStartedAt;
+            const mod = elapsed % loopDurationMs;
+            const remaining = mod === 0 ? loopDurationMs : (loopDurationMs - mod);
+            clearPauseTimer();
+            pauseTimer = setTimeout(() => {
+                if (ticket !== pauseTicket) return;
+                if (snapshotCurrentFrame()) {
+                    showPaused();
+                } else if (lastPausedDataUrl) {
+                    showPaused();
+                } else {
+                    isPlaying = false;
+                }
+            }, Math.max(16, Math.round(remaining)));
+        };
+
+        animatedImage.addEventListener('load', () => {
+            if (!lastPausedDataUrl) snapshotCurrentFrame();
+        });
+
+        hoverElement.addEventListener('mouseenter', () => play(true));
+        hoverElement.addEventListener('mouseleave', pauseAtLoopEnd);
+
+        if (hoverElement.matches(':hover')) {
+            play(false);
+        }
+    }
+
     function parseStructuredMention(rawPayload) {
         if (typeof rawPayload !== 'string' || rawPayload.trim() === '') return null;
         try {
@@ -5432,7 +5713,7 @@ function One() {
             if (tickerEntry.hasPercent && tickerEntry.colorVariable) {
                 tickerElement.style.background = `rgba(var(${tickerEntry.colorVariable}), 0.2)`;
                 tickerElement.style.color = `rgb(var(${tickerEntry.colorVariable}))`;
-                tickerElement.textContent = tickerEntry.displayText;
+                tickerElement.innerHTML = tickerEntry.displayText;
                 tickerElement.dataset.dlpTickerState = 'done';
             } else if (tickerEntry.hasPercent) {
                 tickerElement.removeAttribute('style');
@@ -5492,7 +5773,7 @@ function One() {
                             const signedPercentText = `${normalizedPercent > 0 ? '+' : '-'}${absolutePercentText}%`;
                             const isPositive = normalizedPercent > 0;
                             tickerEntry.colorVariable = isPositive ? '--DLP-green' : '--DLP-pink';
-                            tickerEntry.displayText = `${tickerSymbol} ${signedPercentText} ${isPositive ? '􀄯' : '􀄱'}`;
+                            tickerEntry.displayText = `${tickerSymbol} ${signedPercentText}<span class="DLP_NoSelect">&nbsp;${isPositive ? '􀄯' : '􀄱'}</span>`;
                         }
                     } else {
                         tickerEntry.hasPercent = false;
@@ -5513,7 +5794,7 @@ function One() {
                     if (tickerEntry.hasPercent && tickerEntry.colorVariable) {
                         tickerElement.style.background = `rgba(var(${tickerEntry.colorVariable}), 0.2)`;
                         tickerElement.style.color = `rgb(var(${tickerEntry.colorVariable}))`;
-                        tickerElement.textContent = tickerEntry.displayText;
+                        tickerElement.innerHTML = tickerEntry.displayText;
                     } else if (tickerEntry.hasPercent) {
                         tickerElement.removeAttribute('style');
                         tickerElement.textContent = tickerEntry.displayText;
@@ -5952,6 +6233,16 @@ function One() {
                             if (urlMatch && urlMatch[2]) {
                                 result.profile_picture = urlMatch[2];
                             }
+
+                            const avatarDecoSource = avatarElement.getAttribute('data-dlp-deco-src');
+                            if (avatarDecoSource) {
+                                result.profile_picture_deco = avatarDecoSource;
+                            } else {
+                                const avatarDecoElement = avatarElement.querySelector('img');
+                                if (avatarDecoElement && avatarDecoElement.getAttribute('src')) {
+                                    result.profile_picture_deco = avatarDecoElement.getAttribute('src');
+                                }
+                            }
                         }
                     }
                 }
@@ -5986,6 +6277,9 @@ function One() {
                 }
                 if (isMeaningful(domMessage.profile_picture)) {
                     merged.profile_picture = domMessage.profile_picture;
+                }
+                if (isMeaningful(domMessage.profile_picture_deco)) {
+                    merged.profile_picture_deco = domMessage.profile_picture_deco;
                 }
                 if (isMeaningful(domMessage.accent)) {
                     merged.accent = domMessage.accent;
@@ -6024,9 +6318,21 @@ function One() {
             const previewAccentStyle = buildMentionAccentStyle(previewAccent, 'text');
             const previewAuthor = targetMessage?.author ?? message?.author ?? 'Unknown user';
             const previewAvatar = targetMessage?.profile_picture ?? message?.profile_picture ?? '';
-            const avatarBackground = previewAvatar ? `background: url(${previewAvatar}) 50% center / cover no-repeat white;` : 'background: rgba(var(--color-snow), 1);';
+            const previewAvatarDeco = targetMessage?.profile_picture_deco ?? message?.profile_picture_deco ?? '';
+            const safePreviewAvatar = sanitizeChatUrl(previewAvatar, { allowBlob: true });
+            const safePreviewAvatarDeco = sanitizeChatUrl(previewAvatarDeco, { allowBlob: true });
+            const avatarBackground = safePreviewAvatar ? `background: url("${safePreviewAvatar}") 50% center / cover no-repeat white;` : 'background: rgba(var(--color-snow), 1);';
+            const previewAvatarDecoHtml = safePreviewAvatarDeco
+                ? `<img class="DLP_NoSelect" src="${escapeChatAttribute(safePreviewAvatarDeco)}" style="position: relative; left: -2px; top: -2px; width: 24px; height: 24px;">`
+                : '';
             const previewMessageRaw = (targetMessage?.message && targetMessage.message.trim() !== '') ? targetMessage.message : 'Original message unavailable';
             const previewMessage = formatSupportChatMessage(previewMessageRaw);
+            const safePreviewAuthor = escapeChatHtml(previewAuthor);
+            const safePreviewAccentStyle = escapeChatAttribute(`${previewAccentStyle} white-space: pre;`);
+            const safeAvatarBackground = escapeChatAttribute(avatarBackground);
+            const safeTargetKey = escapeChatAttribute(targetKey);
+            const safeTargetSendTime = escapeChatAttribute(targetSendTime);
+            const safePreviewDecoSource = escapeChatAttribute(safePreviewAvatarDeco);
 
             previewWrapper.innerHTML = `
                 <div class="DLP_HStack_8" data-reply-preview="true" style="padding-left: 24px; position: relative;">
@@ -6034,10 +6340,10 @@ function One() {
                         <path d="M17 1H11C5.47715 1 1 5.47715 1 11V17" stroke="rgb(var(--color-eel), 0.20)" stroke-width="2" stroke-linecap="round"/>
                     </svg>
                     <div class="DLP_HStack_6">
-                        <div style="width: 20px; height: 20px; border-radius: 16px; outline: rgba(0, 0, 0, 0.2) solid 2px; outline-offset: -2px; ${avatarBackground}"></div>
-                        <p class="DLP_Text_Style_1 DLP_NoSelect" style="${previewAccentStyle} white-space: pre;">${previewAuthor}</p>
+                        <div data-dlp-deco-src="${safePreviewDecoSource}" style="width: 20px; height: 20px; border-radius: 16px; outline: rgba(0, 0, 0, 0.2) solid 2px; outline-offset: -2px; ${safeAvatarBackground}">${previewAvatarDecoHtml}</div>
+                        <p class="DLP_Text_Style_1 DLP_NoSelect" style="${safePreviewAccentStyle}">${safePreviewAuthor}</p>
                     </div>
-                    <p class="DLP_Text_Style_1" data-message-id="${targetKey}" data-message-sent="${targetSendTime}" style="align-self: stretch; white-space: nowrap; overflow-wrap: anywhere; word-break: break-word; text-overflow: ellipsis; -webkit-line-clamp: 1; overflow: hidden; display: -webkit-box; -webkit-box-orient: vertical;">${previewMessage}</p>
+                    <p class="DLP_Text_Style_1" data-message-id="${safeTargetKey}" data-message-sent="${safeTargetSendTime}" style="align-self: stretch; white-space: nowrap; overflow-wrap: anywhere; word-break: break-word; text-overflow: ellipsis; -webkit-line-clamp: 1; overflow: hidden; display: -webkit-box; -webkit-box-orient: vertical;">${previewMessage}</p>
                 </div>
             `;
 
@@ -6067,6 +6373,11 @@ function One() {
             const previewElement = createReplyPreview(message);
             if (previewElement) {
                 container.insertBefore(previewElement, headerElement);
+                const previewDecoElement = previewElement.querySelector('.DLP_HStack_6 div');
+                const previewDecoSource = previewDecoElement ? previewDecoElement.getAttribute('data-dlp-deco-src') : null;
+                if (previewDecoSource) {
+                    wireAnimatedAvatarDecoration(previewElement, previewDecoSource);
+                }
                 hydrateTickerMentions(previewElement);
             }
         }
@@ -6074,21 +6385,37 @@ function One() {
         function createStartersMessage(message) {
             const headerAccentStyle = buildMentionAccentStyle(message.accent, 'text');
             const headerUsesImageAccent = /background:\s*url\(/i.test(headerAccentStyle);
-            const roleMetaStackStyle = headerUsesImageAccent ? ` style="${headerAccentStyle}"` : '';
+            const roleMetaStackStyle = headerUsesImageAccent ? ` style="${escapeChatAttribute(headerAccentStyle)}"` : '';
             const roleMetaTextStyle = headerUsesImageAccent ? 'color: inherit;' : headerAccentStyle;
+            const safeRoleMetaTextStyle = escapeChatAttribute(roleMetaTextStyle);
+            const safeGroupId = escapeChatAttribute(messageKey);
+            const safeGroupSendTime = escapeChatAttribute(message.send_time ?? '');
+            const safeAuthorAttr = escapeChatAttribute(message.author ?? '');
+            const safeAuthorText = escapeChatHtml(message.author ?? '');
+            const safeRoleText = escapeChatHtml(message.role ?? '');
+            const safeFormattedTime = escapeChatHtml(formatTimeAgo(message.send_time));
+            const safeHeaderAccentStyle = escapeChatAttribute(headerAccentStyle);
+            const safeProfilePicture = sanitizeChatUrl(message.profile_picture, { allowBlob: true });
+            const safeProfilePictureDeco = sanitizeChatUrl(message.profile_picture_deco, { allowBlob: true });
+            const safeAvatarBackground = safeProfilePicture
+                ? `background: url("${safeProfilePicture}") 50% center / cover no-repeat white;`
+                : 'background: rgba(var(--color-snow), 1);';
+            const avatarDecoHtml = safeProfilePictureDeco
+                ? `<img class="DLP_NoSelect" src="${escapeChatAttribute(safeProfilePictureDeco)}" style="position: relative; left: -2px; top: -2px; width: 24px; height: 24px;">`
+                : '';
 
             const temp = document.createElement('div');
             temp.innerHTML = `
-                <div class="DLP_VStack_4" data-group-id="${messageKey}" data-group-sent="${message.send_time ?? ''}" data-author-name="${message.author}">
+                <div class="DLP_VStack_4" data-group-id="${safeGroupId}" data-group-sent="${safeGroupSendTime}" data-author-name="${safeAuthorAttr}">
                     <div data-chat-header="true" style="display: flex; justify-content: space-between; align-items: center; align-self: stretch;">
                         <div class="DLP_HStack_6">
-                            <div style="width: 20px; height: 20px; border-radius: 16px; outline: rgba(0, 0, 0, 0.2) solid 2px; outline-offset: -2px; background: url(${message.profile_picture}) 50% center / cover no-repeat white;"></div>
-                            <p class="DLP_Text_Style_1 DLP_NoSelect" style="${headerAccentStyle}">${message.author}</p>
+                            <div style="width: 20px; height: 20px; border-radius: 16px; outline: rgba(0, 0, 0, 0.2) solid 2px; outline-offset: -2px; ${escapeChatAttribute(safeAvatarBackground)}">${avatarDecoHtml}</div>
+                            <p class="DLP_Text_Style_1 DLP_NoSelect" style="${safeHeaderAccentStyle}">${safeAuthorText}</p>
                         </div>
                         <div class="DLP_HStack_6"${roleMetaStackStyle}>
-                            <p class="DLP_Text_Style_1 DLP_NoSelect" style="${roleMetaTextStyle}">${message.role}</p>
-                            <p class="DLP_Text_Style_1 DLP_NoSelect" style="${roleMetaTextStyle} font-size: 4px;">􀀁</p>
-                            <p class="DLP_Text_Style_1 DLP_NoSelect" data-time-element="true" style="${roleMetaTextStyle}">${formatTimeAgo(message.send_time)}</p>
+                            <p class="DLP_Text_Style_1 DLP_NoSelect" style="${safeRoleMetaTextStyle}">${safeRoleText}</p>
+                            <p class="DLP_Text_Style_1 DLP_NoSelect" style="${safeRoleMetaTextStyle} font-size: 4px;">􀀁</p>
+                            <p class="DLP_Text_Style_1 DLP_NoSelect" data-time-element="true" style="${safeRoleMetaTextStyle}">${safeFormattedTime}</p>
                         </div>
                     </div>
                 </div>
@@ -6096,6 +6423,9 @@ function One() {
             const newElement = temp.firstElementChild;
             chatBox.appendChild(newElement);
             lastChatChild = newElement;
+            if (safeProfilePictureDeco) {
+                wireAnimatedAvatarDecoration(newElement, safeProfilePictureDeco);
+            }
 
             ensureReplyPreview(lastChatChild, message);
 
@@ -6142,9 +6472,13 @@ function One() {
                     continuationStyles.push('color: rgba(var(--DLP-pink))');
                 }
                 const continuationStyleAttr = continuationStyles.join('; ') + ';';
+                const safeContinuationStyleAttr = escapeChatAttribute(continuationStyleAttr);
+                const safeMessageKey = escapeChatAttribute(messageKey);
+                const safeMessageSent = escapeChatAttribute(message.send_time ?? '');
+                const safeTempState = escapeChatAttribute(isTemp);
                 const temp = document.createElement('div');
                 temp.innerHTML = `
-                    <p class="DLP_Text_Style_1" data-message-id="${messageKey}" data-message-sent="${message.send_time ?? ''}"${isTemp ? ` data-is-temp="${isTemp}"` : ''} style="${continuationStyleAttr}">${formattedMessage}</p>
+                    <p class="DLP_Text_Style_1" data-message-id="${safeMessageKey}" data-message-sent="${safeMessageSent}"${isTemp ? ` data-is-temp="${safeTempState}"` : ''} style="${safeContinuationStyleAttr}">${formattedMessage}</p>
                 `;
                 const newElement = temp.firstElementChild;
                 lastChatChild.appendChild(newElement);
@@ -6433,21 +6767,27 @@ function One() {
             }
 
             if (message.files.length > 0) {
+                const safeMessageKey = escapeChatAttribute(messageKey);
+                const safeMessageSent = escapeChatAttribute(message.send_time ?? '');
+                const safeTempState = escapeChatAttribute(isTemp);
                 const temp2 = document.createElement('div');
                 temp2.innerHTML = `
-                    <div data-message-id="${messageKey}" data-message-sent="${message.send_time ?? ''}"${isTemp ? ` data-is-temp="${isTemp}"` : ''} class="DLP_Hide_Scrollbar" style="display: flex; align-items: center; gap: 8px; align-self: stretch; width: 100%; overflow-y: scroll; opacity: 1; filter: blur(0px); margin-top: 0px; transition: 0.4s cubic-bezier(0.16, 1, 0.32, 1);${failedTemp ? ' color: rgba(var(--DLP-pink));' : ''}"></div>
+                    <div data-message-id="${safeMessageKey}" data-message-sent="${safeMessageSent}"${isTemp ? ` data-is-temp="${safeTempState}"` : ''} class="DLP_Hide_Scrollbar" style="display: flex; align-items: center; gap: 8px; align-self: stretch; width: 100%; overflow-y: scroll; opacity: 1; filter: blur(0px); margin-top: 0px; transition: 0.4s cubic-bezier(0.16, 1, 0.32, 1);${failedTemp ? ' color: rgba(var(--DLP-pink));' : ''}"></div>
                 `;
                 const newElement2 = temp2.firstElementChild;
                 lastChatChild.appendChild(newElement2);
                 let attachmentParent = lastChatChild.lastElementChild;
                 for (let i = 0; i < message.files.length; i++) {
                     const file = message.files[i];
+                    const safeFileUrl = sanitizeChatUrl(file, { allowBlob: true });
+                    if (!safeFileUrl) continue;
+                    const safeFileUrlAttr = escapeChatAttribute(safeFileUrl);
                     const temp = document.createElement('div');
-                    let extensionType = await contentType(file);
+                    let extensionType = await contentType(safeFileUrl);
                     if (extensionType === 'image') {
                         temp.innerHTML = `
-                            <div class="DLP_Attachment_Box_1" data-preview-src="${file}">
-                                <img class="DLP_Attachment_Box_1_Content" src="${file}">
+                            <div class="DLP_Attachment_Box_1" data-preview-src="${safeFileUrlAttr}">
+                                <img class="DLP_Attachment_Box_1_Content" src="${safeFileUrlAttr}">
                                 <div class="DLP_Attachment_Box_1_Hover" style="display: none;">
                                     <p class="DLP_Text_Style_1 DLP_Magnetic_Hover_1 DLP_NoSelect">􂅆</p>
                                 </div>
@@ -6455,8 +6795,8 @@ function One() {
                         `;
                     } else if (extensionType === 'video') {
                         temp.innerHTML = `
-                            <div class="DLP_Attachment_Box_1" data-preview-src="${file}">
-                                <video class="DLP_Attachment_Box_1_Content" src="${file}" muted autoplay loop></video>
+                            <div class="DLP_Attachment_Box_1" data-preview-src="${safeFileUrlAttr}">
+                                <video class="DLP_Attachment_Box_1_Content" src="${safeFileUrlAttr}" muted autoplay loop></video>
                                 <div class="DLP_Attachment_Box_1_Hover" style="display: none;">
                                     <p class="DLP_Text_Style_1 DLP_Magnetic_Hover_1 DLP_NoSelect">􂅆</p>
                                 </div>
@@ -6464,7 +6804,7 @@ function One() {
                         `;
                     } else {
                         temp.innerHTML = `
-                            <div class="DLP_Attachment_Box_1" data-preview-src="${file}">
+                            <div class="DLP_Attachment_Box_1" data-preview-src="${safeFileUrlAttr}">
                                 <div style="display: flex; width: 100%; height: 100%; padding-top: 6px; flex-direction: column; justify-content: center; align-items: center; gap: 6px; flex-shrink: 0;">
                                     <p class="DLP_Text_Style_1 DLP_NoSelect" style="font-size: 24px;">􀈸</p>
                                     <p class="DLP_Text_Style_1 DLP_NoSelect">File</p>
@@ -7700,40 +8040,54 @@ function One() {
 
             let render = () => {
                 canvas.ctx.clearRect(0, 0, canvas.width, canvas.height);
-                canvas.confetti.forEach((confetto, index) => {
-                    let width = confetto.dimensions.x * confetto.scale.x;
-                    let height = confetto.dimensions.y * confetto.scale.y;
+                for (let index = canvas.confetti.length - 1; index >= 0; index--) {
+                    const confetto = canvas.confetti[index];
+                    let width = confetto.dimensions.x;
+                    let height = confetto.dimensions.y;
                     canvas.ctx.translate(confetto.position.x, confetto.position.y);
+                    confetto.rotation += confetto.angularVelocity;
+                    confetto.flipAngle += confetto.flipVelocity;
+                    confetto.tiltAngle += confetto.tiltVelocity;
+
+                    const spinX = Math.cos(confetto.flipAngle);
+                    const spinY = Math.sin(confetto.tiltAngle);
+                    const scaleX = Math.sign(spinX || 1) * (0.2 + 0.8 * Math.abs(spinX));
+                    const scaleY = 0.35 + 0.65 * Math.abs(spinY);
+
                     canvas.ctx.rotate(confetto.rotation);
+                    canvas.ctx.scale(confetto.scale.x * scaleX, confetto.scale.y * scaleY);
 
                     confetto.velocity.x -= confetto.velocity.x * drag;
                     confetto.velocity.y = Math.min(
                         confetto.velocity.y + gravity,
                         terminalVelocity,
                     );
-                    confetto.velocity.x +=
-                        Math.random() > 0.5 ? Math.random() : -Math.random();
 
                     confetto.position.x += confetto.velocity.x;
                     confetto.position.y += confetto.velocity.y;
 
-                    if (confetto.position.y >= canvas.height) canvas.confetti.splice(index, 1);
-
-                    if (confetto.position.x > canvas.width) confetto.position.x = 0;
-                    if (confetto.position.x < 0) confetto.position.x = canvas.width;
+                    if (
+                        confetto.position.y >= canvas.height ||
+                        confetto.position.x < -50 ||
+                        confetto.position.x > canvas.width + 50
+                    ) {
+                        canvas.confetti.splice(index, 1);
+                        canvas.ctx.setTransform(1, 0, 0, 1, 0, 0);
+                        continue;
+                    }
 
                     canvas.ctx.fillStyle = confetto.color.front;
                     canvas.ctx.fillRect(-width / 2, -height / 2, width, height);
                     canvas.ctx.setTransform(1, 0, 0, 1, 0, 0);
-                });
+                }
                 canvas.animationId = window.requestAnimationFrame(render);
             };
             render();
         }
 
-        const gravity = 0.5;
-        const terminalVelocity = 10;
-        const drag = 0.01;
+        const gravity = 0.9;
+        const terminalVelocity = 16;
+        const drag = 0.008;
         const colors = [
             { front: "#FF2D55", back: "#FF2D55" },
             { front: "#FF9500", back: "#FF9500" },
@@ -7752,8 +8106,16 @@ function One() {
 
         let randomRange = (min, max) => Math.random() * (max - min) + min;
 
-        const confettiCount = 400;
+        const confettiCount = 180;
+        const launchX = canvas.width / 2;
+        const launchY = canvas.height - 4;
+        const launchSpread = Math.min(80, canvas.width * 0.08);
+        const degToRad = Math.PI / 180;
+        const minAngle = -122 * degToRad;
+        const maxAngle = -58 * degToRad;
         for (let i = 0; i < confettiCount; i++) {
+            const launchAngle = randomRange(minAngle, maxAngle);
+            const launchSpeed = randomRange(30, 46);
             canvas.confetti.push({
                 color: colors[Math.floor(randomRange(0, colors.length))],
                 dimensions: {
@@ -7761,17 +8123,22 @@ function One() {
                     y: randomRange(confettiSizeRange.min, confettiSizeRange.max),
                 },
                 position: {
-                    x: randomRange(0, canvas.width),
-                    y: canvas.height - 1,
+                    x: launchX + randomRange(-launchSpread, launchSpread),
+                    y: launchY,
                 },
                 rotation: randomRange(0, 2 * Math.PI),
+                angularVelocity: randomRange(-0.18, 0.18),
+                flipAngle: randomRange(0, 2 * Math.PI),
+                flipVelocity: randomRange(0.16, 0.38) * (Math.random() > 0.5 ? 1 : -1),
+                tiltAngle: randomRange(0, 2 * Math.PI),
+                tiltVelocity: randomRange(0.12, 0.3) * (Math.random() > 0.5 ? 1 : -1),
                 scale: {
                     x: 1,
                     y: 1,
                 },
                 velocity: {
-                    x: randomRange(-25, 25),
-                    y: randomRange(0, -50),
+                    x: Math.cos(launchAngle) * launchSpeed,
+                    y: Math.sin(launchAngle) * launchSpeed,
                 },
             });
         }
