@@ -1,21 +1,21 @@
 // ==UserScript==
 // @name         Duolingo PRO
 // @namespace    http://duolingopro.net
-// @version      3.1BETA.04.3
-// @description  The fastest Duolingo XP farmer, now with Gems and Free Duolingo Max, working as of March 2026.
+// @version      3.1BETA.04.4
+// @description  The fastest Duolingo XP farmer, with free gems, Duolingo Max & more. Working as of April 2026.
 // @author       anonymousHackerIV
 // @match        *://*.duolingo.com/*
 // @match        *://*.duolingo.cn/*
-// @icon         https://www.duolingopro.net/static/favicons/duo/128/light/primary.png
+// @icon         https://www.duolingopro.net/static/favicons/dlp/128/light/primary.png
 // @grant        GM_log
 // ==/UserScript==
 
-const VERSION_NUMBER = "08";
-const STORAGE_LOCAL_VERSION = "08";
-const STORAGE_SESSION_VERSION = "08";
-const VERSION_NAME = "BETA.04.3";
-const VERSION_FULL = "3.1BETA.04.3";
-const VERSION_FORMAL = "3.1 BETA.04.3";
+const VERSION_NUMBER = "09";
+const STORAGE_LOCAL_VERSION = "09";
+const STORAGE_SESSION_VERSION = "09";
+const VERSION_NAME = "BETA.04.4";
+const VERSION_FULL = "3.1BETA.04.4";
+const VERSION_FORMAL = "3.1 BETA.04.4";
 let serverURL = "https://www.duolingopro.net";
 let apiURL = "https://api.duolingopro.net";
 let greasyfork = true;
@@ -32,8 +32,16 @@ let recentUpdateDetected = false;
 
 let solvingLoopRunning = false;
 let isAutoMode = false;
-let findReactMainElementClass = '_3yE3H';
-let reactTraverseUp = 1;
+const DEFAULT_REACT_MAIN_ELEMENT_CLASS = '_3yE3H';
+const DEFAULT_REACT_TRAVERSE_UP = 1;
+const STORY_REACT_MAIN_ELEMENT_CLASS = '_3TJzR';
+const STORY_REACT_TRAVERSE_UP = 0;
+let findReactMainElementClass = DEFAULT_REACT_MAIN_ELEMENT_CLASS;
+let reactTraverseUp = DEFAULT_REACT_TRAVERSE_UP;
+
+if (["blog", "simg-ssl", "englishtest", "schools", "store"].some(s => new RegExp(`(?:^|\\.)${s}\\.`).test(window.location.hostname))) {
+    throw new Error("Duolingo PRO: unsupported subdomain");
+}
 
 const region = new Intl.Locale(navigator.language).maximize().region;
 const measurementSystem = ["US", "LR", "MM"].includes(region) ? "ussystem" : "metric";
@@ -151,6 +159,7 @@ let systemText = {
         114: "DONE",
         115: "FAILED",
         116: "SAVING AND APPLYING",
+
         200: "Under Construction",
         201: "The Gems function is currently under construction. We plan to make it accessible to everyone soon.",
         202: "Update Available",
@@ -280,6 +289,14 @@ function Two() {
     --DLP-indigo: 88, 86, 214;
     --DLP-purple: 175, 82, 222;
     --DLP-pink: 255, 45, 85;
+
+    --DLP-corner-s: superellipse(1.32);
+    --DLP-corner-r-s: 4px;
+    --DLP-corner-r-m: 8px;
+    --DLP-corner-r-ml: 12px;
+    --DLP-corner-r-l: 16px;
+    --DLP-corner-r-xl: 20px;
+
 }
 @media (prefers-color-scheme: dark) {
     :root {
@@ -320,6 +337,14 @@ function Two() {
     }
 }
 `;
+    if (CSS.supports('corner-shape', 'superellipse(1.32)')) {
+        CSS1 = CSS1
+            .replace('--DLP-corner-r-s: 4px', '--DLP-corner-r-s: 6px')
+            .replace('--DLP-corner-r-m: 8px', '--DLP-corner-r-m: 10px')
+            .replace('--DLP-corner-r-ml: 12px', '--DLP-corner-r-ml: 16px')
+            .replace('--DLP-corner-r-l: 16px', '--DLP-corner-r-l: 20px')
+            .replace('--DLP-corner-r-xl: 20px', '--DLP-corner-r-xl: 26px');
+    }
 
     HTML2 = `
 <canvas style="position: fixed; top: 0; left: 0; bottom: 0; right: 0; width: 100%; height: 100vh; z-index: 211; pointer-events: none;" id="DLP_Confetti_Canvas"></canvas>
@@ -938,7 +963,7 @@ function Two() {
 
 
         <div class="DLP_Main_Box_Divider" id="DLP_Main_Box_Divider_5_ID" style="display: none;">
-            <div class="DLP_VStack_8" style="height: 640px; max-height: 80vh;">
+            <div class="DLP_VStack_8" style="height: 640px; max-height: calc(100vh - 220px);">
                 <div class="DLP_HStack_Auto_Top">
                     <div class="DLP_HStack_4">
                         <p class="DLP_Text_Style_2 DLP_NoSelect">Duolingo</p>
@@ -992,7 +1017,7 @@ function Two() {
 
 
         <div class="DLP_Main_Box_Divider" id="DLP_Main_Box_Divider_7_ID" style="display: none;">
-            <div class="DLP_VStack_8" style="max-height: 80vh;">
+            <div class="DLP_VStack_8" style="max-height: calc(100vh - 220px);">
                 <div class="DLP_HStack_Auto_Top">
                     <div id="DLP_Universal_Back_1_Button_1_ID" class="DLP_HStack_4 DLP_Hover_1" style="background: url(${serverURL}/static/images/flow/primary/256/light.png) center / cover no-repeat; -webkit-background-clip: text; background-clip: text; color: transparent;">
                         <p class="DLP_Text_Style_2 DLP_NoSelect" style="font-size: 20px; color: inherit;">􀯶</p>
@@ -1084,7 +1109,7 @@ function Two() {
                                 <p class="DLP_Text_Style_1 DLP_NoSelect DLP_Inset_Icon_1_ID" style="color: #FFF;">􀁣</p>
                             </div>
                         </div>
-                        <div id="DLP_Settings_Modern_Stats_Main_Box_1_ID" class="DLP_VStack_6" style="background: rgba(var(--DLP-blue), 0.10); outline: 2px solid rgba(var(--DLP-blue), 0.20); outline-offset: -2px; padding: 16px; border-radius: 8px;">
+                        <div id="DLP_Settings_Modern_Stats_Main_Box_1_ID" class="DLP_VStack_6" style="background: rgba(var(--DLP-blue), 0.10); outline: 2px solid rgba(var(--DLP-blue), 0.20); outline-offset: -2px; padding: 16px; border-radius: var(--DLP-corner-r-m); corner-shape: var(--DLP-corner-s);">
                             <div style="display: flex; align-self: stretch; justify-content: space-between; align-items: center;">
                                 <p class="DLP_Text_Style_1" style="color: rgb(var(--DLP-blue));">3.1 Stats</p>
                                 <p class="DLP_Text_Style_1" style="color: rgba(var(--DLP-blue), 0.5);"></p>
@@ -1118,7 +1143,7 @@ function Two() {
                                 <p class="DLP_Text_Style_1" style="color: rgba(var(--DLP-blue), 0.5);"></p>
                             </div>
                         </div>
-                        <div id="DLP_Settings_Legacy_Stats_Main_Box_1_ID" class="DLP_VStack_6" style="background: rgba(var(--DLP-blue), 0.10); outline: 2px solid rgba(var(--DLP-blue), 0.20); outline-offset: -2px; padding: 16px; border-radius: 8px;">
+                        <div id="DLP_Settings_Legacy_Stats_Main_Box_1_ID" class="DLP_VStack_6" style="background: rgba(var(--DLP-blue), 0.10); outline: 2px solid rgba(var(--DLP-blue), 0.20); outline-offset: -2px; padding: 16px; border-radius: var(--DLP-corner-r-m); corner-shape: var(--DLP-corner-s);">
                             <div style="display: flex; align-self: stretch; justify-content: space-between; align-items: center;">
                                 <p class="DLP_Text_Style_1" style="color: rgb(var(--DLP-blue));">Legacy Mode Stats</p>
                                 <p class="DLP_Text_Style_1" style="color: rgba(var(--DLP-blue), 0.5);"></p>
@@ -1153,7 +1178,7 @@ function Two() {
                     </div>
                     <p class="DLP_Text_Style_1 DLP_NoSelect" style="font-size: 14px; background: url(${serverURL}/static/images/flow/secondary/256/light.png) lightgray 50% / cover no-repeat; background-clip: text; -webkit-background-clip: text; -webkit-text-fill-color: transparent;">${VERSION_NAME}</p>
                 </div>
-                <div class="DLP_VStack_4" style="padding: 16px; border-radius: 8px; outline: 2px solid rgba(var(--DLP-blue), 0.20); outline-offset: -2px; background: rgba(var(--DLP-blue), 0.10); box-sizing: border-box;">
+                <div class="DLP_VStack_4" style="padding: 16px; border-radius: var(--DLP-corner-r-m); corner-shape: var(--DLP-corner-s); outline: 2px solid rgba(var(--DLP-blue), 0.20); outline-offset: -2px; background: rgba(var(--DLP-blue), 0.10); box-sizing: border-box;">
                     <div class="DLP_HStack_4">
                         <p class="DLP_Text_Style_1 DLP_NoSelect" style="color: rgb(var(--DLP-blue));">􀁝</p>
                         <p class="DLP_Text_Style_1 DLP_NoSelect" style="align-self: stretch; color: rgb(var(--DLP-blue));">Need Support?</p>
@@ -1243,7 +1268,7 @@ function Two() {
 
 
         <div class="DLP_Main_Box_Divider" id="DLP_Main_Box_Divider_11_ID" style="display: none;">
-            <div class="DLP_VStack_8" style="height: 640px; max-height: 80vh;">
+            <div class="DLP_VStack_8" style="height: 640px; max-height: calc(100vh - 220px);">
                 <div class="DLP_HStack_Auto_Top">
                     <div id="DLP_Universal_Back_1_Button_1_ID" class="DLP_HStack_4 DLP_Hover_1" style="background: url(${serverURL}/static/images/flow/primary/256/light.png) center / cover no-repeat; -webkit-background-clip: text; background-clip: text; color: transparent;">
                         <p class="DLP_Text_Style_2 DLP_NoSelect" style="font-size: 20px; color: inherit;">􀯶</p>
@@ -1253,7 +1278,7 @@ function Two() {
                 </div>
 
                 <div class="DLP_VStack_8" style="height: 100%;">
-                    <div id="DLP_Inset_Card_1" style="display: flex; padding: 16px; flex-direction: column; justify-content: flex-start; align-items: flex-start; gap: 4px; align-self: stretch; border-radius: 8px; outline: 2px solid rgba(var(--DLP-blue), 0.20); outline-offset: -2px; background: rgba(var(--DLP-blue), 0.10); overflow: hidden; transition: all 0.4s cubic-bezier(0.16, 1, 0.32, 1); display: none;">
+                    <div id="DLP_Inset_Card_1" style="display: flex; padding: 16px; flex-direction: column; justify-content: flex-start; align-items: flex-start; gap: 4px; align-self: stretch; border-radius: var(--DLP-corner-r-m); corner-shape: var(--DLP-corner-s); outline: 2px solid rgba(var(--DLP-blue), 0.20); outline-offset: -2px; background: rgba(var(--DLP-blue), 0.10); overflow: hidden; transition: all 0.4s cubic-bezier(0.16, 1, 0.32, 1); display: none;">
                         <div class="DLP_HStack_6">
                             <p class="DLP_Text_Style_1 DLP_NoSelect" style="color: rgb(var(--DLP-blue));">􀅵</p>
                             <p class="DLP_Text_Style_1 DLP_NoSelect" style="color: rgb(var(--DLP-blue)); flex: 1 0 0;">Response Times</p>
@@ -1273,7 +1298,7 @@ function Two() {
                     </div>
 
                     <div class="DLP_VStack_8" id="DLP_Inset_Group_2" style="display: none;">
-                        <div id="DLP_Inset_Card_2" style="display: flex; padding: 16px; flex-direction: column; justify-content: flex-start; align-items: flex-start; gap: 4px; align-self: stretch; border-radius: 8px; outline: 2px solid rgba(var(--DLP-blue), 0.20); outline-offset: -2px; background: rgba(var(--DLP-blue), 0.10); overflow: hidden; transition: all 0.4s cubic-bezier(0.16, 1, 0.32, 1);">
+                        <div id="DLP_Inset_Card_2" style="display: flex; padding: 16px; flex-direction: column; justify-content: flex-start; align-items: flex-start; gap: 4px; align-self: stretch; border-radius: var(--DLP-corner-r-m); corner-shape: var(--DLP-corner-s); outline: 2px solid rgba(var(--DLP-blue), 0.20); outline-offset: -2px; background: rgba(var(--DLP-blue), 0.10); overflow: hidden; transition: all 0.4s cubic-bezier(0.16, 1, 0.32, 1);">
                             <div class="DLP_HStack_6">
                                 <p class="DLP_Text_Style_1 DLP_NoSelect" style="color: rgb(var(--DLP-blue));">􀿌</p>
                                 <p class="DLP_Text_Style_1 DLP_NoSelect" style="color: rgb(var(--DLP-blue)); flex: 1 0 0;">This chat was closed.</p>
@@ -1435,7 +1460,8 @@ function Two() {
     display: inline-flex;
     align-items: center;
     padding: 0 2px;
-    border-radius: 4px;
+    border-radius: var(--DLP-corner-r-s);
+    corner-shape: var(--DLP-corner-s);
     background: rgba(var(--color-wolf), 0.2);
     color: rgb(var(--color-wolf));
     font-family: "Duolingo PRO Rounded";
@@ -1579,7 +1605,8 @@ function Two() {
     gap: 8px;
     overflow: hidden;
 
-    border-radius: 20px;
+    border-radius: var(--DLP-corner-r-xl);
+    corner-shape: var(--DLP-corner-s);
     outline: 2px solid rgb(var(--color-eel), 0.10);
     outline-offset: -2px;
     background: rgb(var(--color-snow), 0.90);
@@ -1717,7 +1744,8 @@ svg {
     gap: 6px;
     flex: 1 0 0;
 
-    border-radius: 8px;
+    border-radius: var(--DLP-corner-r-m);
+    corner-shape: var(--DLP-corner-s);
 }
 .DLP_Input_Style_1 {
     border: none;
@@ -1777,7 +1805,8 @@ svg {
     flex: 1 0 0;
     gap: 6px;
 
-    border-radius: 8px;
+    border-radius: var(--DLP-corner-r-m);
+    corner-shape: var(--DLP-corner-s);
     outline: 2px solid rgba(var(--DLP-blue), 0.20);
     outline-offset: -2px;
     background: rgba(var(--DLP-blue), 0.10);
@@ -1791,7 +1820,8 @@ svg {
     align-items: center;
     gap: 6px;
 
-    border-radius: 8px;
+    border-radius: var(--DLP-corner-r-m);
+    corner-shape: var(--DLP-corner-s);
     outline: 2px solid rgba(0, 0, 0, 0.20);
     outline-offset: -2px;
     background: rgb(var(--DLP-blue));
@@ -1839,7 +1869,8 @@ svg {
     gap: 8px;
     align-self: stretch;
 
-    border-radius: 8px;
+    border-radius: var(--DLP-corner-r-m);
+    corner-shape: var(--DLP-corner-s);
     outline: 2px solid rgb(var(--color-eel), 0.10);
     outline-offset: -2px;
     background: rgb(var(--color-snow), 0.90);
@@ -1877,7 +1908,8 @@ svg {
     gap: 6px;
     flex: 1 0 0;
 
-    border-radius: 8px;
+    border-radius: var(--DLP-corner-r-m);
+    corner-shape: var(--DLP-corner-s);
 }
 .DLP_Toggle_Style_1 {
     display: flex;
@@ -1903,7 +1935,8 @@ svg {
     align-items: flex-start;
     align-self: stretch;
 
-    border-radius: 8px;
+    border-radius: var(--DLP-corner-r-m);
+    corner-shape: var(--DLP-corner-s);
     border: none;
     outline: 2px solid rgb(var(--color-eel), 0.10);
     outline-offset: -2px;
@@ -1968,7 +2001,8 @@ svg {
     left: calc(50% - (300px / 2));
     z-index: 210;
     bottom: 16px;
-    border-radius: 16px;
+    border-radius: var(--DLP-corner-r-l);
+    corner-shape: var(--DLP-corner-s);
 }
 .DLP_Notification_Box {
     display: flex;
@@ -1980,7 +2014,8 @@ svg {
     align-items: center;
     gap: 4px;
 
-    border-radius: 16px;
+    border-radius: var(--DLP-corner-r-l);
+    corner-shape: var(--DLP-corner-s);
     outline: 2px solid rgb(var(--color-eel), 0.10);
     outline-offset: -2px;
     background: rgb(var(--color-snow), 0.90);
@@ -2005,7 +2040,8 @@ svg {
     overflow: hidden;
     position: relative;
 
-    border-radius: 8px;
+    border-radius: var(--DLP-corner-r-m);
+    corner-shape: var(--DLP-corner-s);
     outline: 2px solid rgba(var(--color-black-white), 0.20);
     outline-offset: -2px;
     background: rgba(var(--color-black-text), 0.20); /* Gotta change */
@@ -2036,6 +2072,7 @@ svg {
     outline: inherit;
     outline-offset: inherit;
     border-radius: inherit;
+    corner-shape: inherit;
 }
 .DLP_Attachment_Box_Large_View_1 {
     display: flex;
@@ -2060,7 +2097,8 @@ svg {
     align-items: center;
     gap: 6px;
 
-    border-radius: 8px;
+    border-radius: var(--DLP-corner-r-m);
+    corner-shape: var(--DLP-corner-s);
     /* outline: 2px dashed rgba(var(--DLP-blue), 0.20); */
     outline: 2px solid rgba(var(--DLP-blue), 0.20);
     outline-offset: -2px;
@@ -2130,6 +2168,9 @@ svg {
     border-bottom: 0px;
     margin-bottom: 4px;
     top: 4px;
+}
+._1lzAb._1Exx3 {
+    padding-bottom: 0px !important;
 }
 `;
 
@@ -2355,7 +2396,8 @@ svg {
     scrollbar-width: none;
     -ms-overflow-style: none;
 
-    border-radius: 20px;
+    border-radius: var(--DLP-corner-r-xl);
+    corner-shape: var(--DLP-corner-s);
     border: 2px solid rgba(var(--color-eel), 0.10);
     background: rgba(var(--color-snow), 0.90);
     backdrop-filter: blur(16px);
@@ -2398,7 +2440,8 @@ svg {
     gap: 16px;
     align-self: stretch;
 
-    border-radius: 8px;
+    border-radius: var(--DLP-corner-r-m);
+    corner-shape: var(--DLP-corner-s);
     outline: 2px solid rgba(0, 0, 0, 0.10);
     outline-offset: -2px;
 }
@@ -3031,6 +3074,20 @@ function One() {
     }
 
 
+    function syncReactLookupByContext() {
+        const isStoryContext = document.querySelector('.FmlUF') !== null
+            || document.querySelector('[data-test="stories-player-continue"], [data-test="stories-player-done"], [data-test="story-start"]') !== null;
+
+        if (isStoryContext) {
+            findReactMainElementClass = STORY_REACT_MAIN_ELEMENT_CLASS;
+            reactTraverseUp = STORY_REACT_TRAVERSE_UP;
+        } else {
+            findReactMainElementClass = DEFAULT_REACT_MAIN_ELEMENT_CLASS;
+            reactTraverseUp = DEFAULT_REACT_TRAVERSE_UP;
+        }
+    }
+
+
     function addButtons() {
         if (!storageLocal.settings.showSolveButtons) return;
         if (window.location.pathname === '/learn' && document.querySelector('a[data-test="global-practice"]')) return;
@@ -3077,6 +3134,8 @@ function One() {
             return button;
         }
 
+        syncReactLookupByContext();
+
         const nextButton = document.querySelector('[data-test="player-next"]');
         const storiesContinueButton = document.querySelector('[data-test="stories-player-continue"]');
         const storiesDoneButton = document.querySelector('[data-test="stories-player-done"]');
@@ -3090,8 +3149,6 @@ function One() {
                 document.querySelector('.MYehf').style.display = "flex";
                 document.querySelector('.MYehf').style.gap = "20px";
             } else if (document.querySelector(".FmlUF") !== null) { // Story
-                findReactMainElementClass = '_3TJzR';
-                reactTraverseUp = 0;
                 document.querySelector('._3TJzR').style.display = "flex";
                 document.querySelector('._3TJzR').style.gap = "20px";
             }
@@ -3389,6 +3446,10 @@ function One() {
             showNotification("error", "Multiple Scripts Detected", "Multiple Duolingo PRO scripts were detected. Please uninstall any extra copies from your userscript manager to continue using Duolingo PRO.", 0);
         }
     }, 10);
+
+    if (typeof GM_log === 'undefined') {
+        showNotification("warning", "Userscript Manager Recommended", "Duolingo PRO may not work properly without a userscript manager. Install <a href='https://www.tampermonkey.net/' target='_blank'>Tampermonkey</a> or another userscript manager to get the most stable experience.", 0);
+    }
 
     let isBusySwitchingPages = false;
     let pages = {
@@ -4599,7 +4660,11 @@ function One() {
     let DLP_Server_Connection_Button_2 = document.getElementById("DLP_Secondary_1_Server_Connection_Button_1_ID");
     DLP_Server_Connection_Button.addEventListener('click', () => {
         if (DLP_Server_Connection_Button.getAttribute("data-dlp-connection-status") === "outdated") {
-            window.open("https://duolingopro.net/update/userscript", "_blank");
+            if (alpha) {
+                window.location.reload();
+            } else {
+                window.open("https://duolingopro.net/update/userscript", "_blank");
+            }
         } else if (DLP_Server_Connection_Button.getAttribute("data-dlp-connection-status") === "error") {
             window.open("https://status.duolingopro.net", "_blank");
         }
@@ -4651,6 +4716,12 @@ function One() {
     const pendingTempMessages = new Map();
     let chatMemoryFingerprints = [];
     let chatMessageLookup = new Map();
+    const supportChatDomRegistry = {
+        chatBox: null,
+        revision: 0,
+        groups: new Map(),
+        messages: new Map()
+    };
 
     function normalizeMessageValue(value) {
         if (Array.isArray(value)) {
@@ -4709,6 +4780,101 @@ function One() {
         return null;
     }
 
+    function getSupportChatMessageLookupKeys(message, isTemp = false) {
+        const keys = new Set();
+        const resolvedKey = resolveMessageKey(message);
+        if (resolvedKey) {
+            keys.add(String(resolvedKey));
+        }
+        if (message?.send_time !== undefined && message?.send_time !== null) {
+            keys.add(String(message.send_time));
+        }
+        if (isTemp) {
+            keys.add(`temp-${isTemp}`);
+        }
+        return Array.from(keys).filter(Boolean);
+    }
+
+    function registerChatLookupMessage(message, isTemp = false) {
+        if (!message || typeof message !== 'object') return;
+        getSupportChatMessageLookupKeys(message, isTemp).forEach(key => {
+            chatMessageLookup.set(key, message);
+        });
+    }
+
+    function rebuildChatMessageLookup(messages = []) {
+        chatMessageLookup.clear();
+        messages.forEach(entry => {
+            if (!entry || typeof entry !== 'object') return;
+            if (Object.prototype.hasOwnProperty.call(entry, 'tempId') && Object.prototype.hasOwnProperty.call(entry, 'message')) {
+                registerChatLookupMessage(entry.message, entry.tempId || false);
+                return;
+            }
+            registerChatLookupMessage(entry);
+        });
+    }
+
+    function resetSupportChatDomRegistry(chatBox) {
+        supportChatDomRegistry.chatBox = chatBox ?? null;
+        supportChatDomRegistry.revision += 1;
+        supportChatDomRegistry.groups.clear();
+        supportChatDomRegistry.messages.clear();
+    }
+
+    function registerSupportChatGroup(message, groupElement, isTemp = false) {
+        if (!(groupElement instanceof Element)) return;
+        const record = {
+            groupElement,
+            contentElement: null,
+            message
+        };
+        getSupportChatMessageLookupKeys(message, isTemp).forEach(key => {
+            supportChatDomRegistry.groups.set(key, record);
+        });
+    }
+
+    function registerSupportChatMessageNode(message, groupElement, contentElement, isTemp = false) {
+        if (!(groupElement instanceof Element) || !(contentElement instanceof Element)) return;
+        const record = {
+            groupElement,
+            contentElement,
+            message
+        };
+        getSupportChatMessageLookupKeys(message, isTemp).forEach(key => {
+            supportChatDomRegistry.messages.set(key, record);
+            const existingGroupRecord = supportChatDomRegistry.groups.get(key);
+            if (existingGroupRecord) {
+                existingGroupRecord.contentElement = contentElement;
+                existingGroupRecord.message = message;
+            } else {
+                supportChatDomRegistry.groups.set(key, record);
+            }
+        });
+    }
+
+    function getSupportChatDomRecord(target) {
+        const candidateKeys = [];
+
+        if (typeof target === 'string' || typeof target === 'number' || typeof target === 'bigint') {
+            candidateKeys.push(String(target));
+        } else if (target && typeof target === 'object') {
+            candidateKeys.push(...getSupportChatMessageLookupKeys(target));
+        }
+
+        for (const key of candidateKeys) {
+            const messageRecord = supportChatDomRegistry.messages.get(String(key));
+            if (messageRecord?.groupElement?.isConnected) {
+                return messageRecord;
+            }
+            const groupRecord = supportChatDomRegistry.groups.get(String(key));
+            if (groupRecord?.groupElement?.isConnected) {
+                return groupRecord;
+            }
+        }
+
+        return null;
+    }
+
     function areArraysEqual(arrayA = [], arrayB = []) {
         if (arrayA.length !== arrayB.length) return false;
         for (let i = 0; i < arrayA.length; i++) {
@@ -4716,6 +4882,76 @@ function One() {
         }
         return true;
     }
+
+    function buildCombinedChatMessages(incomingMessages = []) {
+        const combinedMessages = [];
+        let sequenceCounter = 0;
+
+        function resolveTimestamp(msg) {
+            const rawTimestamp = msg?.send_time;
+            if (rawTimestamp === undefined || rawTimestamp === null) {
+                return Number.MAX_SAFE_INTEGER;
+            }
+            const numericTimestamp = Number(rawTimestamp);
+            if (!Number.isFinite(numericTimestamp)) {
+                return Number.MAX_SAFE_INTEGER;
+            }
+            return numericTimestamp < 1e12 ? numericTimestamp * 1000 : numericTimestamp;
+        }
+
+        incomingMessages.forEach(message => {
+            combinedMessages.push({
+                message,
+                tempId: false,
+                sequence: sequenceCounter++
+            });
+        });
+        pendingTempMessages.forEach((tempMessage, tempId) => {
+            combinedMessages.push({
+                message: tempMessage,
+                tempId,
+                sequence: sequenceCounter++
+            });
+        });
+
+        combinedMessages.sort((a, b) => {
+            const timeA = resolveTimestamp(a.message);
+            const timeB = resolveTimestamp(b.message);
+            if (timeA === timeB) {
+                return a.sequence - b.sequence;
+            }
+            return timeA - timeB;
+        });
+
+        return combinedMessages;
+    }
+
+    function findChatGroupNodeForMessage(chatBox, message) {
+        if (!(chatBox instanceof Element) || !message) return null;
+
+        const domRecord = getSupportChatDomRecord(message);
+        if (domRecord?.groupElement && domRecord.groupElement.closest('.DLP_Chat_Box_1_ID_1') === chatBox) {
+            return domRecord.groupElement;
+        }
+
+        const messageKey = resolveMessageKey(message);
+        if (messageKey) {
+            const groupNode = chatBox.querySelector(`[data-group-id="${CSS.escape(messageKey)}"]`);
+            if (groupNode) return groupNode;
+
+            const messageNode = chatBox.querySelector(`[data-message-id="${CSS.escape(messageKey)}"]`);
+            if (messageNode) return messageNode.closest('[data-group-id]');
+        }
+
+        const messageSent = String(message?.send_time ?? '');
+        if (messageSent !== '') {
+            const messageNode = chatBox.querySelector(`[data-message-sent="${CSS.escape(messageSent)}"]`);
+            if (messageNode) return messageNode.closest('[data-group-id]');
+        }
+
+        return null;
+    }
+
     let newReplyButtonActive = false;
     let userBioData = false;
     let onboardingProcessing = false;
@@ -4726,7 +4962,6 @@ function One() {
 
         const chatKeyValue = storageLocal?.chatKey?.[0] ?? false;
 
-        //fetch(apiURL + '/server', {
         fetch('https://api.duolingopro.net/server', {
             method: 'POST',
             headers: {
@@ -4849,67 +5084,20 @@ function One() {
 
                         const incomingMessages = data.chats.messages.filter(msg => !msg?.deleted && msg?.status !== 'deleted');
                         const nextFingerprints = incomingMessages.map(computeMessageFingerprint);
-                            const hasChanges = nextFingerprints.length !== chatMemoryFingerprints.length || nextFingerprints.some((fingerprint, index) => fingerprint !== chatMemoryFingerprints[index]);
+                        const hasChanges = nextFingerprints.length !== chatMemoryFingerprints.length || nextFingerprints.some((fingerprint, index) => fingerprint !== chatMemoryFingerprints[index]);
 
                         if (hasChanges) {
                             const previousLength = chatMemory.length;
                             const wasAtBottom = chatPinnedToBottom || isChatAtBottom(chatBox, 12);
                             const previousScrollTop = chatBox.scrollTop;
                             const previousFingerprintSet = new Set(chatMemoryFingerprints);
+                            const combinedMessages = buildCombinedChatMessages(incomingMessages);
+                            rebuildChatMessageLookup(combinedMessages);
 
                             chatBox.innerHTML = '';
+                            resetSupportChatDomRegistry(chatBox);
+
                             ensureChatSpacer(chatBox);
-                            const combinedMessages = [];
-                            let sequenceCounter = 0;
-                            const resolveTimestamp = (msg) => {
-                                const rawTimestamp = msg?.send_time;
-                                if (rawTimestamp === undefined || rawTimestamp === null) {
-                                    return Number.MAX_SAFE_INTEGER;
-                                }
-                                const numericTimestamp = Number(rawTimestamp);
-                                if (!Number.isFinite(numericTimestamp)) {
-                                    return Number.MAX_SAFE_INTEGER;
-                                }
-                                return numericTimestamp < 1e12 ? numericTimestamp * 1000 : numericTimestamp;
-                            };
-
-                            incomingMessages.forEach(message => {
-                                combinedMessages.push({
-                                    message,
-                                    tempId: false,
-                                    sequence: sequenceCounter++
-                                });
-                            });
-                            pendingTempMessages.forEach((tempMessage, tempId) => {
-                                combinedMessages.push({
-                                    message: tempMessage,
-                                    tempId,
-                                    sequence: sequenceCounter++
-                                });
-                            });
-
-                            combinedMessages.sort((a, b) => {
-                                const timeA = resolveTimestamp(a.message);
-                                const timeB = resolveTimestamp(b.message);
-                                if (timeA === timeB) {
-                                    return a.sequence - b.sequence;
-                                }
-                                return timeA - timeB;
-                            });
-
-                            chatMessageLookup.clear();
-                            incomingMessages.forEach(msg => {
-                                const key = resolveMessageKey(msg);
-                                if (key) {
-                                    chatMessageLookup.set(key, msg);
-                                }
-                                if (msg?.send_time !== undefined && msg?.send_time !== null) {
-                                    const sendKey = String(msg.send_time);
-                                    if (sendKey && sendKey !== key) {
-                                        chatMessageLookup.set(sendKey, msg);
-                                    }
-                                }
-                            });
 
                             combinedMessages.forEach(({ message, tempId }) => {
                                 createMessage(message, false, tempId || false);
@@ -4957,7 +5145,10 @@ function One() {
 
                     const globalData = data.global;
                     const versionData = data.versions[VERSION_FULL];
-                    const warnings = versionData.warnings || [];
+                    let warnings = versionData.warnings || [];
+                    warnings.forEach(warning => {
+                        warning.date = versionData.updated;
+                    });
                     const scriptData = data.script;
 
                     const termsText = Object.entries(globalData.terms)[0][1];
@@ -5841,6 +6032,7 @@ function One() {
         return null;
     }
 
+
     function buildMentionAccentStyle(accentValue, mode = 'mention') {
         const fallbackMentionStyle = 'background: rgba(var(--color-wolf), 0.2); color: rgb(var(--color-wolf));';
         const fallbackTextStyle = 'color: rgb(var(--DLP-blue));';
@@ -6148,168 +6340,11 @@ function One() {
             if (!replyKey) {
                 return null;
             }
-
-            function deriveTargetFromDom(key) {
-                if (!chatBox) return null;
-
-                const messageNodes = chatBox.querySelectorAll('[data-message-id]');
-                let matchedNode = null;
-                for (const node of messageNodes) {
-                    if (node.getAttribute('data-message-id') === key) {
-                        matchedNode = node;
-                        break;
-                    }
-                }
-
-                if (!matchedNode) {
-                    const groupCandidate = chatBox.querySelector(`[data-group-id="${key}"]`);
-                    if (groupCandidate) {
-                        matchedNode = groupCandidate.querySelector('[data-message-id]');
-                    }
-                }
-
-                if (!matchedNode) return null;
-
-                const result = {
-                    message_id: key,
-                    message: (matchedNode.textContent || '').trim()
-                };
-
-                const sendAttr = matchedNode.getAttribute('data-message-sent');
-                if (sendAttr && sendAttr !== '') {
-                    const numericSend = Number(sendAttr);
-                    result.send_time = Number.isFinite(numericSend) ? numericSend : sendAttr;
-                }
-
-                const groupNode = matchedNode.closest('[data-group-id]');
-                if (groupNode) {
-                    if (!result.message) {
-                        const fallbackNode = groupNode.querySelector('[data-message-id]');
-                        if (fallbackNode && fallbackNode !== matchedNode) {
-                            const fallbackText = (fallbackNode.textContent || '').trim();
-                            if (fallbackText) {
-                                result.message = fallbackText;
-                            }
-                        }
-                    }
-
-                    const authorNameAttr = groupNode.getAttribute('data-author-name');
-                    if (authorNameAttr) {
-                        result.author = authorNameAttr;
-                    }
-
-                    const headerNode = groupNode.querySelector('[data-chat-header="true"]');
-                    if (headerNode) {
-                        const authorElement = headerNode.querySelector('.DLP_HStack_6 p.DLP_Text_Style_1');
-                        if (authorElement) {
-                            const authorText = authorElement.textContent || '';
-                            if (authorText.trim()) {
-                                result.author = authorText.trim();
-                            }
-                            let accentColor = authorElement.style?.color?.trim();
-                            const authorStyleAttr = authorElement.getAttribute('style') || '';
-                            if (!accentColor || accentColor === '' || accentColor === 'transparent' || accentColor === 'rgba(0, 0, 0, 0)') {
-                                const accentUrlMatch = authorStyleAttr.match(/background\s*:\s*url\((['"]?)(.*?)\1\)/i);
-                                if (accentUrlMatch && accentUrlMatch[2]) {
-                                    accentColor = accentUrlMatch[2];
-                                }
-                            }
-                            if ((!accentColor || accentColor === '') && typeof window !== 'undefined' && document.contains(authorElement)) {
-                                try {
-                                    accentColor = window.getComputedStyle(authorElement).color;
-                                } catch (error) {
-                                    console.error('Failed to compute accent color for reply preview', error);
-                                }
-                            }
-                            if (accentColor && accentColor !== 'transparent' && accentColor !== 'rgba(0, 0, 0, 0)') {
-                                result.accent = accentColor;
-                            }
-                        }
-
-                        const avatarElement = headerNode.querySelector('div[style*="background"]');
-                        if (avatarElement) {
-                            const styleAttr = avatarElement.getAttribute('style') || '';
-                            const urlMatch = styleAttr.match(/url\((['"]?)(.*?)\1\)/);
-                            if (urlMatch && urlMatch[2]) {
-                                result.profile_picture = urlMatch[2];
-                            }
-
-                            const avatarDecoSource = avatarElement.getAttribute('data-dlp-deco-src');
-                            if (avatarDecoSource) {
-                                result.profile_picture_deco = avatarDecoSource;
-                            } else {
-                                const avatarDecoElement = avatarElement.querySelector('img');
-                                if (avatarDecoElement && avatarDecoElement.getAttribute('src')) {
-                                    result.profile_picture_deco = avatarDecoElement.getAttribute('src');
-                                }
-                            }
-                        }
-                    }
-                }
-
-                if ((!result.message || result.message === '') && matchedNode.classList?.contains('DLP_Hide_Scrollbar')) {
-                    result.message = 'Attachment';
-                }
-
-                return result;
-            }
-
             let targetMessage = chatMessageLookup.get(replyKey);
             if (!targetMessage && chatMemory.length) {
-                targetMessage = chatMemory.find(existing => resolveMessageKey(existing) === replyKey);
+                targetMessage = chatMemory.find(existing => getSupportChatMessageLookupKeys(existing).includes(replyKey));
             }
-
-            function isMeaningful(value, type) {
-                if (value === undefined || value === null) return false;
-                const trimmed = String(value).trim();
-                if (!trimmed) return false;
-                if (type === 'author' && trimmed === 'The User Who Was Replied') return false;
-                if (type === 'message' && trimmed === 'Reply content') return false;
-                return true;
-            }
-
-            const domMessage = deriveTargetFromDom(replyKey);
-            if (domMessage) {
-                const merged = targetMessage ? { ...targetMessage } : {};
-
-                if (isMeaningful(domMessage.author, 'author')) {
-                    merged.author = domMessage.author;
-                }
-                if (isMeaningful(domMessage.profile_picture)) {
-                    merged.profile_picture = domMessage.profile_picture;
-                }
-                if (isMeaningful(domMessage.profile_picture_deco)) {
-                    merged.profile_picture_deco = domMessage.profile_picture_deco;
-                }
-                if (isMeaningful(domMessage.accent)) {
-                    merged.accent = domMessage.accent;
-                }
-
-                if (isMeaningful(domMessage.message, 'message')) {
-                    if (!isMeaningful(merged.message, 'message') || domMessage.message !== 'Attachment') {
-                        merged.message = domMessage.message;
-                    }
-                } else if (!isMeaningful(merged.message, 'message') && domMessage.message) {
-                    merged.message = domMessage.message;
-                }
-
-                if (domMessage.send_time !== undefined && domMessage.send_time !== null && (merged.send_time === undefined || merged.send_time === null || merged.send_time === '')) {
-                    merged.send_time = domMessage.send_time;
-                }
-                if (!isMeaningful(merged.message_id)) {
-                    merged.message_id = replyKey;
-                }
-
-                targetMessage = merged;
-                chatMessageLookup.set(replyKey, targetMessage);
-                const derivedSendKey = targetMessage?.send_time;
-                if (derivedSendKey !== undefined && derivedSendKey !== null) {
-                    const sendKey = String(derivedSendKey);
-                    if (sendKey && sendKey !== replyKey) {
-                        chatMessageLookup.set(sendKey, targetMessage);
-                    }
-                }
-            }
+            targetMessage = targetMessage ? { ...targetMessage } : { message_id: replyKey };
 
             const previewWrapper = document.createElement('div');
             const targetKey = resolveMessageKey(targetMessage) ?? replyKey;
@@ -6325,7 +6360,12 @@ function One() {
             const previewAvatarDecoHtml = safePreviewAvatarDeco
                 ? `<img class="DLP_NoSelect" src="${escapeChatAttribute(safePreviewAvatarDeco)}" style="position: relative; left: -2px; top: -2px; width: 24px; height: 24px;">`
                 : '';
-            const previewMessageRaw = (targetMessage?.message && targetMessage.message.trim() !== '') ? targetMessage.message : 'Original message unavailable';
+            const previewMessageRaw = (() => {
+                const rawMessage = String(targetMessage?.message ?? '').trim();
+                if (rawMessage !== '') return targetMessage.message;
+                if (Array.isArray(targetMessage?.files) && targetMessage.files.length > 0) return 'Attachment';
+                return 'Original message unavailable';
+            })();
             const previewMessage = formatSupportChatMessage(previewMessageRaw);
             const safePreviewAuthor = escapeChatHtml(previewAuthor);
             const safePreviewAccentStyle = escapeChatAttribute(`${previewAccentStyle} white-space: pre;`);
@@ -6340,7 +6380,7 @@ function One() {
                         <path d="M17 1H11C5.47715 1 1 5.47715 1 11V17" stroke="rgb(var(--color-eel), 0.20)" stroke-width="2" stroke-linecap="round"/>
                     </svg>
                     <div class="DLP_HStack_6">
-                        <div data-dlp-deco-src="${safePreviewDecoSource}" style="width: 20px; height: 20px; border-radius: 16px; outline: rgba(0, 0, 0, 0.2) solid 2px; outline-offset: -2px; ${safeAvatarBackground}">${previewAvatarDecoHtml}</div>
+                        <div data-dlp-deco-src="${safePreviewDecoSource}" style="width: 20px; height: 20px; border-radius: var(--DLP-corner-r-l); outline: rgba(0, 0, 0, 0.2) solid 2px; outline-offset: -2px; ${safeAvatarBackground}">${previewAvatarDecoHtml}</div>
                         <p class="DLP_Text_Style_1 DLP_NoSelect" style="${safePreviewAccentStyle}">${safePreviewAuthor}</p>
                     </div>
                     <p class="DLP_Text_Style_1" data-message-id="${safeTargetKey}" data-message-sent="${safeTargetSendTime}" style="align-self: stretch; white-space: nowrap; overflow-wrap: anywhere; word-break: break-word; text-overflow: ellipsis; -webkit-line-clamp: 1; overflow: hidden; display: -webkit-box; -webkit-box-orient: vertical;">${previewMessage}</p>
@@ -6409,7 +6449,7 @@ function One() {
                 <div class="DLP_VStack_4" data-group-id="${safeGroupId}" data-group-sent="${safeGroupSendTime}" data-author-name="${safeAuthorAttr}">
                     <div data-chat-header="true" style="display: flex; justify-content: space-between; align-items: center; align-self: stretch;">
                         <div class="DLP_HStack_6">
-                            <div style="width: 20px; height: 20px; border-radius: 16px; outline: rgba(0, 0, 0, 0.2) solid 2px; outline-offset: -2px; ${escapeChatAttribute(safeAvatarBackground)}">${avatarDecoHtml}</div>
+                            <div style="width: 20px; height: 20px; border-radius: var(--DLP-corner-r-l); corner-shape: var(--DLP-corner-s); outline: rgba(0, 0, 0, 0.2) solid 2px; outline-offset: -2px; ${escapeChatAttribute(safeAvatarBackground)}">${avatarDecoHtml}</div>
                             <p class="DLP_Text_Style_1 DLP_NoSelect" style="${safeHeaderAccentStyle}">${safeAuthorText}</p>
                         </div>
                         <div class="DLP_HStack_6"${roleMetaStackStyle}>
@@ -6423,6 +6463,7 @@ function One() {
             const newElement = temp.firstElementChild;
             chatBox.appendChild(newElement);
             lastChatChild = newElement;
+            registerSupportChatGroup(message, newElement, isTemp);
             if (safeProfilePictureDeco) {
                 wireAnimatedAvatarDecoration(newElement, safeProfilePictureDeco);
             }
@@ -6478,10 +6519,11 @@ function One() {
                 const safeTempState = escapeChatAttribute(isTemp);
                 const temp = document.createElement('div');
                 temp.innerHTML = `
-                    <p class="DLP_Text_Style_1" data-message-id="${safeMessageKey}" data-message-sent="${safeMessageSent}"${isTemp ? ` data-is-temp="${safeTempState}"` : ''} style="${safeContinuationStyleAttr}">${formattedMessage}</p>
+                    <p class="DLP_Text_Style_1" data-dlp-message-text="true" data-message-id="${safeMessageKey}" data-message-sent="${safeMessageSent}"${isTemp ? ` data-is-temp="${safeTempState}"` : ''} style="${safeContinuationStyleAttr}">${formattedMessage}</p>
                 `;
                 const newElement = temp.firstElementChild;
                 lastChatChild.appendChild(newElement);
+                registerSupportChatMessageNode(message, lastChatChild, newElement, isTemp);
                 hydrateTickerMentions(newElement);
             }
             createAttachmentMessage(message);
@@ -6745,8 +6787,8 @@ function One() {
             });
         }
 
-        async function createAttachmentMessage(message) {
-            async function contentType(url) {
+        function createAttachmentMessage(message) {
+            function contentType(url) {
                 const imageExts = ['jpg', 'jpeg', 'png', 'gif', 'webp', 'bmp', 'svg'];
                 const videoExts = ['mp4', 'webm', 'ogg', 'mov', 'm4v'];
 
@@ -6766,7 +6808,7 @@ function One() {
                 return 'other';
             }
 
-            if (message.files.length > 0) {
+            if (Array.isArray(message.files) && message.files.length > 0) {
                 const safeMessageKey = escapeChatAttribute(messageKey);
                 const safeMessageSent = escapeChatAttribute(message.send_time ?? '');
                 const safeTempState = escapeChatAttribute(isTemp);
@@ -6777,13 +6819,17 @@ function One() {
                 const newElement2 = temp2.firstElementChild;
                 lastChatChild.appendChild(newElement2);
                 let attachmentParent = lastChatChild.lastElementChild;
+                const existingDomRecord = getSupportChatDomRecord(message);
+                if (!(existingDomRecord?.contentElement instanceof Element)) {
+                    registerSupportChatMessageNode(message, lastChatChild, newElement2, isTemp);
+                }
                 for (let i = 0; i < message.files.length; i++) {
                     const file = message.files[i];
                     const safeFileUrl = sanitizeChatUrl(file, { allowBlob: true });
                     if (!safeFileUrl) continue;
                     const safeFileUrlAttr = escapeChatAttribute(safeFileUrl);
                     const temp = document.createElement('div');
-                    let extensionType = await contentType(safeFileUrl);
+                    let extensionType = contentType(safeFileUrl);
                     if (extensionType === 'image') {
                         temp.innerHTML = `
                             <div class="DLP_Attachment_Box_1" data-preview-src="${safeFileUrlAttr}">
@@ -6974,9 +7020,12 @@ function One() {
                     <div style="display: flex; flex-direction: column; align-items: flex-start; gap: 8px;">
                         ${warning.icon}
                         <p class="DLP_Text_Style_2">${warning.head}</p>
-                        <p class="DLP_Text_Style_1" style="background: url(${serverURL}/static/images/flow/secondary/512/light.png) lightgray 50% / cover no-repeat; background-clip: text; -webkit-background-clip: text; -webkit-text-fill-color: transparent; display: none;">${warning.tag}</p>
                     </div>
                     <p class="DLP_Text_Style_1">${warning.body}</p>
+                    <div class="DLP_HStack_Auto">
+                        <p class="DLP_Text_Style_1" style="color: rgb(var(--color-wolf), 0.4);">${warning.tag}</p>
+                        <p class="DLP_Text_Style_1" style="color: rgb(var(--color-wolf), 0.4);">${warning.date}</p>
+                    </div>
                 </div>
                 `;
                 releaseNotesContainer.insertAdjacentHTML('beforeend', warningHTML);
@@ -8550,6 +8599,7 @@ function One() {
 
                 let formData = new FormData();
                 formData.append("message", messageInput.value);
+                formData.append("version", VERSION_FULL);
 
                 let fileUrls = [];
                 for (const attachment of allAttachments[currentChatId] ?? []) {
@@ -8572,11 +8622,12 @@ function One() {
                     "send_time": Number(Date.now()),
                     "message_id": tempMessageId
                 };
-                createMessage(tempData, false, chatTempSendNumber);
                 pendingTempMessages.set(chatTempSendNumber, {
                     ...tempData,
                     files: [...tempData.files]
                 });
+                registerChatLookupMessage(tempData, chatTempSendNumber);
+                createMessage(tempData, false, chatTempSendNumber);
 
                 chatTempSendList.push(chatTempSendNumber);
 
@@ -8605,6 +8656,7 @@ function One() {
                         chatBox.querySelectorAll(`[data-is-temp="${chatTempSendNumber}"]`).forEach(element => {
                             element.remove();
                         });
+                        registerChatLookupMessage(responseData);
                         createMessage(responseData);
                         const tempIndex = chatTempSendList.indexOf(chatTempSendNumber);
                         if (tempIndex !== -1) {
@@ -8997,11 +9049,7 @@ function One() {
 
 
 
-
-
-
-
-    const originalPlay = HTMLAudioElement.prototype.play;
+    
     function muteTab(value) {
         HTMLAudioElement.prototype.play = function () {
             if (value) {
@@ -9015,6 +9063,12 @@ function One() {
 
     let isSolveBusy = false;
     let isSolveAllBusy = false;
+    let solveAllRunToken = 0;
+
+    function bumpSolveAllRunToken() {
+        solveAllRunToken += 1;
+        return solveAllRunToken;
+    }
     document.addEventListener('keydown', function (event) {
         if ((event.ctrlKey || event.metaKey) && event.key === 'Enter') {
             if (event.shiftKey) {
@@ -9080,16 +9134,19 @@ function One() {
         else if (value === "stop") isAutoMode = false;
         else isAutoMode = !isAutoMode;
 
+        const activeSolveAllRunToken = bumpSolveAllRunToken();
+
         updateSolveButtonText(isAutoMode ? systemText[systemLanguage][102] : systemText[systemLanguage][101]);
 
-        // 2. Start the Async Loop (Only if not already running)
-        if (isAutoMode && !solvingLoopRunning) {
+        function startSolvingLoop(runToken) {
+            if (solvingLoopRunning || !isAutoMode || runToken !== solveAllRunToken) return;
+
             solvingLoopRunning = true;
             let initialUrl = window.location.href;
 
             // Fire-and-forget async loop
             (async function runLoop() {
-                while (isAutoMode) {
+                while (isAutoMode && runToken === solveAllRunToken) {
                     // Safety: Stop if URL changes
                     if (window.location.href !== initialUrl) {
                         isAutoMode = false;
@@ -9107,11 +9164,11 @@ function One() {
                         : 400;
 
                     // B. Run Logic (Wait for it to fully finish)
-                    await solve(true, true);
+                    await solve(true, true, runToken);
                     await new Promise(resolve => setTimeout(resolve, 100));
 
                     // Check if stopped while solve() was running
-                    if (!isAutoMode) break;
+                    if (!isAutoMode || runToken !== solveAllRunToken) break;
 
                     // C. Calculate Timing
                     const elapsedTime = Date.now() - startTime;
@@ -9125,34 +9182,45 @@ function One() {
 
                 // Cleanup when loop breaks
                 solvingLoopRunning = false;
+
+                if (isAutoMode && runToken !== solveAllRunToken) {
+                    startSolvingLoop(solveAllRunToken);
+                }
             })();
+        }
+
+        // 2. Start the Async Loop (Only if not already running)
+        if (isAutoMode) {
+            startSolvingLoop(activeSolveAllRunToken);
         }
     }
 
-    async function solve(check = true, skip = false) {
+    async function solve(check = true, skip = false, runToken = solveAllRunToken) {
         if (isSolveBusy) return;
         isSolveBusy = true;
+        syncReactLookupByContext();
 
-        const practiceAgain = document.querySelector('[data-test="player-practice-again"]');
-        const sessionCompleteSlide = document.querySelector('[data-test="session-complete-slide"]');
+        try {
+            const practiceAgain = document.querySelector('[data-test="player-practice-again"]');
+            const sessionCompleteSlide = document.querySelector('[data-test="session-complete-slide"]');
 
-        const selectorsForSkip = [
-            '[data-test="practice-hub-ad-no-thanks-button"]',
-            '.vpDIE',
-            '[data-test="plus-no-thanks"]',
-            '._1N-oo._36Vd3._16r-S._1ZBYz._23KDq._1S2uf.HakPM',
-            '._8AMBh._2vfJy._3Qy5R._28UWu._3h0lA._1S2uf._1E9sc',
-            '._1Qh5D._36g4N._2YF0P._28UWu._3h0lA._1S2uf._1E9sc',
-            '[data-test="story-start"]',
-            '._3bBpU._1x5JY._1M9iF._36g4N._2YF0P.T7I0c._2EnxW.MYehf',
-            '._2V6ug._1ursp._7jW2t._28UWu._3h0lA._1S2uf._1E9sc', // No Thanks Legendary Button
-            '._1rcV8._1VYyp._1ursp._7jW2t._1gKir', // Language Score
-            '._2V6ug._1ursp._7jW2t._3zgLG' // Create Profile Later
-        ];
-        selectorsForSkip.forEach(selector => {
-            const element = document.querySelector(selector);
-            if (element) element.click();
-        });
+            const selectorsForSkip = [
+                '[data-test="practice-hub-ad-no-thanks-button"]',
+                '.vpDIE',
+                '[data-test="plus-no-thanks"]',
+                '._1N-oo._36Vd3._16r-S._1ZBYz._23KDq._1S2uf.HakPM',
+                '._8AMBh._2vfJy._3Qy5R._28UWu._3h0lA._1S2uf._1E9sc',
+                '._1Qh5D._36g4N._2YF0P._28UWu._3h0lA._1S2uf._1E9sc',
+                '[data-test="story-start"]',
+                '._3bBpU._1x5JY._1M9iF._36g4N._2YF0P.T7I0c._2EnxW.MYehf',
+                '._2V6ug._1ursp._7jW2t._28UWu._3h0lA._1S2uf._1E9sc', // No Thanks Legendary Button
+                '._1rcV8._1VYyp._1ursp._7jW2t._1gKir', // Language Score
+                '._2V6ug._1ursp._7jW2t._3zgLG' // Create Profile Later
+            ];
+            selectorsForSkip.forEach(selector => {
+                const element = document.querySelector(selector);
+                if (element) element.click();
+            });
 
 
         const status = storageSession.legacy.status;
@@ -9231,9 +9299,11 @@ function One() {
             }
         }
 
+        window.sol = null;
         try {
-            window.sol = findReact(document.getElementsByClassName(findReactMainElementClass)[0]).props.currentChallenge;
+            window.sol = findReact(document.getElementsByClassName(findReactMainElementClass)[0])?.props?.currentChallenge ?? null;
         } catch (error) {
+            window.sol = null;
             console.log(error);
             //let next = document.querySelector('[data-test="player-next"]');
             //if (next) {
@@ -9275,7 +9345,6 @@ function One() {
                 clickCheck(),
                 new Promise(resolve => setTimeout(resolve, 500))
             ]);
-            isSolveBusy = false;
         } else if (challengeType) {
             if (debug) console.log("Challenge Type: " + challengeType);
 
@@ -9308,13 +9377,13 @@ function One() {
                     new Promise(resolve => setTimeout(resolve, 500))
                 ]);
             }
-
-            isSolveBusy = false;
         } else {
             await Promise.race([
                 clickCheck(),
                 new Promise(resolve => setTimeout(resolve, 500))
             ]);
+        }
+        } finally {
             isSolveBusy = false;
         }
     }
@@ -10009,11 +10078,13 @@ function One() {
     }
 
     function findSubReact(dom, traverseUp = reactTraverseUp) {
+        if (!dom) return null;
         const key = Object.keys(dom).find(key => key.startsWith("__reactProps"));
         return dom?.[key]?.children?.props?.slide;
     }
 
     function findReact(dom, traverseUp = reactTraverseUp) {
+        if (!dom) return null;
         const key = Object.keys(dom).find(key => {
             return key.startsWith("__reactFiber$") // react 17+
                 || key.startsWith("__reactInternalInstance$"); // react <17
