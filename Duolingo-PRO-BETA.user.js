@@ -1,8 +1,8 @@
 // ==UserScript==
 // @name         Duolingo PRO
 // @namespace    http://duolingopro.net
-// @version      3.1BETA.04.4
-// @description  The fastest Duolingo XP farmer, with free gems, Duolingo Max & more. Working as of April 2026.
+// @version      3.1BETA.04.5
+// @description  The fastest Duolingo XP farmer, with free gems, Duolingo Max & more. Working as of May 2026.
 // @author       anonymousHackerIV
 // @match        *://*.duolingo.com/*
 // @match        *://*.duolingo.cn/*
@@ -10,12 +10,12 @@
 // @grant        GM_log
 // ==/UserScript==
 
-const VERSION_NUMBER = "09";
-const STORAGE_LOCAL_VERSION = "09";
-const STORAGE_SESSION_VERSION = "09";
-const VERSION_NAME = "BETA.04.4";
-const VERSION_FULL = "3.1BETA.04.4";
-const VERSION_FORMAL = "3.1 BETA.04.4";
+const VERSION_NUMBER = "10";
+const STORAGE_LOCAL_VERSION = "10";
+const STORAGE_SESSION_VERSION = "10";
+const VERSION_NAME = "BETA.04.5";
+const VERSION_FULL = "3.1BETA.04.5";
+const VERSION_FORMAL = "3.1 BETA.04.5";
 let serverURL = "https://www.duolingopro.net";
 let apiURL = "https://api.duolingopro.net";
 let greasyfork = true;
@@ -39,12 +39,13 @@ const STORY_REACT_TRAVERSE_UP = 0;
 let findReactMainElementClass = DEFAULT_REACT_MAIN_ELEMENT_CLASS;
 let reactTraverseUp = DEFAULT_REACT_TRAVERSE_UP;
 
-if (["blog", "simg-ssl", "englishtest", "schools", "store"].some(s => new RegExp(`(?:^|\\.)${s}\\.`).test(window.location.hostname))) {
-    throw new Error("Duolingo PRO: unsupported subdomain");
+if (!["", "preview"].includes(window.location.hostname.split(".").slice(0, -2).join("."))) {
+    throw new Error("Unsupported subdomain");
 }
 
 const region = new Intl.Locale(navigator.language).maximize().region;
 const measurementSystem = ["US", "LR", "MM"].includes(region) ? "ussystem" : "metric";
+const timezoneOffset = new Date().getTimezoneOffset();
 
 const debug = false;
 const flag01 = false;
@@ -5538,6 +5539,13 @@ function One() {
         fetchingUserBioData = false;
     }
 
+    function getCourseName() {
+        let el = document.getElementsByClassName("jNMwi")[0];
+        let f = el?.[Object.keys(el || {}).find(k=>k.startsWith("__reactFiber$"))];
+        while(f && !f.memoizedProps?.name) f = f.return;
+        return f?.memoizedProps?.name;
+    }
+
     function escapeChatHtml(value) {
         return String(value)
             .replace(/&/g, '&amp;')
@@ -6380,7 +6388,7 @@ function One() {
                         <path d="M17 1H11C5.47715 1 1 5.47715 1 11V17" stroke="rgb(var(--color-eel), 0.20)" stroke-width="2" stroke-linecap="round"/>
                     </svg>
                     <div class="DLP_HStack_6">
-                        <div data-dlp-deco-src="${safePreviewDecoSource}" style="width: 20px; height: 20px; border-radius: var(--DLP-corner-r-l); outline: rgba(0, 0, 0, 0.2) solid 2px; outline-offset: -2px; ${safeAvatarBackground}">${previewAvatarDecoHtml}</div>
+                        <div data-dlp-deco-src="${safePreviewDecoSource}" style="width: 20px; height: 20px; border-radius: 50%; outline: rgba(0, 0, 0, 0.2) solid 2px; outline-offset: -2px; ${safeAvatarBackground}">${previewAvatarDecoHtml}</div>
                         <p class="DLP_Text_Style_1 DLP_NoSelect" style="${safePreviewAccentStyle}">${safePreviewAuthor}</p>
                     </div>
                     <p class="DLP_Text_Style_1" data-message-id="${safeTargetKey}" data-message-sent="${safeTargetSendTime}" style="align-self: stretch; white-space: nowrap; overflow-wrap: anywhere; word-break: break-word; text-overflow: ellipsis; -webkit-line-clamp: 1; overflow: hidden; display: -webkit-box; -webkit-box-orient: vertical;">${previewMessage}</p>
@@ -6449,7 +6457,7 @@ function One() {
                 <div class="DLP_VStack_4" data-group-id="${safeGroupId}" data-group-sent="${safeGroupSendTime}" data-author-name="${safeAuthorAttr}">
                     <div data-chat-header="true" style="display: flex; justify-content: space-between; align-items: center; align-self: stretch;">
                         <div class="DLP_HStack_6">
-                            <div style="width: 20px; height: 20px; border-radius: var(--DLP-corner-r-l); corner-shape: var(--DLP-corner-s); outline: rgba(0, 0, 0, 0.2) solid 2px; outline-offset: -2px; ${escapeChatAttribute(safeAvatarBackground)}">${avatarDecoHtml}</div>
+                            <div style="width: 20px; height: 20px; border-radius: 50%; outline: rgba(0, 0, 0, 0.2) solid 2px; outline-offset: -2px; ${escapeChatAttribute(safeAvatarBackground)}">${avatarDecoHtml}</div>
                             <p class="DLP_Text_Style_1 DLP_NoSelect" style="${safeHeaderAccentStyle}">${safeAuthorText}</p>
                         </div>
                         <div class="DLP_HStack_6"${roleMetaStackStyle}>
@@ -7327,7 +7335,7 @@ function One() {
                     type: id,
                     amount: (Array.isArray(amount) && amount.length === 2 ? `${String(amount[0]).padStart(2, '0')}-${String(amount[1])}` : amount),
                     version: VERSION_FULL,
-                    lang: 'en'
+                    lang: systemLanguage
                 })
             });
 
@@ -8578,10 +8586,13 @@ function One() {
                         let response = await fetch(apiURL + "/chats/create", {
                             method: "POST",
                             headers: {
+                                "Content-Type": "application/json",
                                 "Authorization": `Bearer ${document.cookie.split(';').find(cookie => cookie.includes('jwt_token')).split('=')[1]}`
                             },
                             body: JSON.stringify({
-                                "version": VERSION_FULL
+                                "version": VERSION_FULL,
+                                "course": getCourseName(),
+                                "lang": systemLanguage
                             })
                         });
 
@@ -8600,6 +8611,8 @@ function One() {
                 let formData = new FormData();
                 formData.append("message", messageInput.value);
                 formData.append("version", VERSION_FULL);
+                formData.append("course", getCourseName());
+                formData.append("lang", systemLanguage);
 
                 let fileUrls = [];
                 for (const attachment of allAttachments[currentChatId] ?? []) {
@@ -8995,33 +9008,16 @@ function One() {
         function setupCreateNewChatButton() {
             let theButton = container.querySelector('#DLP_Inset_Group_2').querySelector('#DLP_Inset_Button_3_ID');
             theButton.addEventListener('click', async () => {
-                theButton.style.opacity = "0.5";
-                theButton.style.pointerEvents = "none";
-                try {
-                    let response = await fetch(apiURL + "/chats/create", {
-                        method: "GET",
-                        headers: {
-                            "Authorization": `Bearer ${document.cookie.split(';').find(cookie => cookie.includes('jwt_token')).split('=')[1]}`
-                        }
-                    });
+                container.querySelector('#DLP_Inset_Group_1').style.display = "";
+                container.querySelector('#DLP_Inset_Group_2').style.display = "none";
 
-                    let data = await response.json();
-                    storageLocal.chatKey = [data.chat_key];
-                    saveStorageLocal();
+                storageLocal.chatKey.shift();
+                saveStorageLocal();
 
-                    chatBox.innerHTML = '';
-                    ensureChatSpacer(chatBox);
-
-                    container.querySelector('#DLP_Inset_Group_1').style.display = "";
-                    container.querySelector('#DLP_Inset_Group_2').style.display = "none";
-
-                    theButton.style.opacity = "";
-                    theButton.style.pointerEvents = "";
-                } catch (error) {
-                    console.error("Fetch error:", error);
-                    theButton.style.opacity = "";
-                    theButton.style.pointerEvents = "";
-                }
+                chatBox.style.display = 'none';
+                chatBox.innerHTML = '';
+                ensureChatSpacer(chatBox);
+                container.querySelector('#DLP_Inset_Group_5').style.display = '';
             });
         }
         setupCreateNewChatButton();
