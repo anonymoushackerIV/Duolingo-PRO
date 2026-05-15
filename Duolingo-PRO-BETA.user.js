@@ -39,8 +39,8 @@ const STORY_REACT_TRAVERSE_UP = 0;
 let findReactMainElementClass = DEFAULT_REACT_MAIN_ELEMENT_CLASS;
 let reactTraverseUp = DEFAULT_REACT_TRAVERSE_UP;
 
-if (!["", "preview"].includes(window.location.hostname.split(".").slice(0, -2).join("."))) {
-    throw new Error("Unsupported subdomain");
+if (["blog", "simg-ssl", "englishtest", "schools", "store", "podcast"].some(s => new RegExp(`(?:^|\\.)${s}\\.`).test(window.location.hostname))) {
+    throw new Error("Duolingo PRO: unsupported subdomain");
 }
 
 const region = new Intl.Locale(navigator.language).maximize().region;
