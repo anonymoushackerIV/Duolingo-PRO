@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Duolingo PRO
 // @namespace    http://duolingopro.net
-// @version      3.1BETA.05
+// @version      3.1BETA.05.1
 // @description  Duolingo XP farmer, with Gems, Free Duolingo Max, and Chess support. Working as of September 2026.
 // @author       anonymousHackerIV
 // @match        *://*.duolingo.com/*
@@ -15,17 +15,17 @@
 // USAGE OR MODIFICATION OF THIS SCRIPT IMPLIES YOU AGREE TO THE TERMS AND CONDITIONS PRESENTED IN THE SCRIPT. IF YOU DO NOT AGREE, DO NOT USE OR MODIFY THIS SCRIPT.
 // YOU CAN ALSO REVIEW THE TERMS AND CONDITIONS AT https://www.duolingopro.net/terms ALONG WITH THE PRIVACY POLICY AT https://www.duolingopro.net/privacy
 
-const VERSION_NUMBER = "11";
-const STORAGE_LOCAL_VERSION = "11";
-const STORAGE_SESSION_VERSION = "11";
-const VERSION_NAME = "BETA.05";
-const VERSION_FULL = "3.1BETA.05";
-const VERSION_FORMAL = "3.1 BETA.05";
+const VERSION_NUMBER = "12";
+const STORAGE_LOCAL_VERSION = "12";
+const STORAGE_SESSION_VERSION = "12";
+const VERSION_NAME = "BETA.05.1";
+const VERSION_FULL = "3.1BETA.05.1";
+const VERSION_FORMAL = "3.1 BETA.05.1";
 let serverURL = "https://www.duolingopro.net";
 let apiURL = "https://api.duolingopro.net";
 let autoServerURL = "https://autoserver.duolingopro.net";
 const greasyfork = true;
-const alpha = true;
+const alpha = false;
 
 let storageLocal;
 let storageSession;
