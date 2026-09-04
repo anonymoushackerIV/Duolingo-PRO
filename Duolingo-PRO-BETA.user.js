@@ -1,25 +1,31 @@
 // ==UserScript==
 // @name         Duolingo PRO
 // @namespace    http://duolingopro.net
-// @version      3.1BETA.04.5
-// @description  The fastest Duolingo XP farmer, with free gems, Duolingo Max & more. Working as of May 2026.
+// @version      3.1BETA.05
+// @description  Duolingo XP farmer, with Gems, Free Duolingo Max, and Chess support. Working as of September 2026.
 // @author       anonymousHackerIV
 // @match        *://*.duolingo.com/*
 // @match        *://*.duolingo.cn/*
-// @icon         https://www.duolingopro.net/static/favicons/dlp/128/light/primary.png
+// @icon         https://www.duolingopro.net/static/favicons/duo/128/light/primary.png
+// @require      https://cdn.jsdelivr.net/npm/@intrastellar/squircle@0.5.2/squircle.js
+// @require      https://cdn.jsdelivr.net/npm/@intrastellar/numbers@0.1.0/dist/index.js
 // @grant        GM_log
 // ==/UserScript==
 
-const VERSION_NUMBER = "10";
-const STORAGE_LOCAL_VERSION = "10";
-const STORAGE_SESSION_VERSION = "10";
-const VERSION_NAME = "BETA.04.5";
-const VERSION_FULL = "3.1BETA.04.5";
-const VERSION_FORMAL = "3.1 BETA.04.5";
+// USAGE OR MODIFICATION OF THIS SCRIPT IMPLIES YOU AGREE TO THE TERMS AND CONDITIONS PRESENTED IN THE SCRIPT. IF YOU DO NOT AGREE, DO NOT USE OR MODIFY THIS SCRIPT.
+// YOU CAN ALSO REVIEW THE TERMS AND CONDITIONS AT https://www.duolingopro.net/terms ALONG WITH THE PRIVACY POLICY AT https://www.duolingopro.net/privacy
+
+const VERSION_NUMBER = "11";
+const STORAGE_LOCAL_VERSION = "11";
+const STORAGE_SESSION_VERSION = "11";
+const VERSION_NAME = "BETA.05";
+const VERSION_FULL = "3.1BETA.05";
+const VERSION_FORMAL = "3.1 BETA.05";
 let serverURL = "https://www.duolingopro.net";
 let apiURL = "https://api.duolingopro.net";
-let greasyfork = true;
-let alpha = false;
+let autoServerURL = "https://autoserver.duolingopro.net";
+const greasyfork = true;
+const alpha = true;
 
 let storageLocal;
 let storageSession;
@@ -36,16 +42,12 @@ const DEFAULT_REACT_MAIN_ELEMENT_CLASS = '_3yE3H';
 const DEFAULT_REACT_TRAVERSE_UP = 1;
 const STORY_REACT_MAIN_ELEMENT_CLASS = '_3TJzR';
 const STORY_REACT_TRAVERSE_UP = 0;
+const SOLVE_BUTTON_TRIGGER_SELECTOR = '[data-test="player-next"], [data-test="stories-player-continue"], [data-test="stories-player-done"], [data-test="story-start"], div._8dMUn._3neHb._1cwlN, div._8dMUn._1cwlN';
 let findReactMainElementClass = DEFAULT_REACT_MAIN_ELEMENT_CLASS;
 let reactTraverseUp = DEFAULT_REACT_TRAVERSE_UP;
 
-if (["blog", "simg-ssl", "englishtest", "schools", "store", "podcast"].some(s => new RegExp(`(?:^|\\.)${s}\\.`).test(window.location.hostname))) {
-    throw new Error("Duolingo PRO: unsupported subdomain");
-}
-
 const region = new Intl.Locale(navigator.language).maximize().region;
 const measurementSystem = ["US", "LR", "MM"].includes(region) ? "ussystem" : "metric";
-const timezoneOffset = new Date().getTimezoneOffset();
 
 const debug = false;
 const flag01 = false;
@@ -53,8 +55,6 @@ const flag02 = false;
 const flag03 = false;
 const flag04 = false;
 const flag05 = false; // Support chat Markdown links ([text](url))
-
-// USAGE OR MODIFICATION OF THIS SCRIPT IMPLIES YOU AGREE TO THE TERMS AND CONDITIONS PRESENTED IN THE SCRIPT. IF YOU DO NOT AGREE, DO NOT USE OR MODIFY THIS SCRIPT.
 
 const random16Numbers = Array.from(crypto.getRandomValues(new Uint8Array(16)), b => (b % 10)).join('');
 let duplicateDetectionMarker = document.createElement("div");
@@ -87,115 +87,490 @@ function duplicateCheck() {
 }
 
 
-let systemLanguage = document.cookie.split('; ').find(row => row.startsWith('lang=')).split('=')[1];
-let systemText = {
+function getSystemLanguage() {
+    const langCookie = document.cookie
+        .split('; ')
+        .find(row => row.startsWith('lang='));
+    const normalizedLanguage = decodeURIComponent(langCookie?.split('=')[1] || "en")
+        .toLowerCase()
+        .split("-")[0];
+
+    return Object.prototype.hasOwnProperty.call(systemText, normalizedLanguage) ? normalizedLanguage : "en";
+}
+
+function isRightToLeftLayout() {
+    const directionElements = [document.documentElement, document.body].filter(Boolean);
+    if (directionElements.some(element => {
+        const declaredDirection = element.getAttribute('dir')?.toLowerCase();
+        const computedDirection = getComputedStyle(element).direction?.toLowerCase();
+        return declaredDirection === 'rtl' || computedDirection === 'rtl';
+    })) {
+        return true;
+    }
+    if (document.querySelector('[dir="rtl" i]')) return true;
+
+    const languageCookie = document.cookie
+        .split('; ')
+        .find(row => row.startsWith('lang='))
+        ?.slice(5)
+        .toLowerCase();
+    const languageValues = [
+        document.documentElement?.getAttribute('lang'),
+        document.body?.getAttribute('lang'),
+        languageCookie
+    ].filter(Boolean).map(value => value.toLowerCase());
+
+    return languageValues.some(value => /^(ar|fa|he|iw|ur)(?:-|$)/.test(value));
+}
+
+const RTL_DIRECTIONAL_ICON_PATTERN = /[\u{100BF6}\u{100BFB}]/gu;
+
+function mirrorRTLDirectionalGlyphs(value) {
+    if (!isRightToLeftLayout()) return value;
+
+    return String(value).replace(RTL_DIRECTIONAL_ICON_PATTERN, glyph => (
+        glyph === '\u{100BF6}' ? '\u{100BFB}' : '\u{100BF6}'
+    ));
+}
+
+function getRTLDirectionalIcon(glyph) {
+    return mirrorRTLDirectionalGlyphs(glyph);
+}
+
+function mirrorRTLDirectionalText(root) {
+    if (!isRightToLeftLayout() || !root || root.nodeType !== 1) return;
+
+    [root, ...root.querySelectorAll('*')].forEach(element => {
+        if (element.children.length !== 0) return;
+
+        const currentText = element.textContent;
+        const mirroredText = mirrorRTLDirectionalGlyphs(currentText);
+        if (mirroredText !== currentText) element.textContent = mirroredText;
+    });
+}
+
+const RTL_DIRECTIONAL_ICON_GLYPHS = new Set(['􀰫']);
+let rtlDirectionalIconObserver = null;
+
+function markRTLDirectionalIconElement(element) {
+    if (!element || element.nodeType !== 1) return;
+
+    const isDirectionalIcon = element.children.length === 0
+        && RTL_DIRECTIONAL_ICON_GLYPHS.has(element.textContent.trim());
+    if (isDirectionalIcon) {
+        element.setAttribute('data-dlp-rtl-directional-icon', 'true');
+    } else {
+        element.removeAttribute('data-dlp-rtl-directional-icon');
+    }
+}
+
+function markRTLDirectionalIcons(root) {
+    if (root?.nodeType === 3) root = root.parentElement;
+    if (!root || root.nodeType !== 1) return;
+
+    markRTLDirectionalIconElement(root);
+    root.querySelectorAll('*').forEach(markRTLDirectionalIconElement);
+}
+
+function setupRTLDirectionalIconMarking() {
+    if (rtlDirectionalIconObserver) rtlDirectionalIconObserver.disconnect();
+    if (!document.body) return;
+
+    markRTLDirectionalIcons(document.body);
+    rtlDirectionalIconObserver = new MutationObserver(mutations => {
+        mutations.forEach(mutation => {
+            if (mutation.type === 'characterData') {
+                markRTLDirectionalIconElement(mutation.target.parentElement);
+                return;
+            }
+
+            markRTLDirectionalIconElement(mutation.target);
+            mutation.addedNodes.forEach(markRTLDirectionalIcons);
+        });
+    });
+    rtlDirectionalIconObserver.observe(document.body, {
+        childList: true,
+        characterData: true,
+        subtree: true
+    });
+}
+
+const systemText = {
     en: {
-        1: "Switch to Legacy",
-        2: "Show",
-        3: "Connecting",
-        4: "Donate",
-        5: "Support",
-        6: "Settings",
-        7: "What's New",
-        8: "How much XP would you like to gain?",
-        9: "GET",
-        10: "How many Gems would you like to gain?",
-        12: "Would you like to redeem 3 days of Super Duolingo?",
-        13: "REDEEM",
-        14: "Terms & Conditions",
-        15: "See More",
-        16: "Back",
-        17: "How many lessons would you like to solve on the path?",
-        18: "START",
-        19: "How many practices would you like to solve?",
-        21: "How many listening practices would you like to solve? (Requires Super Duolingo)",
-        23: "Which and how many lessons would you like to repeat?",
-        25: "Please read and accept the Terms & Conditions to use Duolingo PRO 3.1.",
-        26: "These are the Terms & Conditions you agreed to use Duolingo PRO 3.1.",
-        27: "LOADING TERMS & CONDITIONS<br><br>YOU CANNOT USE THIS SOFTWARE UNTIL TERMS & CONDITIONS ARE LOADED",
-        28: "DECLINE",
-        29: "ACCEPT",
-        30: "Without accepting the Terms & Conditions, you cannot use Duolingo PRO 3.1.",
-        31: "BACK",
-        32: "Settings",
-        34: "Automatic Updates",
-        35: "Duolingo PRO 3.1 will automatically update itself when there's a new version available.",
-        37: "SAVE",
-        38: "Feedback",
-        39: "Help us make Duolingo PRO 3.1 better.",
-        40: "Write here as much as you can with as many details as possible.",
-        41: "Feedback Type: ",
-        42: "BUG REPORT",
-        43: "SUGGESTION",
-        44: "Add Attachment: (Optional)",
-        45: "UPLOAD",
-        47: "SEND",
-        48: "What's New",
-        51: "LEARN MORE",
-        52: "Welcome to",
-        53: "Skip the grind and jump straight to the rewards with instant XP, gem gains, streak boosts, auto-solved lessons, and more.",
-        54: "START",
-        55: "Would you like to redeem an XP Boost?",
-        56: "How many Streak Freezes would you like to get?",
-        57: "How many days would you like to increase your Streak by?",
-        58: "Would you like to refill your Hearts to full?",
-        59: "Would you like to complete all your Quests?",
-        60: "COMPLETE",
-        61: "Pick 3.1 mode for faster, instant results powered by server-side processing, or Legacy mode to keep everything running on-client.",
-
-        100: "SOLVE",
-        101: "SOLVE ALL",
-        102: "PAUSE SOLVE",
-        103: "Hide",
-        104: "Show",
-        105: "Switch to 3.1",
-        106: "Switch to Legacy",
-        107: "STOP",
-        108: "Connected",
-        109: "Error",
-        110: "SEND",
-        111: "SENDING",
-        112: "SENT",
-        113: "LOADING",
-        114: "DONE",
-        115: "FAILED",
-        116: "SAVING AND APPLYING",
-
-        200: "Under Construction",
-        201: "The Gems function is currently under construction. We plan to make it accessible to everyone soon.",
-        202: "Update Available",
-        203: "You are using an outdated version of Duolingo PRO.<br><br>Please <a href='https://www.duolingopro.net/greasyfork' target='_blank' class='DLP_Link_Style_1'>update Duolingo PRO</a> or turn on automatic updates.",
-        204: "Feedback Sent",
-        205: "Your feedback was successfully sent, and our developers will look over it. Keep in mind, we cannot respond back to your feedback.",
-        206: "Error Sending Feedback",
-        207: "Your feedback was not sent. This might be because you are using an outdated or a modified version of Duolingo PRO.",
-        208: "Unknown Error",
-        209: "Please try again later. An unknown error occurred. Number: ",
-        210: "hour",
-        211: "hours",
-        212: "minute",
-        213: "minutes",
-        214: "and",
-        215: "{hours} {hourUnit}",
-        216: "{minutes} {minuteUnit}",
-        217: "{hourPhrase} {conjunction} {minutePhrase}",
-        218: "XP Successfully Received",
-        219: "You received {amount} XP. You can request up to {remainingXP} XP before your limit resets back to {totalLimit} XP in {timeMessage}. To boost your limits, <a href='https://duolingopro.net/donate' target='_blank' class='DLP_Link_Style_1'>donate</a>.",
-        220: "Super Duolingo Successfully Redeemed",
-        221: "You redeemed a 3 day Super Duolingo trial. You can request another 3 day Super Duolingo trial in {timeMessage}.",
-        222: "Limit Warning",
-        223: "You can only request up to {limitAmount} XP before your limit resets back to {totalLimitAmount} XP in {timeMessage}. To boost your limits, <a href='https://duolingopro.net/donate' target='_blank' class='DLP_Link_Style_1'>donate</a>.",
-        224: "Limit Reached",
-        225: "You reached your XP limit for the next {timeMessage}. To boost your limits, <a href='https://duolingopro.net/donate' target='_blank' class='DLP_Link_Style_1'>donate</a>.",
-        227: "You already redeemed a 3 day Super Duolingo trial. You can request another 3 day Super Duolingo trial in {timeMessage}.",
-        229: "REFILL",
-        230: "GEMS testing",
-        231: "Error Connecting",
-        232: "Duolingo PRO was unable to connect to our servers. This may be because our servers are temporarily unavailable or you are using an outdated version. Check for <a href='https://status.duolingopro.net' target='_blank' class='DLP_Link_Style_1'>server status</a> or <a href='https://duolingopro.net/greasyfork' target='_blank' class='DLP_Link_Style_1'>updates</a>.",
-        233: "Update Duolingo PRO",
-        234: "You are using an outdated version of Duolingo PRO. Please <a href='https://www.duolingopro.net/greasyfork' target='_blank' class='DLP_Link_Style_1'>update Duolingo PRO</a>."
-    },
+        nav: {
+            switchToLegacy: "Switch to Legacy",
+            show: "Show",
+            connecting: "Connecting",
+            donate: "Donate",
+            support: "Support",
+            settings: "Settings",
+            whatsNew: "What's New",
+            seeMore: "See More",
+            back: "Back",
+            learnMore: "LEARN MORE",
+            boost: "Boost"
+        },
+        actions: {
+            get: "GET",
+            redeem: "REDEEM",
+            start: "START",
+            enableInSettings: "ENABLE IN SETTINGS",
+            decline: "DECLINE",
+            accept: "ACCEPT",
+            back: "BACK",
+            save: "SAVE",
+            upload: "UPLOAD",
+            send: "SEND",
+            complete: "COMPLETE",
+            confirm: "CONFIRM",
+            refill: "REFILL",
+            stop: "STOP"
+        },
+        requests: {
+            xpPrompt: "How much XP would you like to gain?",
+            gemsPrompt: "How many Gems would you like to gain?",
+            superPrompt: "Would you like to redeem 3 days of Super Duolingo?",
+            pathLessonsPrompt: "How many lessons would you like to solve on the path?",
+            practicesPrompt: "How many practices would you like to solve?",
+            listeningPracticesPrompt: "How many listening practices would you like to solve? (Requires Super Duolingo)",
+            repeatLessonsPrompt: "Which and how many lessons would you like to repeat?",
+            xpBoostPrompt: "Would you like to redeem an XP Boost?",
+            streakFreezesPrompt: "How many Streak Freezes would you like to get?",
+            streakDaysPrompt: "How many days would you like to increase your Streak by?",
+            heartRefillPrompt: "Would you like to refill your Hearts to full?",
+            questsPrompt: "Would you like to complete all your Quests?",
+            enableLocalMaxPrompt: "Would you like to enable on-client Duolingo Max?",
+            monthlyBadgePrompt: "Which monthly badge would you like to get?",
+            repeatLessonUnitLabel: "Unit:",
+            repeatLessonLessonLabel: "Lesson:"
+        },
+        terms: {
+            title: "Terms & Conditions",
+            intro: "Please read and accept the Terms & Conditions to use Duolingo PRO 3.1.",
+            acceptedIntro: "These are the Terms & Conditions you agreed to use Duolingo PRO 3.1.",
+            loading: "LOADING TERMS & CONDITIONS<br><br>YOU CANNOT USE THIS SOFTWARE UNTIL TERMS & CONDITIONS ARE LOADED",
+            required: "Without accepting the Terms & Conditions, you cannot use Duolingo PRO 3.1.",
+            updateNotice: "We have updated our Terms & Conditions. Please read them carefully and accept to continue using Duolingo PRO 3.1."
+        },
+        settings: {
+            title: "Settings",
+            automaticUpdates: "Automatic Updates",
+            automaticUpdatesDescription: "Duolingo PRO 3.1 will automatically update itself when there's a new version available.",
+            savingAndApplying: "SAVING AND APPLYING",
+            showSolveButtons: "Show Solve Buttons",
+            showSolveButtonsDescription: "In lessons and practices, see the solve and solve all buttons.",
+            showAutoServerButton: "Show AutoServer Button",
+            showAutoServerButtonDescription: "See the AutoServer by Duolingo PRO button in your Duolingo menubar.",
+            randomLegacySolveSpeed: "Random Legacy Solve Speed",
+            randomLegacySolveSpeedDescription: "Legacy will wait a random amount of seconds before solving.",
+            customRandomLegacySolveSpeed: "Custom Random Legacy Solve Speed",
+            customRandomLegacySolveSpeedDescription: "Legacy will wait a random amount of seconds in between these two numbers before solving.",
+            helpImproveTitle: "Help Us Make Duolingo PRO Better",
+            helpImproveDescription: "Allow Duolingo PRO to collect anonymous usage data for us to improve the script.",
+            helpImproveOnboardingDescription: "Allow Duolingo PRO to automatically send anonymous bug reports and usage data to help us improve the script.",
+            reduceEffects: "Reduce Processing Intensive Effects",
+            reduceEffectsDescription: "Reduce processing intensive effects by disabling confetti, starfield and other visual animations.",
+            freeLocalMax: "Free On-Client Duolingo Max",
+            freeLocalMaxDescription: "Skip the worry of running out of hearts, get free entry to legendary challenges, access to personalized practice, and learn without ads. Only works on-client.",
+            showSuperTrial: "Show Super Duolingo Trial Function",
+            showSuperTrialDescription: "This function rarely works and is currently being deprecated. We recommend you to use Free Duolingo Max instead.",
+            customRandomLegacySolveSpeedTitle: "Custom Random Legacy Solve Speed"
+        },
+        feedback: {
+            title: "Feedback",
+            description: "Help us make Duolingo PRO 3.1 better.",
+            placeholder: "Write here as much as you can with as many details as possible.",
+            typeLabel: "Feedback Type: ",
+            bugReport: "BUG REPORT",
+            suggestion: "SUGGESTION",
+            attachmentLabel: "Add Attachment: (Optional)",
+            typeSuggestion: "Suggestion",
+            typeBugReport: "Bug Report"
+        },
+        onboarding: {
+            welcome: "Welcome to",
+            description: "Skip the grind and jump straight to the rewards with instant XP, gem gains, streak boosts, auto-solved lessons, and more.",
+            modeDescription: "Pick 3.1 mode for faster, instant results powered by server-side processing, or Legacy mode to keep everything running on-client.",
+            maxCardTitle: "Duolingo Max",
+            maxCardBody: "Skip the worry of running out of hearts, get free entry to legendary challenges, access to personalized practice, and learn without ads. Do not turn on if you already have Super Duolingo or Max."
+        },
+        solver: {
+            solve: "SOLVE",
+            solveAll: "SOLVE ALL",
+            pauseSolve: "PAUSE SOLVE",
+            hide: "Hide",
+            show: "Show",
+            switchToModern: "Switch to 3.1",
+            switchToLegacy: "Switch to Legacy",
+            play: "PLAY",
+            playing: "PLAYING",
+            playAll: "PLAY ALL",
+            pausePlay: "PAUSE PLAY",
+            chessStartPlaying: "START PLAYING",
+            chessStopPlaying: "STOP PLAYING",
+            chessBoardNotFound: "Could not find the board on the canvas.",
+            chessCanvasNotFound: "Canvas not found.",
+            chessCurrentFenUnavailable: "Could not extract the current chess match FEN.",
+            chessMovesUnavailable: "Could not extract chess match moves.",
+            chessApiErrorStatus: "API error! Status: {status}",
+            chessLessonCorrectMovesMissing: "Chess lesson correctMoves were not found.",
+            chessLessonCorrectMovesEmpty: "Chess lesson correctMoves were empty.",
+            chessLessonCurrentMovesDiverged: "Chess lesson current moves diverged from the expected solution line."
+        },
+        status: {
+            connected: "Connected",
+            error: "Error",
+            send: "SEND",
+            sending: "SENDING",
+            sent: "SENT",
+            loading: "LOADING",
+            loadingTitleCase: "Loading",
+            done: "DONE",
+            failed: "FAILED",
+            saving: "Saving",
+            available: "Available",
+            unavailable: "Unavailable",
+            outdated: "Outdated"
+        },
+        notifications: {
+            underConstructionTitle: "Under Construction",
+            gemsUnderConstructionBody: "The Gems function is currently under construction. We plan to make it accessible to everyone soon.",
+            updateAvailableTitle: "Update Available",
+            updateAvailableBody: "You are using an outdated version of Duolingo PRO.<br><br>Please <a href='https://www.duolingopro.net/greasyfork' target='_blank' class='DLP_Link_Style_1'>update Duolingo PRO</a> or turn on automatic updates.",
+            feedbackSentTitle: "Feedback Sent",
+            feedbackSentBody: "Your feedback was successfully sent, and our developers will look over it. Keep in mind, we cannot respond back to your feedback.",
+            feedbackErrorTitle: "Error Sending Feedback",
+            feedbackErrorBody: "Your feedback was not sent. This might be because you are using an outdated or a modified version of Duolingo PRO.",
+            unknownErrorTitle: "Unknown Error",
+            unknownErrorBody: "Please try again later. An unknown error occurred. Number: ",
+            xpReceivedTitle: "XP Successfully Received",
+            xpReceivedBody: "You received {amount} XP. You can request up to {remainingXP} XP before your limit resets back to {totalLimit} XP in {timeMessage}. To boost your limits, <a href='https://duolingopro.net/donate' target='_blank' class='DLP_Link_Style_1'>donate</a>.",
+            superRedeemedTitle: "Super Duolingo Successfully Redeemed",
+            superRedeemedBody: "You redeemed a 3 day Super Duolingo trial. You can request another 3 day Super Duolingo trial in {timeMessage}.",
+            limitWarningTitle: "Limit Warning",
+            limitWarningBody: "You can only request up to {limitAmount} XP before your limit resets back to {totalLimitAmount} XP in {timeMessage}. To boost your limits, <a href='https://duolingopro.net/donate' target='_blank' class='DLP_Link_Style_1'>donate</a>.",
+            limitReachedTitle: "Limit Reached",
+            limitReachedBody: "You reached your XP limit for the next {timeMessage}. To boost your limits, <a href='https://duolingopro.net/donate' target='_blank' class='DLP_Link_Style_1'>donate</a>.",
+            superAlreadyRedeemedBody: "You already redeemed a 3 day Super Duolingo trial. You can request another 3 day Super Duolingo trial in {timeMessage}.",
+            gemsTestingTitle: "GEMS testing",
+            connectionErrorTitle: "Error Connecting",
+            connectionErrorBody: "Duolingo PRO was unable to connect to our servers. This may be because our servers are temporarily unavailable or you are using an outdated version. Check for <a href='https://status.duolingopro.net' target='_blank' class='DLP_Link_Style_1'>server status</a> or <a href='https://duolingopro.net/greasyfork' target='_blank' class='DLP_Link_Style_1'>updates</a>.",
+            updateRequiredTitle: "Update Duolingo PRO",
+            updateRequiredBody: "You are using an outdated version of Duolingo PRO. Please <a href='https://www.duolingopro.net/greasyfork' target='_blank' class='DLP_Link_Style_1'>update Duolingo PRO</a>.",
+            updateAvailableBodyLegacy: "You are using an outdated version of Duolingo PRO. <br><br>Please update Duolingo PRO or turn on automatic updates.",
+            connectionErrorBodyLegacy: "Duolingo PRO failed to connect. This might be happening because of an issue on our system or your device. <br><br>Try updating Duolingo PRO. If the issue persists afterwards, join our Discord Server to get support.",
+            highDemandBodyLegacy: "We are currently unable to receive new requests due to high demand. Join our Discord Server to learn more. <br><br>You can help us handle more demand by donating on Patreon while getting exclusive features and higher limits.",
+            multipleScriptsTitle: "Multiple Scripts Detected",
+            multipleScriptsBody: "Multiple Duolingo PRO scripts were detected. Please uninstall any extra copies from your userscript manager to continue using Duolingo PRO.",
+            featureDisabledTitle: "Feature Disabled",
+            featureDisabledBody: "This feature has been temporarily disabled.",
+            pinLimitReachedTitle: "Pin Limit Reached",
+            pinLimitReachedBody: "You've pinned too many functions. Please unpin one to continue.",
+            supportTeamResponseTitle: "Support Team Response",
+            supportTeamResponseBody: "You have a new message from our support team.",
+            xpTooHighTitle: "That is a lot of XP...",
+            xpTooHighBody: "You're about to gain more XP than recommended. Click CONFIRM to continue.",
+            boostOpenFailedTitle: "Failed to Open Boost",
+            boostOpenFailedBody: "Failed to connect and open the boost page. Please try again later.",
+            sendFailedTitle: "Send Failed",
+            sendFailedBody: "We could not verify that your message was delivered. Please try again.",
+            legacySolvedIncorrectlyTitle: "Legacy Solved Incorrectly",
+            legacySolvedIncorrectlyBody: "Legacy has detected that it solved a question incorrectly. A report has been made under ID: {id}",
+            legacyStuckTitle: "Legacy is Stuck",
+            legacyStuckBody: "Legacy has detected that it is stuck on a question. A report has been made under ID: {id}",
+            legacySolvedIncorrectlyNoAnalyticsBody: "Legacy has detected that it solved a question incorrectly. Turn on share anonymous usage data in settings to help us fix this bug.",
+            legacyStuckNoAnalyticsBody: "Legacy has detected that it is stuck on a question. Turn on share anonymous usage data in settings to help us fix this bug."
+        },
+        pagination: {
+            previous: "PREVIOUS",
+            next: "NEXT"
+        },
+        stats: {
+            since: "since {date}",
+            modernTitle: "3.1 Stats",
+            xpGained: "XP Gained:",
+            gemsGained: "Gems Gained:",
+            streakGained: "Streak Gained:",
+            heartRefillsRequested: "Heart Refills Requested:",
+            streakFreezesRequested: "Streak Freezes Requested:",
+            doubleXpBoostsRequested: "Double XP Boosts Requested:",
+            questCompletesRequested: "Quest Completes Requested:",
+            legacyTitle: "Legacy Mode Stats",
+            lessonsSolved: "Lessons Solved:",
+            questionsSolved: "Questions Solved:"
+        },
+        autoserver: {
+            title: "AutoServer",
+            brand: "AUTOSERVER",
+            byline: "by Duolingo",
+            brandTag: "PRO",
+            settings: "Settings",
+            timezone: "Timezone",
+            underConstruction: "Under Construction",
+            underConstructionBody: "AutoServer is currently under construction and unavailable. We appreciate your patience and will provide updates as progress continues.",
+            settingsUnavailableTitle: "AutoServer Settings Unavailable",
+            settingsUnavailableBody: "AutoServer did not return the required streak settings. Please try again later.",
+            updateFailedTitle: "AutoServer Update Failed",
+            updateFailedBody: "Your streak settings could not be saved.",
+            missingToken: "Duolingo sign-in token was not found.",
+            requestFailed: "AutoServer request failed.",
+            streakUiUnavailable: "AutoServer streak UI settings are unavailable.",
+            streakSettingsUnavailable: "AutoServer streak settings are unavailable.",
+            streakDataMissing: "Streak settings were not returned.",
+            active: "Active",
+            inactive: "Inactive",
+            lengthDays: "{length} Day{plural}",
+            maximumLengthNotice: "You can only protect your streak for up to {maximumLength} day{plural}. <a href='https://duolingopro.net/donate' target='_blank' class='DLP_Link_Style_1'>Donate</a> to protect longer.",
+            streakProtector: "Streak Protector",
+            leagueProtector: "League Protector",
+            protecting: "Protecting:",
+            protectingTime: "Protecting Time:",
+            protectingMode: "Protecting Mode:",
+            earlyMorning: "Early Morning",
+            info: "Info",
+            beta: "BETA",
+            betaNotice: "This function is in BETA",
+            streakDescription: "Streak Protector extends your streak by completing a lesson in our servers.",
+            leagueDescription: "League Protector protects your league position by completing lessons in our servers.",
+            leagueLimitsNotice: "You only have access to Chill and Standard Mode with up to 0 days of protection. <a href='https://duolingopro.net/donate' target='_blank' class='DLP_Link_Style_1'>Donate</a> to get access to Aggressive Mode and longer protection.",
+            chill: "Chill",
+            zeroDays: "0 Days",
+            learnMore: "Learn More"
+        },
+        barThing: {
+            infinity: "Infinity",
+            xpLeft: "{amount} XP Left",
+            finishingUp: "Finishing Up",
+            timeLeftMinutesSeconds: "{minutes}m {seconds}s Left",
+            timeLeftMinutes: "{minutes}m Left",
+            timeLeftSeconds: "{seconds}s Left",
+            lastPractice: "Last Practice",
+            practicesLeft: "{amount} Practices Left",
+            lastLesson: "Last Lesson",
+            lessonsLeft: "{amount} Lessons Left",
+            mute: "Mute",
+            muted: "Muted"
+        },
+        legacy: {
+            placeholders: {
+                practices: "0 practices",
+                lessons: "0 lessons",
+                xp: "0 XP",
+                minutes: "0 minutes",
+                zero: "0"
+            },
+            modeSwitchTooltip: {
+                xp: "Switch to XP Mode",
+                time: "Switch to Time Mode",
+                infinity: "Switch to Infinity Mode",
+                lesson: "Switch to Lesson Mode"
+            },
+            modeLabel: {
+                xp: "XP"
+            }
+        },
+        support: {
+            heading: "Support",
+            needSupport: "Need Support?",
+            needSupportBody: "Get help from our <a href='{faqUrl}' target='_blank' class='DLP_Link_Style_1'>FAQ page</a>, enhanced with AI, or join our <a href='{discordUrl}' target='_blank' class='DLP_Link_Style_1'>Discord server</a> and talk with the devs.",
+            responseTimesTitle: "Response Times",
+            responseTimesBody: "It may take a few hours for a developer to respond to you. You will be notified in Duolingo PRO when there's a reply.",
+            emptyPrompt: "Send a message to start talking with a support member.",
+            closedTitle: "This chat was closed.",
+            closedBody: "We hope to have solved your issue. If not, you can start a new chat.",
+            startNewChat: "Start a New Chat",
+            dropToAttach: "Drop here to attach",
+            messagePlaceholder: "Type here...",
+            newReply: "New Reply",
+            newMessages: "New Messages",
+            you: "You",
+            privateUser: "Private User",
+            unknownUser: "Unknown User",
+            attachment: "Attachment",
+            originalMessageUnavailable: "Original message unavailable",
+            someone: "Someone",
+            isTyping: "is typing",
+            areTyping: "are typing",
+            multipleTyping: "& {count} others are typing",
+            justNow: "just now",
+            minutesAgo: "{minutes}m ago",
+            hoursAgo: "{hours}h ago",
+            daysAgo: "{days}d ago",
+            weeksAgo: "{weeks}w ago",
+            monthsAgo: "{months}m ago",
+            yearsAgo: "{years}y ago",
+            fileTooLargeTitle: "File Too Large",
+            fileTooLargeBody: "{fileName} is over {maxSizeMb} MB, please choose a smaller file.",
+            tooManyFilesTitle: "Too Many Files",
+            tooManyFilesBody: "You can only attach up to {maxFiles} files at once."
+        },
+        attachments: {
+            close: "Close",
+            file: "File",
+            elementTypeError: "Element must be an image or video.",
+            imageLoadError: "Failed to load image.",
+            videoLoadError: "Failed to load video."
+        },
+        earn: {
+            connect: {
+                generate: {
+                    earnKeyNotFound: "Earn key not found in the response.",
+                    unauthorized: "Unauthorized: Invalid or missing authentication token.",
+                    rateLimitExceeded: "Rate limit exceeded: Please try again later.",
+                    unexpectedError: "An unexpected error occurred.",
+                    serverError: "Server Error: {detail}",
+                    genericError: "Error {status}: {detail}"
+                }
+            }
+        },
+        duolingo: {
+            manageSubscription: "Manage subscription"
+        },
+        errors: {
+            unsupportedSubdomain: "Duolingo PRO: unsupported subdomain."
+        },
+        time: {
+            hour: "hour",
+            hours: "hours",
+            minute: "minute",
+            minutes: "minutes",
+            and: "and",
+            hourPhrase: "{hours} {hourUnit}",
+            minutePhrase: "{minutes} {minuteUnit}",
+            durationPhrase: "{hourPhrase} {conjunction} {minutePhrase}"
+        }
+    }
 };
+
+let systemLanguage = getSystemLanguage();
+const missingSystemTextWarnings = new Set();
+
+function system(path) {
+    const readPath = (source, keyPath) => keyPath
+        .split(".")
+        .reduce((value, key) => value && Object.prototype.hasOwnProperty.call(value, key) ? value[key] : undefined, source);
+    const translatedText = readPath(systemText[systemLanguage], path);
+    const fallbackText = readPath(systemText.en, path);
+
+    if (translatedText !== undefined) return translatedText;
+    if (fallbackText !== undefined) return fallbackText;
+
+    if (!missingSystemTextWarnings.has(path)) {
+        missingSystemTextWarnings.add(path);
+        console.warn(`Duolingo PRO missing system text: ${path}`);
+    }
+    return `[missing text: ${path}]`;
+}
+
+function systemFormat(path, values = {}) {
+    return system(path).replace(/\{(\w+)\}/g, (match, key) => {
+        return Object.prototype.hasOwnProperty.call(values, key) ? String(values[key]) : match;
+    });
+}
+
+if (["blog", "simg-ssl", "englishtest", "schools", "store"].some(s => new RegExp(`(?:^|\\.)${s}\\.`).test(window.location.hostname))) {
+    throw new Error(system("errors.unsupportedSubdomain"));
+}
 
 let CSS1;
 let HTML2;
@@ -291,7 +666,7 @@ function Two() {
     --DLP-purple: 175, 82, 222;
     --DLP-pink: 255, 45, 85;
 
-    --DLP-corner-s: superellipse(1.32);
+    --DLP-corner-s: round;
     --DLP-corner-r-s: 4px;
     --DLP-corner-r-m: 8px;
     --DLP-corner-r-ml: 12px;
@@ -338,14 +713,6 @@ function Two() {
     }
 }
 `;
-    if (CSS.supports('corner-shape', 'superellipse(1.32)')) {
-        CSS1 = CSS1
-            .replace('--DLP-corner-r-s: 4px', '--DLP-corner-r-s: 6px')
-            .replace('--DLP-corner-r-m: 8px', '--DLP-corner-r-m: 10px')
-            .replace('--DLP-corner-r-ml: 12px', '--DLP-corner-r-ml: 16px')
-            .replace('--DLP-corner-r-l: 16px', '--DLP-corner-r-l: 20px')
-            .replace('--DLP-corner-r-xl: 20px', '--DLP-corner-r-xl: 26px');
-    }
 
     HTML2 = `
 <canvas style="position: fixed; top: 0; left: 0; bottom: 0; right: 0; width: 100%; height: 100vh; z-index: 211; pointer-events: none;" id="DLP_Confetti_Canvas"></canvas>
@@ -354,11 +721,11 @@ function Two() {
     <div class="DLP_HStack_8" style="align-self: flex-end;">
         <div class="DLP_Button_Style_1 DLP_Magnetic_Hover_1" id="DLP_Switch_Legacy_Button_1_ID" style="outline: 2px solid rgba(var(--DLP-blue), 0.20); outline-offset: -2px; background: linear-gradient(0deg, rgba(var(--DLP-blue), 0.10) 0%, rgba(var(--DLP-blue), 0.10) 100%), rgba(var(--color-snow), 0.80); backdrop-filter: blur(16px);">
             <p class="DLP_Text_Style_1 DLP_NoSelect DLP_Inset_Icon_1_ID" style="color: rgb(var(--DLP-blue));">􀱏</p>
-            <p class="DLP_Text_Style_1 DLP_NoSelect DLP_Inset_Text_1_ID" style="color: rgb(var(--DLP-blue)); white-space: nowrap;">${systemText[systemLanguage][1]}</p>
+            <p class="DLP_Text_Style_1 DLP_NoSelect DLP_Inset_Text_1_ID" style="color: rgb(var(--DLP-blue)); white-space: nowrap;">${system("nav.switchToLegacy")}</p>
         </div>
         <div class="DLP_Button_Style_1 DLP_Magnetic_Hover_1" id="DLP_Hide_Button_1_ID" style="outline: 2px solid rgba(var(--DLP-blue), 0.20); outline-offset: -2px; background: rgba(var(--DLP-blue), 0.10); flex: none; backdrop-filter: blur(16px);">
             <p class="DLP_Text_Style_1 DLP_NoSelect DLP_Inset_Icon_1_ID" style="color: rgb(var(--DLP-blue));">􀋮</p>
-            <p class="DLP_Text_Style_1 DLP_NoSelect DLP_Inset_Text_1_ID" style="color: rgb(var(--DLP-blue));">${systemText[systemLanguage][2]}</p>
+            <p class="DLP_Text_Style_1 DLP_NoSelect DLP_Inset_Text_1_ID" style="color: rgb(var(--DLP-blue));">${system("nav.show")}</p>
         </div>
     </div>
     <div class="DLP_Main_Box">
@@ -366,31 +733,31 @@ function Two() {
             <div class="DLP_VStack_8">
                 <div class="DLP_VStack_8">
                     <div class="DLP_HStack_8">
-                        <div id="DLP_Main_1_Server_Connection_Button_1_ID" class="DLP_Button_Style_1 DLP_Magnetic_Hover_1" style="outline: 2px solid rgb(var(--color-eel), 0.20); outline-offset: -2px; background: rgb(var(--color-eel), 0.10); transition: opacity 0.8s cubic-bezier(0.16, 1, 0.32, 1), background 0.8s cubic-bezier(0.16, 1, 0.32, 1), outline 0.8s cubic-bezier(0.16, 1, 0.32, 1), filter 0.4s cubic-bezier(0.16, 1, 0.32, 1), transform 0.4s cubic-bezier(0.16, 1, 0.32, 1); padding: 10px 0px 10px 10px;">
+                        <div id="DLP_Main_1_Server_Connection_Button_1_ID" class="DLP_Button_Style_1 DLP_Magnetic_Hover_1" style="outline: 2px solid rgb(var(--color-eel), 0.20); outline-offset: -2px; background: rgb(var(--color-eel), 0.10); transition: opacity 0.8s cubic-bezier(0.16, 1, 0.32, 1), background 0.8s cubic-bezier(0.16, 1, 0.32, 1), outline 0.8s cubic-bezier(0.16, 1, 0.32, 1), filter 0.4s cubic-bezier(0.16, 1, 0.32, 1), transform 0.4s cubic-bezier(0.16, 1, 0.32, 1);">
                             <p class="DLP_Text_Style_1 DLP_NoSelect DLP_Inset_Icon_1_ID" style="color: rgb(var(--color-eel)); animation: 4s ease-in-out 0s infinite normal none running DLP_Rotate_360_Animation_1;">􀓞</p>
-                            <p class="DLP_Text_Style_1 DLP_NoSelect DLP_Inset_Text_1_ID" style="color: rgb(var(--color-eel));">${systemText[systemLanguage][3]}</p>
+                            <p class="DLP_Text_Style_1 DLP_NoSelect DLP_Inset_Text_1_ID" style="color: rgb(var(--color-eel));">${system("nav.connecting")}</p>
                         </div>
-                        <div class="DLP_Button_Style_1 DLP_Magnetic_Hover_1" id="DLP_Main_Donate_Button_1_ID" style="outline: 2px solid rgba(0, 0, 0, 0.20); outline-offset: -2px; background: url(${serverURL}/static/images/flow/primary/256/light.png) lightgray 50% / cover no-repeat; padding: 10px 0px 10px 10px;">
+                        <div class="DLP_Button_Style_1 DLP_Magnetic_Hover_1" id="DLP_Main_Donate_Button_1_ID" style="outline: 2px solid rgba(0, 0, 0, 0.20); outline-offset: -2px; background: url(${serverURL}/static/images/flow/primary/256/light.png) lightgray 50% / cover no-repeat;">
                             <svg width="17" height="19" viewBox="0 0 17 19" fill="#FFF" xmlns="http://www.w3.org/2000/svg">
                                 <path d="M16.5 5.90755C16.4968 3.60922 14.6997 1.72555 12.5913 1.04588C9.97298 0.201877 6.51973 0.324211 4.01956 1.49921C0.989301 2.92355 0.0373889 6.04355 0.00191597 9.15522C-0.0271986 11.7136 0.229143 18.4517 4.04482 18.4997C6.87998 18.5356 7.30214 14.8967 8.61397 13.1442C9.5473 11.8974 10.749 11.5452 12.2284 11.1806C14.7709 10.5537 16.5037 8.55506 16.5 5.90755Z"/>
                             </svg>
-                            <p class="DLP_Text_Style_1 DLP_NoSelect" style="color: #FFF;">${systemText[systemLanguage][4]}</p>
+                            <p class="DLP_Text_Style_1 DLP_NoSelect" style="color: #FFF;">${system("nav.donate")}</p>
                         </div>
                     </div>
                     <div class="DLP_HStack_8">
                         <div class="DLP_Button_Style_1 DLP_Magnetic_Hover_1" id="DLP_Main_Feedback_1_Button_1_ID" style="outline: 2px solid rgba(var(--DLP-blue), 0.20); outline-offset: -2px; background: linear-gradient(0deg, rgba(var(--DLP-blue), 0.10) 0%, rgba(var(--DLP-blue), 0.10) 100%), rgba(var(--color-snow), 0.80); backdrop-filter: blur(16px);">
                             <p class="DLP_Text_Style_1 DLP_NoSelect DLP_Inset_Icon_1_ID" style="color: rgb(var(--DLP-blue));">􂄺</p>
-                            <p class="DLP_Text_Style_1 DLP_NoSelect DLP_Inset_Text_1_ID" style="color: rgb(var(--DLP-blue));">${systemText[systemLanguage][5]}</p>
+                            <p class="DLP_Text_Style_1 DLP_NoSelect DLP_Inset_Text_1_ID" style="color: rgb(var(--DLP-blue));">${system("nav.support")}</p>
                         </div>
                         <div class="DLP_Button_Style_1 DLP_Magnetic_Hover_1" id="DLP_Main_Settings_1_Button_1_ID" style="outline: 2px solid rgba(var(--DLP-blue), 0.20); outline-offset: -2px; background: linear-gradient(0deg, rgba(var(--DLP-blue), 0.10) 0%, rgba(var(--DLP-blue), 0.10) 100%), rgba(var(--color-snow), 0.80); backdrop-filter: blur(16px);">
                             <p class="DLP_Text_Style_1 DLP_NoSelect DLP_Inset_Icon_1_ID" style="color: rgb(var(--DLP-blue));">􀍟</p>
-                            <p class="DLP_Text_Style_1 DLP_NoSelect DLP_Inset_Text_1_ID" style="color: rgb(var(--DLP-blue));">${systemText[systemLanguage][6]}</p>
+                            <p class="DLP_Text_Style_1 DLP_NoSelect DLP_Inset_Text_1_ID" style="color: rgb(var(--DLP-blue));">${system("nav.settings")}</p>
                         </div>
                     </div>
                     <div class="DLP_HStack_8">
-                        <div class="DLP_Button_Style_1 DLP_Magnetic_Hover_1" id="DLP_Secondary_Earn_Button_1_ID" style="outline: 2px solid rgba(0, 0, 0, 0.20); outline-offset: -2px; background: url(${serverURL}/static/images/flow/secondary/256/light.png) lightgray 50% / cover no-repeat; padding: 10px 0px 10px 10px;">
+                        <div class="DLP_Button_Style_1 DLP_Magnetic_Hover_1" id="DLP_Secondary_Earn_Button_1_ID" style="outline: 2px solid rgba(0, 0, 0, 0.20); outline-offset: -2px; background: url(${serverURL}/static/images/flow/secondary/256/light.png) lightgray 50% / cover no-repeat;">
                             <p class="DLP_Text_Style_1 DLP_NoSelect DLP_Inset_Icon_1_ID" style="color: #FFF;">􀋦</p>
-                            <p class="DLP_Text_Style_1 DLP_NoSelect DLP_Inset_Text_1_ID" style="color: #FFF;">Boost</p>
+                            <p class="DLP_Text_Style_1 DLP_NoSelect DLP_Inset_Text_1_ID" style="color: #FFF;">${system("nav.boost")}</p>
                         </div>
                         <div class="DLP_Button_Style_1 DLP_Magnetic_Hover_1" id="DLP_Main_YouTube_Button_1_ID" style="justify-content: center; flex: none; width: 40px; padding: 10px; outline: 2px solid rgba(0, 0, 0, 0.20); outline-offset: -2px; background: rgb(var(--DLP-pink));">
                             <svg width="22" height="16" viewBox="0 0 22 16" fill="#FFF" xmlns="http://www.w3.org/2000/svg">
@@ -410,29 +777,29 @@ function Two() {
                     </div>
                 </div>
                 <div class="DLP_HStack_Auto_Top">
-                    <div class="DLP_HStack_4">
+                    <div class="DLP_HStack_4" style="direction: ltr;">
                         <p class="DLP_Text_Style_2 DLP_NoSelect">Duolingo</p>
                         <p class="DLP_Text_Style_2 DLP_NoSelect" style="background: url(${serverURL}/static/images/flow/primary/256/light.png) lightgray 50% / cover no-repeat; background-clip: text; -webkit-background-clip: text; -webkit-text-fill-color: transparent;">PRO 3.1</p>
                     </div>
                     <p class="DLP_Text_Style_1 DLP_NoSelect" style="margin-top: 2px; font-size: 14px; background: url(${serverURL}/static/images/flow/secondary/256/light.png) lightgray 50% / cover no-repeat; background-clip: text; -webkit-background-clip: text; -webkit-text-fill-color: transparent;">${VERSION_NAME}</p>
                 </div>
-                <p id="DLP_Main_Warning_1_ID" class="DLP_Text_Style_1" style="transition: 0.4s cubic-bezier(0.25, 0.46, 0.45, 0.94); text-align: center; opacity: 0.5; display: none;"></p>
-                <div class="DLP_VStack_8" id="DLP_Main_Inputs_1_Divider_1_ID" style="opacity: 0.5; pointer-events: none; transition: 0.4s cubic-bezier(0.25, 0.46, 0.45, 0.94);">
+                <p id="DLP_Main_Warning_1_ID" class="DLP_Text_Style_1" style="transition: opacity 0.4s cubic-bezier(0.25, 0.46, 0.45, 0.94); text-align: center; opacity: 0.5; display: none;"></p>
+                <div class="DLP_VStack_8" id="DLP_Main_Inputs_1_Divider_1_ID" style="opacity: 0.5; pointer-events: none; transition: opacity 0.4s cubic-bezier(0.25, 0.46, 0.45, 0.94);">
                     <div class="DLP_VStack_8" id="DLP_Get_XP_1_ID" style="flex: 1 0 0;">
-                        <p class="DLP_Text_Style_1 DLP_NoSelect" style="align-self: stretch;">${systemText[systemLanguage][8]}</p>
+                        <p class="DLP_Text_Style_1 DLP_NoSelect" style="align-self: stretch;">${system("requests.xpPrompt")}</p>
                         <div class="DLP_HStack_8">
                             <div class="DLP_Input_Style_1_Active">
                                 <p class="DLP_Text_Style_1 DLP_NoSelect" style="color: rgba(var(--DLP-blue), 0.5);">􀆃</p>
                                 <input type="text" placeholder="0" id="DLP_Inset_Input_1_ID" class="DLP_Input_Input_Style_1">
                             </div>
                             <div class="DLP_Input_Button_Style_1_Active DLP_Magnetic_Hover_1" id="DLP_Inset_Button_1_ID">
-                                <p class="DLP_Text_Style_1 DLP_NoSelect DLP_Inset_Text_1_ID" style="color: #FFF;">${systemText[systemLanguage][9]}</p>
+                                <p class="DLP_Text_Style_1 DLP_NoSelect DLP_Inset_Text_1_ID" style="color: #FFF;">${system("actions.get")}</p>
                                 <p class="DLP_Text_Style_1 DLP_NoSelect DLP_Inset_Icon_1_ID" style="color: #FFF;">􀰫</p>
                             </div>
                         </div>
                     </div>
                     <div class="DLP_VStack_8" id="DLP_Get_GEM_1_ID" style="flex: 1 0 0; align-self: stretch;">
-                        <p class="DLP_Text_Style_1 DLP_NoSelect" style="align-self: stretch;">${systemText[systemLanguage][10]}</p>
+                        <p class="DLP_Text_Style_1 DLP_NoSelect" style="align-self: stretch;">${system("requests.gemsPrompt")}</p>
                         <div class="DLP_HStack_8">
                             <div class="DLP_Input_Style_1_Active" style="position: relative; overflow: hidden;">
                                 <svg width="120" height="48" viewBox="0 0 120 48" fill="none" xmlns="http://www.w3.org/2000/svg" style="position: absolute; pointer-events: none; transform: translateX(-150px); animation: slideRight 4s ease-in-out forwards infinite; animation-delay: 2s;">
@@ -444,13 +811,13 @@ function Two() {
                                 <input type="text" placeholder="0" id="DLP_Inset_Input_1_ID" class="DLP_Input_Input_Style_1">
                             </div>
                             <div class="DLP_Input_Button_Style_1_Active DLP_Magnetic_Hover_1" id="DLP_Inset_Button_1_ID">
-                                <p class="DLP_Text_Style_1 DLP_NoSelect DLP_Inset_Text_1_ID" style="color: #FFF;">${systemText[systemLanguage][9]}</p>
+                                <p class="DLP_Text_Style_1 DLP_NoSelect DLP_Inset_Text_1_ID" style="color: #FFF;">${system("actions.get")}</p>
                                 <p class="DLP_Text_Style_1 DLP_NoSelect DLP_Inset_Icon_1_ID" style="color: #FFF;">􀰫</p>
                             </div>
                         </div>
                     </div>
                     <div class="DLP_VStack_8" id="DLP_Get_Badge_1_ID" style="display: none;">
-                        <p class="DLP_Text_Style_1 DLP_NoSelect" style="align-self: stretch;">Which monthly badge would you like to get?</p>
+                        <p class="DLP_Text_Style_1 DLP_NoSelect" style="align-self: stretch;">${system("requests.monthlyBadgePrompt")}</p>
                         <div class="DLP_HStack_8">
                             <div class="DLP_Input_Style_1_Active">
                                 <p class="DLP_Text_Style_1 DLP_NoSelect" style="color: rgba(var(--DLP-blue), 0.5);">􀉉</p>
@@ -461,93 +828,93 @@ function Two() {
                                 </div>
                             </div>
                             <div class="DLP_Input_Button_Style_1_Active DLP_Magnetic_Hover_1" id="DLP_Inset_Button_1_ID">
-                                <p class="DLP_Text_Style_1 DLP_NoSelect DLP_Inset_Text_1_ID" style="color: #FFF;">${systemText[systemLanguage][9]}</p>
+                                <p class="DLP_Text_Style_1 DLP_NoSelect DLP_Inset_Text_1_ID" style="color: #FFF;">${system("actions.get")}</p>
                                 <p class="DLP_Text_Style_1 DLP_NoSelect DLP_Inset_Icon_1_ID" style="color: #FFF;">􀰫</p>
                             </div>
                         </div>
                     </div>
                     <div class="DLP_VStack_8" id="DLP_Get_SUPER_1_ID" style="display: none;">
-                        <p class="DLP_Text_Style_1 DLP_NoSelect" style="align-self: stretch;">${systemText[systemLanguage][12]}</p>
+                        <p class="DLP_Text_Style_1 DLP_NoSelect" style="align-self: stretch;">${system("requests.superPrompt")}</p>
                         <div class="DLP_HStack_8">
                             <div class="DLP_Input_Button_Style_1_Active DLP_Magnetic_Hover_1" id="DLP_Inset_Button_1_ID" style="flex: 1 0 0;">
-                                <p class="DLP_Text_Style_1 DLP_NoSelect DLP_Inset_Text_1_ID" style="color: #FFF;">${systemText[systemLanguage][13]}</p>
+                                <p class="DLP_Text_Style_1 DLP_NoSelect DLP_Inset_Text_1_ID" style="color: #FFF;">${system("actions.redeem")}</p>
                                 <p class="DLP_Text_Style_1 DLP_NoSelect DLP_Inset_Icon_1_ID" style="color: #FFF;">􀰫</p>
                             </div>
                         </div>
                     </div>
                     <div class="DLP_VStack_8" id="DLP_Get_DOUBLE_XP_BOOST_1_ID" style="display: none;">
-                        <p class="DLP_Text_Style_1 DLP_NoSelect" style="align-self: stretch;">${systemText[systemLanguage][55]}</p>
+                        <p class="DLP_Text_Style_1 DLP_NoSelect" style="align-self: stretch;">${system("requests.xpBoostPrompt")}</p>
                         <div class="DLP_HStack_8">
                             <div class="DLP_Input_Button_Style_1_Active DLP_Magnetic_Hover_1" id="DLP_Inset_Button_1_ID" style="flex: 1 0 0;">
-                                <p class="DLP_Text_Style_1 DLP_NoSelect DLP_Inset_Text_1_ID" style="color: #FFF;">${systemText[systemLanguage][13]}</p>
+                                <p class="DLP_Text_Style_1 DLP_NoSelect DLP_Inset_Text_1_ID" style="color: #FFF;">${system("actions.redeem")}</p>
                                 <p class="DLP_Text_Style_1 DLP_NoSelect DLP_Inset_Icon_1_ID" style="color: #FFF;">􀰫</p>
                             </div>
                         </div>
                     </div>
                     <div class="DLP_VStack_8" id="DLP_Get_Streak_Freeze_1_ID" style="display: none;">
-                        <p class="DLP_Text_Style_1 DLP_NoSelect" style="align-self: stretch;">${systemText[systemLanguage][56]}</p>
+                        <p class="DLP_Text_Style_1 DLP_NoSelect" style="align-self: stretch;">${system("requests.streakFreezesPrompt")}</p>
                         <div class="DLP_HStack_8">
                             <div class="DLP_Input_Style_1_Active">
                                 <p class="DLP_Text_Style_1 DLP_NoSelect" style="color: rgba(var(--DLP-blue), 0.5);">􀆃</p>
                                 <input type="text" placeholder="0" id="DLP_Inset_Input_1_ID" class="DLP_Input_Input_Style_1">
                             </div>
                             <div class="DLP_Input_Button_Style_1_Active DLP_Magnetic_Hover_1" id="DLP_Inset_Button_1_ID">
-                                <p class="DLP_Text_Style_1 DLP_NoSelect DLP_Inset_Text_1_ID" style="color: #FFF;">${systemText[systemLanguage][9]}</p>
+                                <p class="DLP_Text_Style_1 DLP_NoSelect DLP_Inset_Text_1_ID" style="color: #FFF;">${system("actions.get")}</p>
                                 <p class="DLP_Text_Style_1 DLP_NoSelect DLP_Inset_Icon_1_ID" style="color: #FFF;">􀰫</p>
                             </div>
                         </div>
                     </div>
                     <div class="DLP_VStack_8" id="DLP_Get_Streak_1_ID" style="display: none;">
-                        <p class="DLP_Text_Style_1 DLP_NoSelect" style="align-self: stretch;">${systemText[systemLanguage][57]}</p>
+                        <p class="DLP_Text_Style_1 DLP_NoSelect" style="align-self: stretch;">${system("requests.streakDaysPrompt")}</p>
                         <div class="DLP_HStack_8">
                             <div class="DLP_Input_Style_1_Active">
                                 <p class="DLP_Text_Style_1 DLP_NoSelect" style="color: rgba(var(--DLP-blue), 0.5);">􀆃</p>
                                 <input type="text" placeholder="0" id="DLP_Inset_Input_1_ID" class="DLP_Input_Input_Style_1">
                             </div>
                             <div class="DLP_Input_Button_Style_1_Active DLP_Magnetic_Hover_1" id="DLP_Inset_Button_1_ID">
-                                <p class="DLP_Text_Style_1 DLP_NoSelect DLP_Inset_Text_1_ID" style="color: #FFF;">${systemText[systemLanguage][9]}</p>
+                                <p class="DLP_Text_Style_1 DLP_NoSelect DLP_Inset_Text_1_ID" style="color: #FFF;">${system("actions.get")}</p>
                                 <p class="DLP_Text_Style_1 DLP_NoSelect DLP_Inset_Icon_1_ID" style="color: #FFF;">􀰫</p>
                             </div>
                         </div>
                     </div>
                     <div class="DLP_VStack_8" id="DLP_Get_Heart_Refill_1_ID" style="display: none;">
-                        <p class="DLP_Text_Style_1 DLP_NoSelect" style="align-self: stretch;">${systemText[systemLanguage][58]}</p>
+                        <p class="DLP_Text_Style_1 DLP_NoSelect" style="align-self: stretch;">${system("requests.heartRefillPrompt")}</p>
                         <div class="DLP_HStack_8">
                             <div class="DLP_Input_Button_Style_1_Active DLP_Magnetic_Hover_1" id="DLP_Inset_Button_1_ID" style="flex: 1 0 0;">
-                                <p class="DLP_Text_Style_1 DLP_NoSelect DLP_Inset_Text_1_ID" style="color: #FFF;">${systemText[systemLanguage][229]}</p>
+                                <p class="DLP_Text_Style_1 DLP_NoSelect DLP_Inset_Text_1_ID" style="color: #FFF;">${system("actions.refill")}</p>
                                 <p class="DLP_Text_Style_1 DLP_NoSelect DLP_Inset_Icon_1_ID" style="color: #FFF;">􀰫</p>
                             </div>
                         </div>
                     </div>
                     <div class="DLP_VStack_8" id="DLP_Get_Quest_1_ID" style="display: none;">
-                        <p class="DLP_Text_Style_1 DLP_NoSelect" style="align-self: stretch;">${systemText[systemLanguage][59]}</p>
+                        <p class="DLP_Text_Style_1 DLP_NoSelect" style="align-self: stretch;">${system("requests.questsPrompt")}</p>
                         <div class="DLP_HStack_8">
                             <div class="DLP_Input_Button_Style_1_Active DLP_Magnetic_Hover_1" id="DLP_Inset_Button_1_ID" style="flex: 1 0 0;">
-                                <p class="DLP_Text_Style_1 DLP_NoSelect DLP_Inset_Text_1_ID" style="color: #FFF;">${systemText[systemLanguage][60]}</p>
+                                <p class="DLP_Text_Style_1 DLP_NoSelect DLP_Inset_Text_1_ID" style="color: #FFF;">${system("actions.complete")}</p>
                                 <p class="DLP_Text_Style_1 DLP_NoSelect DLP_Inset_Icon_1_ID" style="color: #FFF;">􀰫</p>
                             </div>
                         </div>
                     </div>
                     <div class="DLP_VStack_8" id="DLP_Get_Local_Duolingo_Max_1_ID" style="display: none;">
-                        <p class="DLP_Text_Style_1 DLP_NoSelect" style="align-self: stretch;">Would you like to enable on-client Duolingo Max?</p>
+                        <p class="DLP_Text_Style_1 DLP_NoSelect" style="align-self: stretch;">${system("requests.enableLocalMaxPrompt")}</p>
                         <div class="DLP_HStack_8">
                             <div class="DLP_Input_Button_Style_1_Active DLP_Magnetic_Hover_1" id="DLP_Inset_Button_1_ID" style="flex: 1 0 0;">
-                                <p class="DLP_Text_Style_1 DLP_NoSelect DLP_Inset_Text_1_ID" style="color: #FFF;">ENABLE IN SETTINGS</p>
+                                <p class="DLP_Text_Style_1 DLP_NoSelect DLP_Inset_Text_1_ID" style="color: #FFF;">${system("actions.enableInSettings")}</p>
                                 <p class="DLP_Text_Style_1 DLP_NoSelect DLP_Inset_Icon_1_ID" style="color: #FFF;">􀰫</p>
                             </div>
                         </div>
                     </div>
                     <div class="DLP_Button_Style_1 DLP_Magnetic_Hover_1" id="DLP_Main_See_More_1_Button_1_ID" style="outline: rgba(var(--DLP-blue), 0.2) solid 2px; outline-offset: -2px; background: linear-gradient(0deg, rgba(var(--DLP-blue), 0.10) 0%, rgba(var(--DLP-blue), 0.10) 100%), rgba(var(--color-snow), 0.80); backdrop-filter: blur(16px); transform: translate(0px, 0px) scale(1); align-self: stretch; justify-content: space-between;">
-                        <p class="DLP_Text_Style_1 DLP_NoSelect" style="color: rgb(var(--DLP-blue));">${systemText[systemLanguage][15]}</p>
+                        <p class="DLP_Text_Style_1 DLP_NoSelect" style="color: rgb(var(--DLP-blue));">${system("nav.seeMore")}</p>
                         <p class="DLP_Text_Style_1 DLP_NoSelect" style="color: rgb(var(--DLP-blue));">􀯻</p>
                     </div>
                 </div>
                 <div class="DLP_HStack_Auto" style="padding-top: 4px;">
                     <div class="DLP_HStack_4 DLP_Magnetic_Hover_1" id="DLP_Main_Terms_1_Button_1_ID" style="align-items: center;">
-                        <p class="DLP_Text_Style_1 DLP_NoSelect" style="color: rgba(var(--DLP-blue), 0.5);">${systemText[systemLanguage][14]}</p>
+                        <p class="DLP_Text_Style_1 DLP_NoSelect" style="color: rgba(var(--DLP-blue), 0.5);">${system("terms.title")}</p>
                     </div>
                     <div class="DLP_HStack_4 DLP_Magnetic_Hover_1" id="DLP_Main_Whats_New_1_Button_1_ID" style="align-items: center;">
-                        <p class="DLP_Text_Style_1 DLP_NoSelect" style="color: rgb(var(--DLP-blue));">${systemText[systemLanguage][7]}</p>
+                        <p class="DLP_Text_Style_1 DLP_NoSelect" style="color: rgb(var(--DLP-blue));">${system("nav.whatsNew")}</p>
                     </div>
                 </div>
             </div>
@@ -559,8 +926,10 @@ function Two() {
                 <div class="DLP_HStack_Auto_Top">
                     <div class="DLP_HStack_4 DLP_Hover_1" id="DLP_Universal_Back_1_Button_1_ID">
                         <p class="DLP_Text_Style_2 DLP_NoSelect" style="font-size: 20px;">􀯶</p>
-                        <p class="DLP_Text_Style_2 DLP_NoSelect">Duolingo</p>
-                        <p class="DLP_Text_Style_2 DLP_NoSelect" style="background: url(${serverURL}/static/images/flow/primary/256/light.png) lightgray 50% / cover no-repeat; background-clip: text; -webkit-background-clip: text; -webkit-text-fill-color: transparent;">PRO 3.1</p>
+                        <div style="display: flex; align-items: center; gap: 4px; direction: ltr;">
+                            <p class="DLP_Text_Style_2 DLP_NoSelect">Duolingo</p>
+                            <p class="DLP_Text_Style_2 DLP_NoSelect" style="background: url(${serverURL}/static/images/flow/primary/256/light.png) lightgray 50% / cover no-repeat; background-clip: text; -webkit-background-clip: text; -webkit-text-fill-color: transparent;">PRO 3.1</p>
+                        </div>
                     </div>
                     <p class="DLP_Text_Style_1 DLP_NoSelect" style="font-size: 14px; background: url(${serverURL}/static/images/flow/secondary/256/light.png) lightgray 50% / cover no-repeat; background-clip: text; -webkit-background-clip: text; -webkit-text-fill-color: transparent;">${VERSION_NAME}</p>
                 </div>
@@ -568,7 +937,7 @@ function Two() {
                     <div class="DLP_VStack_8" id="DLP_Get_XP_2_ID" style="flex: 1 0 0;">
                         <div class="DLP_HStack_8" style="align-items: center;">
                             <p class="DLP_Text_Style_1 DLP_Magnetic_Hover_1 DLP_NoSelect DLP_Inset_Icon_1_ID" style="color: rgba(var(--color-eel), 0.50);">􀎦</p>
-                            <p class="DLP_Text_Style_1 DLP_NoSelect" style="align-self: stretch;">${systemText[systemLanguage][8]}</p>
+                            <p class="DLP_Text_Style_1 DLP_NoSelect" style="align-self: stretch;">${system("requests.xpPrompt")}</p>
                         </div>
                         <div class="DLP_HStack_8">
                             <div class="DLP_Input_Style_1_Active">
@@ -576,7 +945,7 @@ function Two() {
                                 <input type="text" placeholder="0" id="DLP_Inset_Input_1_ID" class="DLP_Input_Input_Style_1">
                             </div>
                             <div class="DLP_Input_Button_Style_1_Active DLP_Magnetic_Hover_1" id="DLP_Inset_Button_1_ID">
-                                <p class="DLP_Text_Style_1 DLP_NoSelect DLP_Inset_Text_1_ID" style="color: #FFF;">${systemText[systemLanguage][9]}</p>
+                                <p class="DLP_Text_Style_1 DLP_NoSelect DLP_Inset_Text_1_ID" style="color: #FFF;">${system("actions.get")}</p>
                                 <p class="DLP_Text_Style_1 DLP_NoSelect DLP_Inset_Icon_1_ID" style="color: #FFF;">􀰫</p>
                             </div>
                         </div>
@@ -584,7 +953,7 @@ function Two() {
                     <div class="DLP_VStack_8" id="DLP_Get_GEM_2_ID" style="flex: 1 0 0; align-self: stretch;">
                         <div class="DLP_HStack_8" style="align-items: center;">
                             <p class="DLP_Text_Style_1 DLP_Magnetic_Hover_1 DLP_NoSelect DLP_Inset_Icon_1_ID" style="color: rgba(var(--color-eel), 0.50);">􀎦</p>
-                            <p class="DLP_Text_Style_1 DLP_NoSelect" style="align-self: stretch;">${systemText[systemLanguage][10]}</p>
+                            <p class="DLP_Text_Style_1 DLP_NoSelect" style="align-self: stretch;">${system("requests.gemsPrompt")}</p>
                         </div>
                         <div class="DLP_HStack_8">
                             <div class="DLP_Input_Style_1_Active" style="position: relative; overflow: hidden;">
@@ -597,7 +966,7 @@ function Two() {
                                 <input type="text" placeholder="0" id="DLP_Inset_Input_1_ID" class="DLP_Input_Input_Style_1">
                             </div>
                             <div class="DLP_Input_Button_Style_1_Active DLP_Magnetic_Hover_1" id="DLP_Inset_Button_1_ID">
-                                <p class="DLP_Text_Style_1 DLP_NoSelect DLP_Inset_Text_1_ID" style="color: #FFF;">${systemText[systemLanguage][9]}</p>
+                                <p class="DLP_Text_Style_1 DLP_NoSelect DLP_Inset_Text_1_ID" style="color: #FFF;">${system("actions.get")}</p>
                                 <p class="DLP_Text_Style_1 DLP_NoSelect DLP_Inset_Icon_1_ID" style="color: #FFF;">􀰫</p>
                             </div>
                         </div>
@@ -605,7 +974,7 @@ function Two() {
                     <div class="DLP_VStack_8" id="DLP_Get_Streak_2_ID" style="flex: 1 0 0;">
                         <div class="DLP_HStack_8" style="align-items: center;">
                             <p class="DLP_Text_Style_1 DLP_Magnetic_Hover_1 DLP_NoSelect DLP_Inset_Icon_1_ID" style="color: rgba(var(--color-eel), 0.50);">􀎦</p>
-                            <p class="DLP_Text_Style_1 DLP_NoSelect" style="align-self: stretch;">${systemText[systemLanguage][57]}</p>
+                            <p class="DLP_Text_Style_1 DLP_NoSelect" style="align-self: stretch;">${system("requests.streakDaysPrompt")}</p>
                         </div>
                         <div class="DLP_HStack_8">
                             <div class="DLP_Input_Style_1_Active">
@@ -613,7 +982,7 @@ function Two() {
                                 <input type="text" placeholder="0" id="DLP_Inset_Input_1_ID" class="DLP_Input_Input_Style_1">
                             </div>
                             <div class="DLP_Input_Button_Style_1_Active DLP_Magnetic_Hover_1" id="DLP_Inset_Button_1_ID">
-                                <p class="DLP_Text_Style_1 DLP_NoSelect DLP_Inset_Text_1_ID" style="color: #FFF;">${systemText[systemLanguage][9]}</p>
+                                <p class="DLP_Text_Style_1 DLP_NoSelect DLP_Inset_Text_1_ID" style="color: #FFF;">${system("actions.get")}</p>
                                 <p class="DLP_Text_Style_1 DLP_NoSelect DLP_Inset_Icon_1_ID" style="color: #FFF;">􀰫</p>
                             </div>
                         </div>
@@ -621,7 +990,7 @@ function Two() {
                     <div class="DLP_VStack_8" id="DLP_Get_Streak_Freeze_2_ID" style="flex: 1 0 0;">
                         <div class="DLP_HStack_8" style="align-items: center;">
                             <p class="DLP_Text_Style_1 DLP_Magnetic_Hover_1 DLP_NoSelect DLP_Inset_Icon_1_ID" style="color: rgba(var(--color-eel), 0.50);">􀎦</p>
-                            <p class="DLP_Text_Style_1 DLP_NoSelect" style="align-self: stretch;">${systemText[systemLanguage][56]}</p>
+                            <p class="DLP_Text_Style_1 DLP_NoSelect" style="align-self: stretch;">${system("requests.streakFreezesPrompt")}</p>
                         </div>
                         <div class="DLP_HStack_8">
                             <div class="DLP_Input_Style_1_Active">
@@ -629,7 +998,7 @@ function Two() {
                                 <input type="text" placeholder="0" id="DLP_Inset_Input_1_ID" class="DLP_Input_Input_Style_1">
                             </div>
                             <div class="DLP_Input_Button_Style_1_Active DLP_Magnetic_Hover_1" id="DLP_Inset_Button_1_ID">
-                                <p class="DLP_Text_Style_1 DLP_NoSelect DLP_Inset_Text_1_ID" style="color: #FFF;">${systemText[systemLanguage][9]}</p>
+                                <p class="DLP_Text_Style_1 DLP_NoSelect DLP_Inset_Text_1_ID" style="color: #FFF;">${system("actions.get")}</p>
                                 <p class="DLP_Text_Style_1 DLP_NoSelect DLP_Inset_Icon_1_ID" style="color: #FFF;">􀰫</p>
                             </div>
                         </div>
@@ -637,7 +1006,7 @@ function Two() {
                     <div class="DLP_VStack_8" id="DLP_Get_Badge_2_ID" style="flex: 1 0 0;">
                         <div class="DLP_HStack_8" style="align-items: center;">
                             <p class="DLP_Text_Style_1 DLP_Magnetic_Hover_1 DLP_NoSelect DLP_Inset_Icon_1_ID" style="color: rgba(var(--color-eel), 0.50);">􀎦</p>
-                            <p class="DLP_Text_Style_1 DLP_NoSelect" style="align-self: stretch;">Which monthly badge would you like to get?</p>
+                            <p class="DLP_Text_Style_1 DLP_NoSelect" style="align-self: stretch;">${system("requests.monthlyBadgePrompt")}</p>
                         </div>
                         <div class="DLP_HStack_8">
                             <div class="DLP_Input_Style_1_Active">
@@ -649,7 +1018,7 @@ function Two() {
                                 </div>
                             </div>
                             <div class="DLP_Input_Button_Style_1_Active DLP_Magnetic_Hover_1" id="DLP_Inset_Button_1_ID">
-                                <p class="DLP_Text_Style_1 DLP_NoSelect DLP_Inset_Text_1_ID" style="color: #FFF;">${systemText[systemLanguage][9]}</p>
+                                <p class="DLP_Text_Style_1 DLP_NoSelect DLP_Inset_Text_1_ID" style="color: #FFF;">${system("actions.get")}</p>
                                 <p class="DLP_Text_Style_1 DLP_NoSelect DLP_Inset_Icon_1_ID" style="color: #FFF;">􀰫</p>
                             </div>
                         </div>
@@ -657,11 +1026,11 @@ function Two() {
                     <div class="DLP_VStack_8" id="DLP_Get_DOUBLE_XP_BOOST_2_ID" style="flex: 1 0 0;">
                         <div class="DLP_HStack_8" style="align-items: center;">
                             <p class="DLP_Text_Style_1 DLP_Magnetic_Hover_1 DLP_NoSelect DLP_Inset_Icon_1_ID" style="color: rgba(var(--color-eel), 0.50);">􀎦</p>
-                            <p class="DLP_Text_Style_1 DLP_NoSelect" style="align-self: stretch;">${systemText[systemLanguage][55]}</p>
+                            <p class="DLP_Text_Style_1 DLP_NoSelect" style="align-self: stretch;">${system("requests.xpBoostPrompt")}</p>
                         </div>
                         <div class="DLP_HStack_8">
                             <div class="DLP_Input_Button_Style_1_Active DLP_Magnetic_Hover_1" id="DLP_Inset_Button_1_ID" style="flex: 1 0 0;">
-                            <p class="DLP_Text_Style_1 DLP_NoSelect DLP_Inset_Text_1_ID" style="color: #FFF;">${systemText[systemLanguage][13]}</p>
+                            <p class="DLP_Text_Style_1 DLP_NoSelect DLP_Inset_Text_1_ID" style="color: #FFF;">${system("actions.redeem")}</p>
                             <p class="DLP_Text_Style_1 DLP_NoSelect DLP_Inset_Icon_1_ID" style="color: #FFF;">􀰫</p>
                             </div>
                         </div>
@@ -669,11 +1038,11 @@ function Two() {
                     <div class="DLP_VStack_8" id="DLP_Get_Heart_Refill_2_ID" style="flex: 1 0 0;">
                         <div class="DLP_HStack_8" style="align-items: center;">
                             <p class="DLP_Text_Style_1 DLP_Magnetic_Hover_1 DLP_NoSelect DLP_Inset_Icon_1_ID" style="color: rgba(var(--color-eel), 0.50);">􀎦</p>
-                            <p class="DLP_Text_Style_1 DLP_NoSelect" style="align-self: stretch;">${systemText[systemLanguage][58]}</p>
+                            <p class="DLP_Text_Style_1 DLP_NoSelect" style="align-self: stretch;">${system("requests.heartRefillPrompt")}</p>
                         </div>
                         <div class="DLP_HStack_8">
                             <div class="DLP_Input_Button_Style_1_Active DLP_Magnetic_Hover_1" id="DLP_Inset_Button_1_ID" style="flex: 1 0 0;">
-                            <p class="DLP_Text_Style_1 DLP_NoSelect DLP_Inset_Text_1_ID" style="color: #FFF;">${systemText[systemLanguage][229]}</p>
+                            <p class="DLP_Text_Style_1 DLP_NoSelect DLP_Inset_Text_1_ID" style="color: #FFF;">${system("actions.refill")}</p>
                             <p class="DLP_Text_Style_1 DLP_NoSelect DLP_Inset_Icon_1_ID" style="color: #FFF;">􀰫</p>
                             </div>
                         </div>
@@ -681,11 +1050,11 @@ function Two() {
                     <div class="DLP_VStack_8" id="DLP_Get_Quest_2_ID" style="flex: 1 0 0; display: none;">
                         <div class="DLP_HStack_8" style="align-items: center;">
                             <p class="DLP_Text_Style_1 DLP_Magnetic_Hover_1 DLP_NoSelect DLP_Inset_Icon_1_ID" style="color: rgba(var(--color-eel), 0.50);">􀎦</p>
-                            <p class="DLP_Text_Style_1 DLP_NoSelect" style="align-self: stretch;">${systemText[systemLanguage][59]}</p>
+                            <p class="DLP_Text_Style_1 DLP_NoSelect" style="align-self: stretch;">${system("requests.questsPrompt")}</p>
                         </div>
                         <div class="DLP_HStack_8">
                             <div class="DLP_Input_Button_Style_1_Active DLP_Magnetic_Hover_1" id="DLP_Inset_Button_1_ID" style="flex: 1 0 0;">
-                            <p class="DLP_Text_Style_1 DLP_NoSelect DLP_Inset_Text_1_ID" style="color: #FFF;">${systemText[systemLanguage][60]}</p>
+                            <p class="DLP_Text_Style_1 DLP_NoSelect DLP_Inset_Text_1_ID" style="color: #FFF;">${system("actions.complete")}</p>
                             <p class="DLP_Text_Style_1 DLP_NoSelect DLP_Inset_Icon_1_ID" style="color: #FFF;">􀰫</p>
                             </div>
                         </div>
@@ -693,11 +1062,11 @@ function Two() {
                     <div class="DLP_VStack_8" id="DLP_Get_Local_Duolingo_Max_2_ID">
                         <div class="DLP_HStack_8" style="align-items: center;">
                             <p class="DLP_Text_Style_1 DLP_Magnetic_Hover_1 DLP_NoSelect DLP_Inset_Icon_1_ID" style="color: rgba(var(--color-eel), 0.50);">􀎦</p>
-                            <p class="DLP_Text_Style_1 DLP_NoSelect" style="align-self: stretch;">Would you like to enable on-client Duolingo Max?</p>
+                            <p class="DLP_Text_Style_1 DLP_NoSelect" style="align-self: stretch;">${system("requests.enableLocalMaxPrompt")}</p>
                         </div>
                         <div class="DLP_HStack_8">
                             <div class="DLP_Input_Button_Style_1_Active DLP_Magnetic_Hover_1" id="DLP_Inset_Button_1_ID" style="flex: 1 0 0;">
-                                <p class="DLP_Text_Style_1 DLP_NoSelect DLP_Inset_Text_1_ID" style="color: #FFF;">ENABLE IN SETTINGS</p>
+                                <p class="DLP_Text_Style_1 DLP_NoSelect DLP_Inset_Text_1_ID" style="color: #FFF;">${system("actions.enableInSettings")}</p>
                                 <p class="DLP_Text_Style_1 DLP_NoSelect DLP_Inset_Icon_1_ID" style="color: #FFF;">􀰫</p>
                             </div>
                         </div>
@@ -705,11 +1074,11 @@ function Two() {
                     <div class="DLP_VStack_8" id="DLP_Get_SUPER_2_ID" style="flex: 1 0 0;">
                         <div class="DLP_HStack_8" style="align-items: center;">
                             <p class="DLP_Text_Style_1 DLP_Magnetic_Hover_1 DLP_NoSelect DLP_Inset_Icon_1_ID" style="color: rgba(var(--color-eel), 0.50);">􀎦</p>
-                            <p class="DLP_Text_Style_1 DLP_NoSelect" style="align-self: stretch;">${systemText[systemLanguage][12]}</p>
+                            <p class="DLP_Text_Style_1 DLP_NoSelect" style="align-self: stretch;">${system("requests.superPrompt")}</p>
                         </div>
                         <div class="DLP_HStack_8">
                             <div class="DLP_Input_Button_Style_1_Active DLP_Magnetic_Hover_1" id="DLP_Inset_Button_1_ID" style="flex: 1 0 0;">
-                            <p class="DLP_Text_Style_1 DLP_NoSelect DLP_Inset_Text_1_ID" style="color: #FFF;">${systemText[systemLanguage][13]}</p>
+                            <p class="DLP_Text_Style_1 DLP_NoSelect DLP_Inset_Text_1_ID" style="color: #FFF;">${system("actions.redeem")}</p>
                             <p class="DLP_Text_Style_1 DLP_NoSelect DLP_Inset_Icon_1_ID" style="color: #FFF;">􀰫</p>
                             </div>
                         </div>
@@ -723,31 +1092,31 @@ function Two() {
             <div class="DLP_VStack_8">
                 <div class="DLP_VStack_8">
                     <div class="DLP_HStack_8">
-                        <div id="DLP_Secondary_1_Server_Connection_Button_1_ID" class="DLP_Button_Style_1 DLP_Magnetic_Hover_1 DLP_NoSelect" style="outline: 2px solid rgb(var(--color-eel), 0.20); outline-offset: -2px; background: rgb(var(--color-eel), 0.10); transition: opacity 0.8s cubic-bezier(0.16, 1, 0.32, 1), background 0.8s cubic-bezier(0.16, 1, 0.32, 1), outline 0.8s cubic-bezier(0.16, 1, 0.32, 1), filter 0.4s cubic-bezier(0.16, 1, 0.32, 1), transform 0.4s cubic-bezier(0.16, 1, 0.32, 1); padding: 10px 0px 10px 10px; opacity: 0.25; pointer-events: none;">
+                        <div id="DLP_Secondary_1_Server_Connection_Button_1_ID" class="DLP_Button_Style_1 DLP_Magnetic_Hover_1 DLP_NoSelect" style="outline: 2px solid rgb(var(--color-eel), 0.20); outline-offset: -2px; background: rgb(var(--color-eel), 0.10); transition: opacity 0.8s cubic-bezier(0.16, 1, 0.32, 1), background 0.8s cubic-bezier(0.16, 1, 0.32, 1), outline 0.8s cubic-bezier(0.16, 1, 0.32, 1), filter 0.4s cubic-bezier(0.16, 1, 0.32, 1), transform 0.4s cubic-bezier(0.16, 1, 0.32, 1); opacity: 0.25; pointer-events: none;">
                             <p class="DLP_Text_Style_1 DLP_Inset_Icon_1_ID" style="color: rgb(var(--DLP-blue)); animation: 4s ease-in-out 0s infinite normal none running DLP_Rotate_360_Animation_1;">􀓞</p>
-                            <p class="DLP_Text_Style_1 DLP_Inset_Text_1_ID" style="color: #000; transition: 0.4s;">${systemText[systemLanguage][3]}</p>
+                            <p class="DLP_Text_Style_1 DLP_Inset_Text_1_ID" style="color: #000; transition: color 0.4s, filter 0.4s, opacity 0.4s;">${system("nav.connecting")}</p>
                         </div>
-                        <div class="DLP_Button_Style_1 DLP_Magnetic_Hover_1" id="DLP_Secondary_Donate_Button_1_ID" style="outline: 2px solid rgba(0, 0, 0, 0.20); outline-offset: -2px; background: url(${serverURL}/static/images/flow/primary/256/light.png) lightgray 50% / cover no-repeat; padding: 10px 0px 10px 10px;">
+                        <div class="DLP_Button_Style_1 DLP_Magnetic_Hover_1" id="DLP_Secondary_Donate_Button_1_ID" style="outline: 2px solid rgba(0, 0, 0, 0.20); outline-offset: -2px; background: url(${serverURL}/static/images/flow/primary/256/light.png) lightgray 50% / cover no-repeat;">
                             <svg width="17" height="19" viewBox="0 0 17 19" fill="#FFF" xmlns="http://www.w3.org/2000/svg">
                                 <path d="M16.5 5.90755C16.4968 3.60922 14.6997 1.72555 12.5913 1.04588C9.97298 0.201877 6.51973 0.324211 4.01956 1.49921C0.989301 2.92355 0.0373889 6.04355 0.00191597 9.15522C-0.0271986 11.7136 0.229143 18.4517 4.04482 18.4997C6.87998 18.5356 7.30214 14.8967 8.61397 13.1442C9.5473 11.8974 10.749 11.5452 12.2284 11.1806C14.7709 10.5537 16.5037 8.55506 16.5 5.90755Z"/>
                             </svg>
-                            <p class="DLP_Text_Style_1 DLP_NoSelect" style="color: #FFF;">${systemText[systemLanguage][4]}</p>
+                            <p class="DLP_Text_Style_1 DLP_NoSelect" style="color: #FFF;">${system("nav.donate")}</p>
                         </div>
                     </div>
                     <div class="DLP_HStack_8">
                         <div class="DLP_Button_Style_1 DLP_Magnetic_Hover_1" id="DLP_Secondary_Feedback_1_Button_1_ID" style="outline: 2px solid rgba(var(--DLP-blue), 0.20); outline-offset: -2px; background: linear-gradient(0deg, rgba(var(--DLP-blue), 0.10) 0%, rgba(var(--DLP-blue), 0.10) 100%), rgba(var(--color-snow), 0.80); backdrop-filter: blur(16px);">
                             <p class="DLP_Text_Style_1 DLP_NoSelect DLP_Inset_Icon_1_ID" style="color: rgb(var(--DLP-blue));">􂄺</p>
-                            <p class="DLP_Text_Style_1 DLP_NoSelect DLP_Inset_Text_1_ID" style="color: rgb(var(--DLP-blue));">${systemText[systemLanguage][5]}</p>
+                            <p class="DLP_Text_Style_1 DLP_NoSelect DLP_Inset_Text_1_ID" style="color: rgb(var(--DLP-blue));">${system("nav.support")}</p>
                         </div>
                         <div class="DLP_Button_Style_1 DLP_Magnetic_Hover_1" id="DLP_Secondary_Settings_1_Button_1_ID" style="outline: 2px solid rgba(var(--DLP-blue), 0.20); outline-offset: -2px; background: linear-gradient(0deg, rgba(var(--DLP-blue), 0.10) 0%, rgba(var(--DLP-blue), 0.10) 100%), rgba(var(--color-snow), 0.80); backdrop-filter: blur(16px);">
                             <p class="DLP_Text_Style_1 DLP_NoSelect DLP_Inset_Icon_1_ID" style="color: rgb(var(--DLP-blue));">􀍟</p>
-                            <p class="DLP_Text_Style_1 DLP_NoSelect DLP_Inset_Text_1_ID" style="color: rgb(var(--DLP-blue));">${systemText[systemLanguage][6]}</p>
+                            <p class="DLP_Text_Style_1 DLP_NoSelect DLP_Inset_Text_1_ID" style="color: rgb(var(--DLP-blue));">${system("nav.settings")}</p>
                         </div>
                     </div>
                     <div class="DLP_HStack_8">
-                        <div class="DLP_Button_Style_1 DLP_Magnetic_Hover_1" id="DLP_Main_Earn_Button_1_ID" style="outline: 2px solid rgba(0, 0, 0, 0.20); outline-offset: -2px; background: url(${serverURL}/static/images/flow/secondary/256/light.png) lightgray 50% / cover no-repeat; padding: 10px 0px 10px 10px;">
+                        <div class="DLP_Button_Style_1 DLP_Magnetic_Hover_1" id="DLP_Main_Earn_Button_1_ID" style="outline: 2px solid rgba(0, 0, 0, 0.20); outline-offset: -2px; background: url(${serverURL}/static/images/flow/secondary/256/light.png) lightgray 50% / cover no-repeat;">
                             <p class="DLP_Text_Style_1 DLP_NoSelect DLP_Inset_Icon_1_ID" style="color: #FFF;">􀋦</p>
-                            <p class="DLP_Text_Style_1 DLP_NoSelect DLP_Inset_Text_1_ID" style="color: #FFF;">Boost</p>
+                            <p class="DLP_Text_Style_1 DLP_NoSelect DLP_Inset_Text_1_ID" style="color: #FFF;">${system("nav.boost")}</p>
                         </div>
                         <div class="DLP_Button_Style_1 DLP_Magnetic_Hover_1" id="DLP_Secondary_YouTube_Button_1_ID" style="justify-content: center; flex: none; width: 40px; padding: 10px; outline: 2px solid rgba(0, 0, 0, 0.20); outline-offset: -2px; background: rgb(var(--DLP-pink));">
                             <svg width="22" height="16" viewBox="0 0 22 16" fill="#FFF" xmlns="http://www.w3.org/2000/svg">
@@ -773,12 +1142,12 @@ function Two() {
                     </div>
                     <p class="DLP_Text_Style_1 DLP_NoSelect" style="font-size: 14px; background: url(${serverURL}/static/images/flow/secondary/256/light.png) lightgray 50% / cover no-repeat; background-clip: text; -webkit-background-clip: text; -webkit-text-fill-color: transparent;">${VERSION_NAME}</p>
                 </div>
-                <p class="DLP_Text_Style_1" style="display: none; transition: 0.4s cubic-bezier(0.25, 0.46, 0.45, 0.94); opacity: 0; filter: blur(4px);">You are using an outdated version of Duolingo PRO. <br><br>Please update Duolingo PRO or turn on automatic updates. </p>
-                <p class="DLP_Text_Style_1" style="display: none; transition: 0.4s cubic-bezier(0.25, 0.46, 0.45, 0.94); opacity: 0; filter: blur(4px);">Duolingo PRO failed to connect. This might be happening because of an issue on our system or your device. <br><br>Try updating Duolingo PRO. If the issue persists afterwards, join our Discord Server to get support. </p>
-                <p class="DLP_Text_Style_1" style="display: none; transition: 0.4s cubic-bezier(0.25, 0.46, 0.45, 0.94); opacity: 0; filter: blur(4px);">We are currently unable to receive new requests due to high demand. Join our Discord Server to learn more. <br><br>You can help us handle more demand by donating on Patreon while getting exclusive features and higher limits. </p>
+                <p class="DLP_Text_Style_1" style="display: none; transition: opacity 0.4s cubic-bezier(0.25, 0.46, 0.45, 0.94), filter 0.4s cubic-bezier(0.25, 0.46, 0.45, 0.94); opacity: 0; filter: blur(4px);">${system("notifications.updateAvailableBodyLegacy")} </p>
+                <p class="DLP_Text_Style_1" style="display: none; transition: opacity 0.4s cubic-bezier(0.25, 0.46, 0.45, 0.94), filter 0.4s cubic-bezier(0.25, 0.46, 0.45, 0.94); opacity: 0; filter: blur(4px);">${system("notifications.connectionErrorBodyLegacy")} </p>
+                <p class="DLP_Text_Style_1" style="display: none; transition: opacity 0.4s cubic-bezier(0.25, 0.46, 0.45, 0.94), filter 0.4s cubic-bezier(0.25, 0.46, 0.45, 0.94); opacity: 0; filter: blur(4px);">${system("notifications.highDemandBodyLegacy")} </p>
                 <div class="DLP_VStack_8" id="DLP_Main_Inputs_2_Divider_1_ID">
                     <div class="DLP_VStack_8" id="DLP_Get_PATH_1_ID">
-                        <p class="DLP_Text_Style_1 DLP_NoSelect" style="align-self: stretch;">${systemText[systemLanguage][17]}</p>
+                        <p class="DLP_Text_Style_1 DLP_NoSelect" style="align-self: stretch;">${system("requests.pathLessonsPrompt")}</p>
                         <div class="DLP_HStack_8">
                             <div class="DLP_Input_Button_Style_1_Active DLP_Magnetic_Hover_1" id="DLP_Inset_Button_2_ID" style="width: 48px; padding: 0;">
                                 <p class="DLP_Text_Style_1 DLP_NoSelect DLP_Inset_Icon_1_ID" style="color: #FFF;">􀆃</p>
@@ -787,13 +1156,13 @@ function Two() {
                                 <input type="text" placeholder="0" id="DLP_Inset_Input_1_ID" class="DLP_Input_Input_Style_1">
                             </div>
                             <div class="DLP_Input_Button_Style_1_Active DLP_Magnetic_Hover_1" id="DLP_Inset_Button_1_ID">
-                                <p class="DLP_Text_Style_1 DLP_NoSelect DLP_Inset_Text_1_ID" style="color: #FFF;">${systemText[systemLanguage][18]}</p>
+                                <p class="DLP_Text_Style_1 DLP_NoSelect DLP_Inset_Text_1_ID" style="color: #FFF;">${system("actions.start")}</p>
                                 <p class="DLP_Text_Style_1 DLP_NoSelect DLP_Inset_Icon_1_ID" style="color: #FFF;">􀰫</p>
                             </div>
                         </div>
                     </div>
                     <div class="DLP_VStack_8" id="DLP_Get_PRACTICE_1_ID">
-                        <p class="DLP_Text_Style_1 DLP_NoSelect" style="align-self: stretch;">${systemText[systemLanguage][19]}</p>
+                        <p class="DLP_Text_Style_1 DLP_NoSelect" style="align-self: stretch;">${system("requests.practicesPrompt")}</p>
                         <div class="DLP_HStack_8">
                             <div class="DLP_Input_Button_Style_1_Active DLP_Magnetic_Hover_1" id="DLP_Inset_Button_2_ID" style="width: 48px; padding: 0;">
                                 <p class="DLP_Text_Style_1 DLP_NoSelect DLP_Inset_Icon_1_ID" style="color: #FFF;">􀆃</p>
@@ -802,13 +1171,13 @@ function Two() {
                                 <input type="text" placeholder="0" id="DLP_Inset_Input_1_ID" class="DLP_Input_Input_Style_1">
                             </div>
                             <div class="DLP_Input_Button_Style_1_Active DLP_Magnetic_Hover_1" id="DLP_Inset_Button_1_ID">
-                                <p class="DLP_Text_Style_1 DLP_NoSelect DLP_Inset_Text_1_ID" style="color: #FFF;">${systemText[systemLanguage][18]}</p>
+                                <p class="DLP_Text_Style_1 DLP_NoSelect DLP_Inset_Text_1_ID" style="color: #FFF;">${system("actions.start")}</p>
                                 <p class="DLP_Text_Style_1 DLP_NoSelect DLP_Inset_Icon_1_ID" style="color: #FFF;">􀰫</p>
                             </div>
                         </div>
                     </div>
                     <div class="DLP_VStack_8" id="DLP_Get_LISTEN_1_ID" style="display: none;">
-                        <p class="DLP_Text_Style_1 DLP_NoSelect" style="align-self: stretch;">${systemText[systemLanguage][21]}</p>
+                        <p class="DLP_Text_Style_1 DLP_NoSelect" style="align-self: stretch;">${system("requests.listeningPracticesPrompt")}</p>
                         <div class="DLP_HStack_8">
                             <div class="DLP_Input_Button_Style_1_Active DLP_Magnetic_Hover_1" id="DLP_Inset_Button_2_ID" style="width: 48px; padding: 0;">
                                 <p class="DLP_Text_Style_1 DLP_NoSelect DLP_Inset_Icon_1_ID" style="color: #FFF;">􀆃</p>
@@ -817,20 +1186,20 @@ function Two() {
                                 <input type="text" placeholder="0" id="DLP_Inset_Input_1_ID" class="DLP_Input_Input_Style_1">
                             </div>
                             <div class="DLP_Input_Button_Style_1_Active DLP_Magnetic_Hover_1" id="DLP_Inset_Button_1_ID">
-                                <p class="DLP_Text_Style_1 DLP_NoSelect DLP_Inset_Text_1_ID" style="color: #FFF;">${systemText[systemLanguage][18]}</p>
+                                <p class="DLP_Text_Style_1 DLP_NoSelect DLP_Inset_Text_1_ID" style="color: #FFF;">${system("actions.start")}</p>
                                 <p class="DLP_Text_Style_1 DLP_NoSelect DLP_Inset_Icon_1_ID" style="color: #FFF;">􀰫</p>
                             </div>
                         </div>
                     </div>
                     <div class="DLP_VStack_8" id="DLP_Get_LESSON_1_ID" style="display: none;">
-                        <p class="DLP_Text_Style_1 DLP_NoSelect" style="align-self: stretch;">${systemText[systemLanguage][23]}</p>
+                        <p class="DLP_Text_Style_1 DLP_NoSelect" style="align-self: stretch;">${system("requests.repeatLessonsPrompt")}</p>
                         <div class="DLP_HStack_8">
                             <div class="DLP_Input_Style_1_Active">
                                 <p class="DLP_Text_Style_1" style="color: rgba(var(--DLP-blue), 0.5);">􀆃</p>
                                 <div style="display: flex; align-items: center; gap: 8px; width: 100%; justify-content: flex-end;">
-                                    <p class="DLP_Text_Style_1 DLP_NoSelect" style="color: rgba(var(--DLP-blue), 0.5);">Unit:</p>
+                                    <p class="DLP_Text_Style_1 DLP_NoSelect" style="color: rgba(var(--DLP-blue), 0.5);">${system("requests.repeatLessonUnitLabel")}</p>
                                     <input type="text" placeholder="0" id="DLP_Inset_Input_3_ID" class="DLP_Input_Input_Style_1" style="width: 30px;">
-                                    <p class="DLP_Text_Style_1 DLP_NoSelect" style="color: rgba(var(--DLP-blue), 0.5);">Lesson:</p>
+                                    <p class="DLP_Text_Style_1 DLP_NoSelect" style="color: rgba(var(--DLP-blue), 0.5);">${system("requests.repeatLessonLessonLabel")}</p>
                                     <input type="text" placeholder="0" id="DLP_Inset_Input_4_ID" class="DLP_Input_Input_Style_1" style="width: 30px;">
                                 </div>
                             </div>
@@ -843,21 +1212,21 @@ function Two() {
                                 <input type="text" placeholder="0" id="DLP_Inset_Input_1_ID" class="DLP_Input_Input_Style_1">
                             </div>
                             <div class="DLP_Input_Button_Style_1_Active DLP_Magnetic_Hover_1" id="DLP_Inset_Button_1_ID">
-                                <p class="DLP_Text_Style_1 DLP_NoSelect DLP_Inset_Text_1_ID" style="color: #FFF;">${systemText[systemLanguage][18]}</p>
+                                <p class="DLP_Text_Style_1 DLP_NoSelect DLP_Inset_Text_1_ID" style="color: #FFF;">${system("actions.start")}</p>
                                 <p class="DLP_Text_Style_1 DLP_NoSelect DLP_Inset_Icon_1_ID" style="color: #FFF;">􀰫</p>
                             </div>
                         </div>
                     </div>
                     <div class="DLP_Button_Style_1 DLP_Magnetic_Hover_1" id="DLP_Secondary_See_More_1_Button_1_ID" style="outline: rgba(var(--DLP-blue), 0.2) solid 2px; outline-offset: -2px; background: linear-gradient(0deg, rgba(var(--DLP-blue), 0.10) 0%, rgba(var(--DLP-blue), 0.10) 100%), rgba(var(--color-snow), 0.80); backdrop-filter: blur(16px); transform: translate(0px, 0px) scale(1); align-self: stretch; justify-content: space-between;">
-                        <p class="DLP_Text_Style_1 DLP_NoSelect" style="color: rgb(var(--DLP-blue));">${systemText[systemLanguage][15]}</p>
+                        <p class="DLP_Text_Style_1 DLP_NoSelect" style="color: rgb(var(--DLP-blue));">${system("nav.seeMore")}</p>
                         <p class="DLP_Text_Style_1 DLP_NoSelect" style="color: rgb(var(--DLP-blue));">􀯻</p>
                     </div>
                     <div class="DLP_HStack_Auto" style="padding-top: 4px;">
                         <div class="DLP_HStack_4 DLP_Magnetic_Hover_1" id="DLP_Secondary_Terms_1_Button_1_ID" style="align-items: center;">
-                            <p class="DLP_Text_Style_1 DLP_NoSelect" style="color: rgba(var(--DLP-blue), 0.5);">${systemText[systemLanguage][14]}</p>
+                            <p class="DLP_Text_Style_1 DLP_NoSelect" style="color: rgba(var(--DLP-blue), 0.5);">${system("terms.title")}</p>
                         </div>
                         <div class="DLP_HStack_4 DLP_Magnetic_Hover_1" id="DLP_Secondary_Whats_New_1_Button_1_ID" style="align-items: center;">
-                            <p class="DLP_Text_Style_1 DLP_NoSelect" style="color: rgb(var(--DLP-blue));">${systemText[systemLanguage][7]}</p>
+                            <p class="DLP_Text_Style_1 DLP_NoSelect" style="color: rgb(var(--DLP-blue));">${system("nav.whatsNew")}</p>
                         </div>
                     </div>
                 </div>
@@ -879,7 +1248,7 @@ function Two() {
                     <div class="DLP_VStack_8" id="DLP_Get_PATH_2_ID">
                         <div class="DLP_HStack_8" style="align-items: center;">
                             <p class="DLP_Text_Style_1 DLP_Magnetic_Hover_1 DLP_NoSelect DLP_Inset_Icon_1_ID" style="color: rgba(var(--color-eel), 0.50);">􀎦</p>
-                            <p class="DLP_Text_Style_1 DLP_NoSelect" style="align-self: stretch;">${systemText[systemLanguage][17]}</p>
+                            <p class="DLP_Text_Style_1 DLP_NoSelect" style="align-self: stretch;">${system("requests.pathLessonsPrompt")}</p>
                         </div>
                         <div class="DLP_HStack_8">
                             <div class="DLP_Input_Button_Style_1_Active DLP_Magnetic_Hover_1" id="DLP_Inset_Button_2_ID" style="width: 48px; padding: 0;">
@@ -889,7 +1258,7 @@ function Two() {
                                 <input type="text" placeholder="0" id="DLP_Inset_Input_1_ID" class="DLP_Input_Input_Style_1">
                             </div>
                             <div class="DLP_Input_Button_Style_1_Active DLP_Magnetic_Hover_1" id="DLP_Inset_Button_1_ID">
-                                <p class="DLP_Text_Style_1 DLP_NoSelect DLP_Inset_Text_1_ID" style="color: #FFF;">${systemText[systemLanguage][18]}</p>
+                                <p class="DLP_Text_Style_1 DLP_NoSelect DLP_Inset_Text_1_ID" style="color: #FFF;">${system("actions.start")}</p>
                                 <p class="DLP_Text_Style_1 DLP_NoSelect DLP_Inset_Icon_1_ID" style="color: #FFF;">􀰫</p>
                             </div>
                         </div>
@@ -897,7 +1266,7 @@ function Two() {
                     <div class="DLP_VStack_8" id="DLP_Get_PRACTICE_2_ID">
                         <div class="DLP_HStack_8" style="align-items: center;">
                             <p class="DLP_Text_Style_1 DLP_Magnetic_Hover_1 DLP_NoSelect DLP_Inset_Icon_1_ID" style="color: rgba(var(--color-eel), 0.50);">􀎦</p>
-                            <p class="DLP_Text_Style_1 DLP_NoSelect" style="align-self: stretch;">${systemText[systemLanguage][19]}</p>
+                            <p class="DLP_Text_Style_1 DLP_NoSelect" style="align-self: stretch;">${system("requests.practicesPrompt")}</p>
                         </div>
                         <div class="DLP_HStack_8">
                             <div class="DLP_Input_Button_Style_1_Active DLP_Magnetic_Hover_1" id="DLP_Inset_Button_2_ID" style="width: 48px; padding: 0;">
@@ -907,7 +1276,7 @@ function Two() {
                                 <input type="text" placeholder="0" id="DLP_Inset_Input_1_ID" class="DLP_Input_Input_Style_1">
                             </div>
                             <div class="DLP_Input_Button_Style_1_Active DLP_Magnetic_Hover_1" id="DLP_Inset_Button_1_ID">
-                                <p class="DLP_Text_Style_1 DLP_NoSelect DLP_Inset_Text_1_ID" style="color: #FFF;">${systemText[systemLanguage][18]}</p>
+                                <p class="DLP_Text_Style_1 DLP_NoSelect DLP_Inset_Text_1_ID" style="color: #FFF;">${system("actions.start")}</p>
                                 <p class="DLP_Text_Style_1 DLP_NoSelect DLP_Inset_Icon_1_ID" style="color: #FFF;">􀰫</p>
                             </div>
                         </div>
@@ -915,7 +1284,7 @@ function Two() {
                     <div class="DLP_VStack_8" id="DLP_Get_LISTEN_2_ID">
                         <div class="DLP_HStack_8" style="align-items: center;">
                             <p class="DLP_Text_Style_1 DLP_Magnetic_Hover_1 DLP_NoSelect DLP_Inset_Icon_1_ID" style="color: rgba(var(--color-eel), 0.50);">􀎦</p>
-                            <p class="DLP_Text_Style_1 DLP_NoSelect" style="align-self: stretch;">${systemText[systemLanguage][21]}</p>
+                            <p class="DLP_Text_Style_1 DLP_NoSelect" style="align-self: stretch;">${system("requests.listeningPracticesPrompt")}</p>
                         </div>
                         <div class="DLP_HStack_8">
                             <div class="DLP_Input_Button_Style_1_Active DLP_Magnetic_Hover_1" id="DLP_Inset_Button_2_ID" style="width: 48px; padding: 0;">
@@ -925,7 +1294,7 @@ function Two() {
                                 <input type="text" placeholder="0" id="DLP_Inset_Input_1_ID" class="DLP_Input_Input_Style_1">
                             </div>
                             <div class="DLP_Input_Button_Style_1_Active DLP_Magnetic_Hover_1" id="DLP_Inset_Button_1_ID">
-                                <p class="DLP_Text_Style_1 DLP_NoSelect DLP_Inset_Text_1_ID" style="color: #FFF;">${systemText[systemLanguage][18]}</p>
+                                <p class="DLP_Text_Style_1 DLP_NoSelect DLP_Inset_Text_1_ID" style="color: #FFF;">${system("actions.start")}</p>
                                 <p class="DLP_Text_Style_1 DLP_NoSelect DLP_Inset_Icon_1_ID" style="color: #FFF;">􀰫</p>
                             </div>
                         </div>
@@ -933,14 +1302,14 @@ function Two() {
                     <div class="DLP_VStack_8" id="DLP_Get_LESSON_2_ID">
                         <div class="DLP_HStack_8" style="align-items: center;">
                             <p class="DLP_Text_Style_1 DLP_Magnetic_Hover_1 DLP_NoSelect DLP_Inset_Icon_1_ID" style="color: rgba(var(--color-eel), 0.50);">􀎦</p>
-                            <p class="DLP_Text_Style_1 DLP_NoSelect" style="align-self: stretch;">${systemText[systemLanguage][23]}</p>
+                            <p class="DLP_Text_Style_1 DLP_NoSelect" style="align-self: stretch;">${system("requests.repeatLessonsPrompt")}</p>
                         </div>
                         <div class="DLP_HStack_8">
                             <div class="DLP_Input_Style_1_Active">
                                 <div style="display: flex; align-items: center; gap: 8px; width: 100%; justify-content: flex-end;">
-                                    <p class="DLP_Text_Style_1 DLP_NoSelect" style="color: rgba(var(--DLP-blue), 0.5);">Unit:</p>
+                                    <p class="DLP_Text_Style_1 DLP_NoSelect" style="color: rgba(var(--DLP-blue), 0.5);">${system("requests.repeatLessonUnitLabel")}</p>
                                     <input type="text" placeholder="0" id="DLP_Inset_Input_3_ID" class="DLP_Input_Input_Style_1" style="width: 30px;">
-                                    <p class="DLP_Text_Style_1 DLP_NoSelect" style="color: rgba(var(--DLP-blue), 0.5);">Lesson:</p>
+                                    <p class="DLP_Text_Style_1 DLP_NoSelect" style="color: rgba(var(--DLP-blue), 0.5);">${system("requests.repeatLessonLessonLabel")}</p>
                                     <input type="text" placeholder="0" id="DLP_Inset_Input_4_ID" class="DLP_Input_Input_Style_1" style="width: 30px;">
                                 </div>
                             </div>
@@ -953,7 +1322,7 @@ function Two() {
                                 <input type="text" placeholder="0" id="DLP_Inset_Input_1_ID" class="DLP_Input_Input_Style_1">
                             </div>
                             <div class="DLP_Input_Button_Style_1_Active DLP_Magnetic_Hover_1" id="DLP_Inset_Button_1_ID">
-                                <p class="DLP_Text_Style_1 DLP_NoSelect DLP_Inset_Text_1_ID" style="color: #FFF;">${systemText[systemLanguage][18]}</p>
+                                <p class="DLP_Text_Style_1 DLP_NoSelect DLP_Inset_Text_1_ID" style="color: #FFF;">${system("actions.start")}</p>
                                 <p class="DLP_Text_Style_1 DLP_NoSelect DLP_Inset_Icon_1_ID" style="color: #FFF;">􀰫</p>
                             </div>
                         </div>
@@ -964,7 +1333,7 @@ function Two() {
 
 
         <div class="DLP_Main_Box_Divider" id="DLP_Main_Box_Divider_5_ID" style="display: none;">
-            <div class="DLP_VStack_8" style="height: 640px; max-height: calc(100vh - 220px);">
+            <div class="DLP_VStack_8" style="height: 640px; max-height: 80vh;">
                 <div class="DLP_HStack_Auto_Top">
                     <div class="DLP_HStack_4">
                         <p class="DLP_Text_Style_2 DLP_NoSelect">Duolingo</p>
@@ -972,25 +1341,25 @@ function Two() {
                     </div>
                     <p class="DLP_Text_Style_1 DLP_NoSelect" style="font-size: 14px; background: url(${serverURL}/static/images/flow/secondary/256/light.png) lightgray 50% / cover no-repeat; background-clip: text; -webkit-background-clip: text; -webkit-text-fill-color: transparent;">${VERSION_NAME}</p>
                 </div>
-                <p class="DLP_Text_Style_1 DLP_NoSelect" id="DLP_Terms_1_Text_1_ID">${systemText[systemLanguage][25]}</p>
-                <p class="DLP_Text_Style_1 DLP_NoSelect" id="DLP_Terms_1_Text_2_ID" style="display: none; align-self: stretch;">${systemText[systemLanguage][26]}</p>
+                <p class="DLP_Text_Style_1 DLP_NoSelect" id="DLP_Terms_1_Text_1_ID">${system("terms.intro")}</p>
+                <p class="DLP_Text_Style_1 DLP_NoSelect" id="DLP_Terms_1_Text_2_ID" style="display: none; align-self: stretch;">${system("terms.acceptedIntro")}</p>
                 <div class="DLP_Scroll_Box_Style_1">
-                    <p id="DLP_Terms_Main_Text_1_ID" class="DLP_Scroll_Box_Text_Style_1">${systemText[systemLanguage][27]}</p>
+                    <p id="DLP_Terms_Main_Text_1_ID" class="DLP_Scroll_Box_Text_Style_1">${system("terms.loading")}</p>
                 </div>
                 <div class="DLP_HStack_8" id="DLP_Terms_1_Button_1_ID">
                     <div id="DLP_Terms_Decline_Button_1_ID" class="DLP_Button_Style_2 DLP_Magnetic_Hover_1" style="outline: 2px solid rgba(var(--DLP-blue), 0.20); outline-offset: -2px; background: rgba(var(--DLP-blue), 0.10);">
                         <p class="DLP_Text_Style_1 DLP_NoSelect" style="color: rgb(var(--DLP-blue));">􀆄</p>
-                        <p class="DLP_Text_Style_1 DLP_NoSelect" style="color: rgb(var(--DLP-blue));">${systemText[systemLanguage][28]}</p>
+                        <p class="DLP_Text_Style_1 DLP_NoSelect" style="color: rgb(var(--DLP-blue));">${system("actions.decline")}</p>
                     </div>
                     <div id="DLP_Terms_Accept_Button_1_ID" class="DLP_Button_Style_2 DLP_Magnetic_Hover_1" style="outline: 2px solid rgba(0, 0, 0, 0.20); outline-offset: -2px; background: rgb(var(--DLP-blue));">
-                        <p class="DLP_Text_Style_1 DLP_NoSelect" style="color: #FFF;">${systemText[systemLanguage][29]}</p>
+                        <p class="DLP_Text_Style_1 DLP_NoSelect" style="color: #FFF;">${system("actions.accept")}</p>
                         <p class="DLP_Text_Style_1 DLP_NoSelect" style="color: #FFF;">􀰫</p>
                     </div>
                 </div>
                 <div class="DLP_HStack_8" id="DLP_Terms_1_Button_2_ID" style="display: none;">
                     <div class="DLP_Button_Style_2 DLP_Magnetic_Hover_1" id="DLP_Terms_Back_Button_1_ID" style="outline: 2px solid rgba(var(--DLP-blue), 0.20); outline-offset: -2px; background: rgba(var(--DLP-blue), 0.10);">
                         <p class="DLP_Text_Style_1 DLP_NoSelect" style="color: rgb(var(--DLP-blue));">􀯶</p>
-                        <p class="DLP_Text_Style_1 DLP_NoSelect" style="color: rgb(var(--DLP-blue));">${systemText[systemLanguage][29]}</p>
+                        <p class="DLP_Text_Style_1 DLP_NoSelect" style="color: rgb(var(--DLP-blue));">${system("actions.accept")}</p>
                     </div>
                 </div>
             </div>
@@ -1006,11 +1375,11 @@ function Two() {
                     </div>
                     <p class="DLP_Text_Style_1 DLP_NoSelect" style="font-size: 14px; background: url(${serverURL}/static/images/flow/secondary/256/light.png) lightgray 50% / cover no-repeat; background-clip: text; -webkit-background-clip: text; -webkit-text-fill-color: transparent;">${VERSION_NAME}</p>
                 </div>
-                <p class="DLP_Text_Style_1 DLP_NoSelect">${systemText[systemLanguage][30]}</p>
+                <p class="DLP_Text_Style_1 DLP_NoSelect">${system("terms.required")}</p>
                 <div class="DLP_HStack_8">
                     <div id="DLP_Terms_Declined_Back_Button_1_ID" class="DLP_Button_Style_2 DLP_Magnetic_Hover_1" style="outline: 2px solid rgba(var(--DLP-blue), 0.20); outline-offset: -2px; background: rgba(var(--DLP-blue), 0.10);">
                         <p class="DLP_Text_Style_1 DLP_NoSelect" style="color: rgb(var(--DLP-blue));">􀯶</p>
-                        <p class="DLP_Text_Style_1 DLP_NoSelect" style="color: rgb(var(--DLP-blue));">${systemText[systemLanguage][31]}</p>
+                        <p class="DLP_Text_Style_1 DLP_NoSelect" style="color: rgb(var(--DLP-blue));">${system("actions.back")}</p>
                     </div>
                 </div>
             </div>
@@ -1018,11 +1387,11 @@ function Two() {
 
 
         <div class="DLP_Main_Box_Divider" id="DLP_Main_Box_Divider_7_ID" style="display: none;">
-            <div class="DLP_VStack_8" style="max-height: calc(100vh - 220px);">
+            <div class="DLP_VStack_8" style="max-height: 80vh;">
                 <div class="DLP_HStack_Auto_Top">
                     <div id="DLP_Universal_Back_1_Button_1_ID" class="DLP_HStack_4 DLP_Hover_1" style="background: url(${serverURL}/static/images/flow/primary/256/light.png) center / cover no-repeat; -webkit-background-clip: text; background-clip: text; color: transparent;">
                         <p class="DLP_Text_Style_2 DLP_NoSelect" style="font-size: 20px; color: inherit;">􀯶</p>
-                        <p class="DLP_Text_Style_2 DLP_NoSelect" style="color: inherit;">${systemText[systemLanguage][32]}</p>
+                        <p class="DLP_Text_Style_2 DLP_NoSelect" style="color: inherit;">${system("settings.title")}</p>
                     </div>
                     <p class="DLP_Text_Style_1 DLP_NoSelect" style="font-size: 14px; background: url(${serverURL}/static/images/flow/secondary/256/light.png) lightgray 50% / cover no-repeat; background-clip: text; -webkit-background-clip: text; -webkit-text-fill-color: transparent;">${VERSION_NAME}</p>
                 </div>
@@ -1030,8 +1399,8 @@ function Two() {
                     <div class="DLP_VStack_8">
                         <div id="DLP_Settings_Show_Solve_Buttons_1_ID" class="DLP_HStack_8" style="justify-content: center; align-items: center;">
                             <div class="DLP_VStack_0" style="align-items: flex-start; flex: 1 0 0;">
-                                <p class="DLP_Text_Style_1">Show Solve Buttons</p>
-                                <p class="DLP_Text_Style_1" style="color: rgb(var(--color-wolf), 0.4);">In lessons and practices, see the solve and solve all buttons.</p>
+                                <p class="DLP_Text_Style_1">${system("settings.showSolveButtons")}</p>
+                                <p class="DLP_Text_Style_1" style="color: rgb(var(--color-wolf), 0.4);">${system("settings.showSolveButtonsDescription")}</p>
                             </div>
                             <div id="DLP_Inset_Toggle_1_ID" class="DLP_Toggle_Style_1 DLP_Hover_1">
                                 <p class="DLP_Text_Style_1 DLP_NoSelect DLP_Inset_Icon_1_ID" style="color: #FFF;">􀁣</p>
@@ -1039,8 +1408,8 @@ function Two() {
                         </div>
                         <div id="DLP_Settings_Show_AutoServer_Button_1_ID" class="DLP_HStack_8" style="justify-content: center; align-items: center;${alpha ? '' : ' display: none;'}">
                             <div class="DLP_VStack_0" style="align-items: flex-start; flex: 1 0 0;">
-                                <p class="DLP_Text_Style_1">Show AutoServer Button</p>
-                                <p class="DLP_Text_Style_1" style="color: rgb(var(--color-wolf), 0.4);">See the AutoServer by Duolingo PRO button in your Duolingo menubar.</p>
+                                <p class="DLP_Text_Style_1">${system("settings.showAutoServerButton")}</p>
+                                <p class="DLP_Text_Style_1" style="color: rgb(var(--color-wolf), 0.4);">${system("settings.showAutoServerButtonDescription")}</p>
                             </div>
                             <div id="DLP_Inset_Toggle_1_ID" class="DLP_Toggle_Style_1 DLP_Hover_1">
                                 <p class="DLP_Text_Style_1 DLP_NoSelect DLP_Inset_Icon_1_ID" style="color: #FFF;">􀁣</p>
@@ -1048,8 +1417,8 @@ function Two() {
                         </div>
                         <div id="DLP_Settings_Random_Legacy_Solve_Speed_Button_1_ID" class="DLP_HStack_8" style="justify-content: center; align-items: center;">
                             <div class="DLP_VStack_0" style="align-items: flex-start; flex: 1 0 0;">
-                                <p class="DLP_Text_Style_1">Random Legacy Solve Speed</p>
-                                <p class="DLP_Text_Style_1" style="color: rgb(var(--color-wolf), 0.4);">Legacy will wait a random amount of seconds before solving.</p>
+                                <p class="DLP_Text_Style_1">${system("settings.randomLegacySolveSpeed")}</p>
+                                <p class="DLP_Text_Style_1" style="color: rgb(var(--color-wolf), 0.4);">${system("settings.randomLegacySolveSpeedDescription")}</p>
                             </div>
                             <div id="DLP_Inset_Toggle_1_ID" class="DLP_Toggle_Style_1 DLP_Hover_1">
                                 <p class="DLP_Text_Style_1 DLP_NoSelect DLP_Inset_Icon_1_ID" style="color: #FFF;">􀁣</p>
@@ -1057,8 +1426,8 @@ function Two() {
                         </div>
                         <div id="DLP_Settings_Legacy_Solve_Speed_1_ID" class="DLP_HStack_8" style="justify-content: center; align-items: center;">
                             <div class="DLP_VStack_0" style="align-items: flex-start; flex: 1 0 0;">
-                                <p class="DLP_Text_Style_1">Custom Random Legacy Solve Speed</p>
-                                <p class="DLP_Text_Style_1" style="color: rgb(var(--color-wolf), 0.4);">Legacy will wait a random amount of seconds in between these two numbers before solving.</p>
+                                <p class="DLP_Text_Style_1">${system("settings.customRandomLegacySolveSpeedTitle")}</p>
+                                <p class="DLP_Text_Style_1" style="color: rgb(var(--color-wolf), 0.4);">${system("settings.customRandomLegacySolveSpeedDescription")}</p>
                             </div>
                             <div class="DLP_Input_Style_1_Active" style="flex: none; width: 112px;">
                                 <input type="text" placeholder="0" id="DLP_Inset_Input_1_ID" class="DLP_Input_Input_Style_1" style="text-align: center;">
@@ -1067,8 +1436,8 @@ function Two() {
                         </div>
                         <div id="DLP_Settings_Help_Us_Make_Better_Button_1_ID" class="DLP_HStack_8" style="justify-content: center; align-items: center;">
                             <div class="DLP_VStack_0" style="align-items: flex-start; flex: 1 0 0;">
-                                <p class="DLP_Text_Style_1">Help Us Make Duolingo PRO Better</p>
-                                <p class="DLP_Text_Style_1" style="color: rgb(var(--color-wolf), 0.4);">Allow Duolingo PRO to collect anonymous usage data for us to improve the script.</p>
+                                <p class="DLP_Text_Style_1">${system("settings.helpImproveTitle")}</p>
+                                <p class="DLP_Text_Style_1" style="color: rgb(var(--color-wolf), 0.4);">${system("settings.helpImproveDescription")}</p>
                             </div>
                             <div id="DLP_Inset_Toggle_1_ID" class="DLP_Toggle_Style_1 DLP_Hover_1" style="${alpha ? 'opacity: 0.5; pointer-events: none; cursor: not-allowed;' : ''}">
                                 <p class="DLP_Text_Style_1 DLP_NoSelect DLP_Inset_Icon_1_ID" style="color: #FFF;">􀁣</p>
@@ -1076,8 +1445,8 @@ function Two() {
                         </div>
                         <div id="DLP_Settings_Reduce_Effects_Button_1_ID" class="DLP_HStack_8" style="justify-content: center; align-items: center;">
                             <div class="DLP_VStack_0" style="align-items: flex-start; flex: 1 0 0;">
-                                <p class="DLP_Text_Style_1">Reduce Processing Intensive Effects</p>
-                                <p class="DLP_Text_Style_1" style="color: rgb(var(--color-wolf), 0.4);">Reduce processing intensive effects by disabling confetti, starfield and other visual animations.</p>
+                                <p class="DLP_Text_Style_1">${system("settings.reduceEffects")}</p>
+                                <p class="DLP_Text_Style_1" style="color: rgb(var(--color-wolf), 0.4);">${system("settings.reduceEffectsDescription")}</p>
                             </div>
                             <div id="DLP_Inset_Toggle_1_ID" class="DLP_Toggle_Style_1 DLP_Hover_1">
                                 <p class="DLP_Text_Style_1 DLP_NoSelect DLP_Inset_Icon_1_ID" style="color: #FFF;">􀁣</p>
@@ -1085,8 +1454,8 @@ function Two() {
                         </div>
                         <div id="DLP_Settings_Free_Local_Super_Button_1_ID" class="DLP_HStack_8" style="justify-content: center; align-items: center;">
                             <div class="DLP_VStack_0" style="align-items: flex-start; flex: 1 0 0;">
-                                <p class="DLP_Text_Style_1">Free On-Client Duolingo Max</p>
-                                <p class="DLP_Text_Style_1" style="color: rgb(var(--color-wolf), 0.4);">Skip the worry of running out of hearts, get free entry to legendary challenges, access to personalized practice, and learn without ads. Only works on-client.</p>
+                                <p class="DLP_Text_Style_1">${system("settings.freeLocalMax")}</p>
+                                <p class="DLP_Text_Style_1" style="color: rgb(var(--color-wolf), 0.4);">${system("settings.freeLocalMaxDescription")}</p>
                             </div>
                             <div id="DLP_Inset_Toggle_1_ID" class="DLP_Toggle_Style_1 DLP_Hover_1">
                                 <p class="DLP_Text_Style_1 DLP_NoSelect DLP_Inset_Icon_1_ID" style="color: #FFF;">􀁣</p>
@@ -1094,8 +1463,8 @@ function Two() {
                         </div>
                         <div id="DLP_Settings_Show_Super_Trial_Button_1_ID" class="DLP_HStack_8" style="justify-content: center; align-items: center;">
                             <div class="DLP_VStack_0" style="align-items: flex-start; flex: 1 0 0;">
-                                <p class="DLP_Text_Style_1">Show Super Duolingo Trial Function</p>
-                                <p class="DLP_Text_Style_1" style="color: rgb(var(--color-wolf), 0.4);">This function rarely works and is currently being deprecated. We recommend you to use Free Duolingo Max instead.</p>
+                                <p class="DLP_Text_Style_1">${system("settings.showSuperTrial")}</p>
+                                <p class="DLP_Text_Style_1" style="color: rgb(var(--color-wolf), 0.4);">${system("settings.showSuperTrialDescription")}</p>
                             </div>
                             <div id="DLP_Inset_Toggle_1_ID" class="DLP_Toggle_Style_1 DLP_Hover_1">
                                 <p class="DLP_Text_Style_1 DLP_NoSelect DLP_Inset_Icon_1_ID" style="color: #FFF;">􀁣</p>
@@ -1103,8 +1472,8 @@ function Two() {
                         </div>
                         <div id="DLP_Settings_Auto_Update_Toggle_1_ID" class="DLP_HStack_8" style="justify-content: center; align-items: center; opacity: 0.5; pointer-events: none; cursor: not-allowed; display: none;">
                             <div class="DLP_VStack_0" style="align-items: flex-start; flex: 1 0 0;">
-                                <p class="DLP_Text_Style_1">${systemText[systemLanguage][34]}</p>
-                                <p class="DLP_Text_Style_1" style="color: rgb(var(--color-wolf), 0.4);">${systemText[systemLanguage][35]}</p>
+                                <p class="DLP_Text_Style_1">${system("settings.automaticUpdates")}</p>
+                                <p class="DLP_Text_Style_1" style="color: rgb(var(--color-wolf), 0.4);">${system("settings.automaticUpdatesDescription")}</p>
                             </div>
                             <div id="DLP_Inset_Toggle_1_ID" class="DLP_Toggle_Style_1 DLP_Hover_1">
                                 <p class="DLP_Text_Style_1 DLP_NoSelect DLP_Inset_Icon_1_ID" style="color: #FFF;">􀁣</p>
@@ -1112,49 +1481,49 @@ function Two() {
                         </div>
                         <div id="DLP_Settings_Modern_Stats_Main_Box_1_ID" class="DLP_VStack_6" style="background: rgba(var(--DLP-blue), 0.10); outline: 2px solid rgba(var(--DLP-blue), 0.20); outline-offset: -2px; padding: 16px; border-radius: var(--DLP-corner-r-m); corner-shape: var(--DLP-corner-s);">
                             <div style="display: flex; align-self: stretch; justify-content: space-between; align-items: center;">
-                                <p class="DLP_Text_Style_1" style="color: rgb(var(--DLP-blue));">3.1 Stats</p>
+                                <p class="DLP_Text_Style_1" style="color: rgb(var(--DLP-blue));">${system("stats.modernTitle")}</p>
                                 <p class="DLP_Text_Style_1" style="color: rgba(var(--DLP-blue), 0.5);"></p>
                             </div>
                             <div style="display: flex; align-self: stretch; justify-content: space-between; align-items: center;">
-                                <p class="DLP_Text_Style_1" style="color: rgba(var(--DLP-blue), 0.5);">XP Gained:</p>
+                                <p class="DLP_Text_Style_1" style="color: rgba(var(--DLP-blue), 0.5);">${system("stats.xpGained")}</p>
                                 <p class="DLP_Text_Style_1" style="color: rgba(var(--DLP-blue), 0.5);"></p>
                             </div>
                             <div style="display: flex; align-self: stretch; justify-content: space-between; align-items: center;">
-                                <p class="DLP_Text_Style_1" style="color: rgba(var(--DLP-blue), 0.5);">Gems Gained:</p>
+                                <p class="DLP_Text_Style_1" style="color: rgba(var(--DLP-blue), 0.5);">${system("stats.gemsGained")}</p>
                                 <p class="DLP_Text_Style_1" style="color: rgba(var(--DLP-blue), 0.5);"></p>
                             </div>
                             <div style="display: flex; align-self: stretch; justify-content: space-between; align-items: center;">
-                                <p class="DLP_Text_Style_1" style="color: rgba(var(--DLP-blue), 0.5);">Streak Gained:</p>
+                                <p class="DLP_Text_Style_1" style="color: rgba(var(--DLP-blue), 0.5);">${system("stats.streakGained")}</p>
                                 <p class="DLP_Text_Style_1" style="color: rgba(var(--DLP-blue), 0.5);"></p>
                             </div>
                             <div style="display: flex; align-self: stretch; justify-content: space-between; align-items: center;">
-                                <p class="DLP_Text_Style_1" style="color: rgba(var(--DLP-blue), 0.5);">Heart Refills Requested:</p>
+                                <p class="DLP_Text_Style_1" style="color: rgba(var(--DLP-blue), 0.5);">${system("stats.heartRefillsRequested")}</p>
                                 <p class="DLP_Text_Style_1" style="color: rgba(var(--DLP-blue), 0.5);"></p>
                             </div>
                             <div style="display: flex; align-self: stretch; justify-content: space-between; align-items: center;">
-                                <p class="DLP_Text_Style_1" style="color: rgba(var(--DLP-blue), 0.5);">Streak Freezes Requested:</p>
+                                <p class="DLP_Text_Style_1" style="color: rgba(var(--DLP-blue), 0.5);">${system("stats.streakFreezesRequested")}</p>
                                 <p class="DLP_Text_Style_1" style="color: rgba(var(--DLP-blue), 0.5);"></p>
                             </div>
                             <div style="display: flex; align-self: stretch; justify-content: space-between; align-items: center;">
-                                <p class="DLP_Text_Style_1" style="color: rgba(var(--DLP-blue), 0.5);">Double XP Boosts Requested:</p>
+                                <p class="DLP_Text_Style_1" style="color: rgba(var(--DLP-blue), 0.5);">${system("stats.doubleXpBoostsRequested")}</p>
                                 <p class="DLP_Text_Style_1" style="color: rgba(var(--DLP-blue), 0.5);"></p>
                             </div>
                             <div style="display: flex; align-self: stretch; justify-content: space-between; align-items: center;">
-                                <p class="DLP_Text_Style_1" style="color: rgba(var(--DLP-blue), 0.5);">Quest Completes Requested:</p>
+                                <p class="DLP_Text_Style_1" style="color: rgba(var(--DLP-blue), 0.5);">${system("stats.questCompletesRequested")}</p>
                                 <p class="DLP_Text_Style_1" style="color: rgba(var(--DLP-blue), 0.5);"></p>
                             </div>
                         </div>
                         <div id="DLP_Settings_Legacy_Stats_Main_Box_1_ID" class="DLP_VStack_6" style="background: rgba(var(--DLP-blue), 0.10); outline: 2px solid rgba(var(--DLP-blue), 0.20); outline-offset: -2px; padding: 16px; border-radius: var(--DLP-corner-r-m); corner-shape: var(--DLP-corner-s);">
                             <div style="display: flex; align-self: stretch; justify-content: space-between; align-items: center;">
-                                <p class="DLP_Text_Style_1" style="color: rgb(var(--DLP-blue));">Legacy Mode Stats</p>
+                                <p class="DLP_Text_Style_1" style="color: rgb(var(--DLP-blue));">${system("stats.legacyTitle")}</p>
                                 <p class="DLP_Text_Style_1" style="color: rgba(var(--DLP-blue), 0.5);"></p>
                             </div>
                             <div style="display: flex; align-self: stretch; justify-content: space-between; align-items: center;">
-                                <p class="DLP_Text_Style_1" style="color: rgba(var(--DLP-blue), 0.5);">Lessons Solved:</p>
+                                <p class="DLP_Text_Style_1" style="color: rgba(var(--DLP-blue), 0.5);">${system("stats.lessonsSolved")}</p>
                                 <p class="DLP_Text_Style_1" style="color: rgba(var(--DLP-blue), 0.5);"></p>
                             </div>
                             <div style="display: flex; align-self: stretch; justify-content: space-between; align-items: center;">
-                                <p class="DLP_Text_Style_1" style="color: rgba(var(--DLP-blue), 0.5);">Questions Solved:</p>
+                                <p class="DLP_Text_Style_1" style="color: rgba(var(--DLP-blue), 0.5);">${system("stats.questionsSolved")}</p>
                                 <p class="DLP_Text_Style_1" style="color: rgba(var(--DLP-blue), 0.5);"></p>
                             </div>
                         </div>
@@ -1162,7 +1531,7 @@ function Two() {
                 </div>
                 <div class="DLP_HStack_8">
                     <div id="DLP_Settings_Save_Button_1_ID" class="DLP_Button_Style_2 DLP_Magnetic_Hover_1" style="outline: 2px solid rgba(0, 0, 0, 0.20); outline-offset: -2px; background: rgb(var(--DLP-blue));">
-                        <p class="DLP_Text_Style_1 DLP_NoSelect DLP_Inset_Text_1_ID" style="color: #FFF;">${systemText[systemLanguage][37]}</p>
+                        <p class="DLP_Text_Style_1 DLP_NoSelect DLP_Inset_Text_1_ID" style="color: #FFF;">${system("actions.save")}</p>
                         <p class="DLP_Text_Style_1 DLP_NoSelect DLP_Inset_Icon_1_ID" style="color: #FFF;">􀁣</p>
                     </div>
                 </div>
@@ -1175,41 +1544,41 @@ function Two() {
                 <div class="DLP_HStack_Auto_Top">
                     <div id="DLP_Universal_Back_1_Button_1_ID" class="DLP_HStack_4 DLP_Hover_1" style="background: url(${serverURL}/static/images/flow/primary/256/light.png) center / cover no-repeat; -webkit-background-clip: text; background-clip: text; color: transparent;">
                         <p class="DLP_Text_Style_2 DLP_NoSelect" style="font-size: 20px; color: inherit;">􀯶</p>
-                        <p class="DLP_Text_Style_2 DLP_NoSelect" style="color: inherit;">${systemText[systemLanguage][38]}</p>
+                        <p class="DLP_Text_Style_2 DLP_NoSelect" style="color: inherit;">${system("feedback.title")}</p>
                     </div>
                     <p class="DLP_Text_Style_1 DLP_NoSelect" style="font-size: 14px; background: url(${serverURL}/static/images/flow/secondary/256/light.png) lightgray 50% / cover no-repeat; background-clip: text; -webkit-background-clip: text; -webkit-text-fill-color: transparent;">${VERSION_NAME}</p>
                 </div>
                 <div class="DLP_VStack_4" style="padding: 16px; border-radius: var(--DLP-corner-r-m); corner-shape: var(--DLP-corner-s); outline: 2px solid rgba(var(--DLP-blue), 0.20); outline-offset: -2px; background: rgba(var(--DLP-blue), 0.10); box-sizing: border-box;">
                     <div class="DLP_HStack_4">
                         <p class="DLP_Text_Style_1 DLP_NoSelect" style="color: rgb(var(--DLP-blue));">􀁝</p>
-                        <p class="DLP_Text_Style_1 DLP_NoSelect" style="align-self: stretch; color: rgb(var(--DLP-blue));">Need Support?</p>
+                        <p class="DLP_Text_Style_1 DLP_NoSelect" style="align-self: stretch; color: rgb(var(--DLP-blue));">${system("support.needSupport")}</p>
                     </div>
-                    <p class="DLP_Text_Style_1 DLP_NoSelect" style="align-self: stretch; color: rgba(var(--DLP-blue), 0.5);">Get help from our <a href='${serverURL}/faq' target='_blank' class='DLP_Link_Style_1'>FAQ page</a>, enhanced with AI, or join our <a href='${serverURL}/discord' target='_blank' class='DLP_Link_Style_1'>Discord server</a> and talk with the devs.</p>
+                    <p class="DLP_Text_Style_1 DLP_NoSelect" style="align-self: stretch; color: rgba(var(--DLP-blue), 0.5);">${systemFormat("support.needSupportBody", { faqUrl: `${serverURL}/faq`, discordUrl: `${serverURL}/discord` })}</p>
                 </div>
-                <p class="DLP_Text_Style_1 DLP_NoSelect" style="align-self: stretch;">${systemText[systemLanguage][39]}</p>
-                <textarea id="DLP_Feedback_Text_Input_1_ID" class="DLP_Large_Input_Box_Style_1" style="height: 128px; max-height: 256px;" placeholder="${systemText[systemLanguage][40]}"/></textarea>
-                <p class="DLP_Text_Style_1 DLP_NoSelect" style="align-self: stretch;">${systemText[systemLanguage][41]}</p>
+                <p class="DLP_Text_Style_1 DLP_NoSelect" style="align-self: stretch;">${system("feedback.description")}</p>
+                <textarea id="DLP_Feedback_Text_Input_1_ID" class="DLP_Large_Input_Box_Style_1" style="height: 128px; max-height: 256px;" placeholder="${system("feedback.placeholder")}"/></textarea>
+                <p class="DLP_Text_Style_1 DLP_NoSelect" style="align-self: stretch;">${system("feedback.typeLabel")}</p>
                 <div class="DLP_HStack_8">
                     <div id="DLP_Feedback_Type_Bug_Report_Button_1_ID" class="DLP_Button_Style_2 DLP_Magnetic_Hover_1 DLP_Feedback_Type_Button_Style_1_OFF" style="transition: background 0.4s, outline 0.4s, filter 0.4s cubic-bezier(0.16, 1, 0.32, 1), transform 0.4s cubic-bezier(0.16, 1, 0.32, 1);">
-                        <p class="DLP_Text_Style_1 DLP_NoSelect DLP_Inset_Icon_1_ID" style="transition: 0.4s;">􀌛</p>
-                        <p class="DLP_Text_Style_1 DLP_NoSelect DLP_Inset_Text_1_ID" style="transition: 0.4s;">${systemText[systemLanguage][42]}</p>
+                        <p class="DLP_Text_Style_1 DLP_NoSelect DLP_Inset_Icon_1_ID" style="transition: color 0.4s, filter 0.4s, opacity 0.4s;">􀌛</p>
+                        <p class="DLP_Text_Style_1 DLP_NoSelect DLP_Inset_Text_1_ID" style="transition: color 0.4s, filter 0.4s, opacity 0.4s;">${system("feedback.bugReport")}</p>
                     </div>
                     <div id="DLP_Feedback_Type_Suggestion_Button_1_ID" class="DLP_Button_Style_2 DLP_Magnetic_Hover_1 DLP_Feedback_Type_Button_Style_2_ON" style="transition: background 0.4s, outline 0.4s, filter 0.4s cubic-bezier(0.16, 1, 0.32, 1), transform 0.4s cubic-bezier(0.16, 1, 0.32, 1);">
-                        <p class="DLP_Text_Style_1 DLP_NoSelect DLP_Inset_Icon_1_ID" style="transition: 0.4s;">􁷙</p>
-                        <p class="DLP_Text_Style_1 DLP_NoSelect DLP_Inset_Text_1_ID" style="transition: 0.4s;">${systemText[systemLanguage][43]}</p>
+                        <p class="DLP_Text_Style_1 DLP_NoSelect DLP_Inset_Icon_1_ID" style="transition: color 0.4s, filter 0.4s, opacity 0.4s;">􁷙</p>
+                        <p class="DLP_Text_Style_1 DLP_NoSelect DLP_Inset_Text_1_ID" style="transition: color 0.4s, filter 0.4s, opacity 0.4s;">${system("feedback.suggestion")}</p>
                     </div>
                 </div>
-                <p class="DLP_Text_Style_1 DLP_NoSelect" style="align-self: stretch;">${systemText[systemLanguage][44]}</p>
+                <p class="DLP_Text_Style_1 DLP_NoSelect" style="align-self: stretch;">${system("feedback.attachmentLabel")}</p>
                 <div class="DLP_HStack_8">
                     <div id="DLP_Feedback_Attachment_Upload_Button_1_ID" class="DLP_Button_Style_2 DLP_Magnetic_Hover_1" style="outline: 2px solid rgba(var(--DLP-blue), 0.20); outline-offset: -2px; background: rgba(var(--DLP-blue), 0.10); transition: background 0.4s, outline 0.4s, filter 0.4s cubic-bezier(0.16, 1, 0.32, 1), transform 0.4s cubic-bezier(0.16, 1, 0.32, 1);">
-                        <p class="DLP_Text_Style_1 DLP_NoSelect DLP_Inset_Text_1_ID" style="color: rgb(var(--DLP-blue)); transition: 0.4s;">${systemText[systemLanguage][45]}</p>
+                        <p class="DLP_Text_Style_1 DLP_NoSelect DLP_Inset_Text_1_ID" style="color: rgb(var(--DLP-blue)); transition: color 0.4s, filter 0.4s, opacity 0.4s;">${system("actions.upload")}</p>
                         <p class="DLP_Text_Style_1 DLP_NoSelect DLP_Inset_Icon_1_ID" style="color: rgb(var(--DLP-blue));">􀅼</p>
                     </div>
                 </div>
                 <input type="file" accept="image/png, image/jpg, image/jpeg, video/mp4, image/gif, video/mov, video/webm" id="DLP_Feedback_Attachment_Input_Hidden_1_ID" style="display: none;"/>
                 <div class="DLP_HStack_8">
                     <div id="DLP_Feedback_Send_Button_1_ID" class="DLP_Button_Style_2 DLP_Magnetic_Hover_1" style="outline: 2px solid rgba(0, 0, 0, 0.20); outline-offset: -2px; background: rgb(var(--DLP-blue));">
-                        <p class="DLP_Text_Style_1 DLP_NoSelect DLP_Inset_Text_1_ID" style="color: #FFF;">${systemText[systemLanguage][47]}</p>
+                        <p class="DLP_Text_Style_1 DLP_NoSelect DLP_Inset_Text_1_ID" style="color: #FFF;">${system("actions.send")}</p>
                         <p class="DLP_Text_Style_1 DLP_NoSelect DLP_Inset_Icon_1_ID" style="color: #FFF;">􀰫</p>
                     </div>
                 </div>
@@ -1220,10 +1589,10 @@ function Two() {
         <div class="DLP_Main_Box_Divider" id="DLP_Main_Box_Divider_9_ID" style="display: none;">
             <div class="DLP_VStack_8">
                 <div class="DLP_HStack_Auto_Top">
-                    <p class="DLP_Text_Style_2 DLP_NoSelect" style="background: url(${serverURL}/static/images/flow/primary/256/light.png) lightgray 50% / cover no-repeat; background-clip: text; -webkit-background-clip: text; -webkit-text-fill-color: transparent; display: none;">${systemText[systemLanguage][48]}</p>
+                    <p class="DLP_Text_Style_2 DLP_NoSelect" style="background: url(${serverURL}/static/images/flow/primary/256/light.png) lightgray 50% / cover no-repeat; background-clip: text; -webkit-background-clip: text; -webkit-text-fill-color: transparent; display: none;">${system("nav.whatsNew")}</p>
                     <div id="DLP_Universal_Back_1_Button_1_ID" class="DLP_HStack_4 DLP_Hover_1" style="background: url(${serverURL}/static/images/flow/primary/256/light.png) center / cover no-repeat; -webkit-background-clip: text; background-clip: text; color: transparent;">
                         <p class="DLP_Text_Style_2 DLP_NoSelect" style="font-size: 20px; color: inherit;">􀯶</p>
-                        <p class="DLP_Text_Style_2 DLP_NoSelect" style="color: inherit;">${systemText[systemLanguage][48]}</p>
+                        <p class="DLP_Text_Style_2 DLP_NoSelect" style="color: inherit;">${system("nav.whatsNew")}</p>
                     </div>
                     <p class="DLP_Text_Style_1 DLP_NoSelect" style="font-size: 14px; background: url(${serverURL}/static/images/flow/secondary/256/light.png) lightgray 50% / cover no-repeat; background-clip: text; -webkit-background-clip: text; -webkit-text-fill-color: transparent;">${VERSION_NAME}</p>
                 </div>
@@ -1231,13 +1600,13 @@ function Two() {
                 <div class="DLP_HStack_8" id="DLP_Release_Notes_Controls_1_ID">
                     <div class="DLP_Button_Style_2 DLP_Magnetic_Hover_1" id="DLP_Inset_Button_1_ID" style="outline: 2px solid rgba(var(--DLP-blue), 0.20); outline-offset: -2px; background: linear-gradient(0deg, rgba(var(--DLP-blue), 0.10) 0%, rgba(var(--DLP-blue), 0.10) 100%), rgba(var(--color-snow), 0.80); backdrop-filter: blur(16px);">
                         <p class="DLP_Text_Style_1 DLP_NoSelect DLP_Inset_Text_1_ID" style="color: rgb(var(--DLP-blue));">􀯶</p>
-                        <p class="DLP_Text_Style_1 DLP_NoSelect DLP_Inset_Icon_1_ID" style="color: rgb(var(--DLP-blue));">PREVIOUS</p>
+                        <p class="DLP_Text_Style_1 DLP_NoSelect DLP_Inset_Icon_1_ID" style="color: rgb(var(--DLP-blue));">${system("pagination.previous")}</p>
                     </div>
                     <div class="DLP_Button_Style_2" id="DLP_Inset_Label_1_ID" style="outline: 2px solid rgba(var(--DLP-blue), 0.20); outline-offset: -2px; background: linear-gradient(0deg, rgba(var(--DLP-blue), 0.10) 0%, rgba(var(--DLP-blue), 0.10) 100%), rgba(var(--color-snow), 0.80); backdrop-filter: blur(16px); flex: 0; padding: 0 16px;">
                         <p class="DLP_Text_Style_1 DLP_NoSelect DLP_Inset_Text_1_ID" style="color: rgb(var(--DLP-blue)); font-variant: tabular-nums;"></p>
                     </div>
                     <div class="DLP_Button_Style_2 DLP_Magnetic_Hover_1" id="DLP_Inset_Button_2_ID" style="outline: rgba(0, 0, 0, 0.2) solid 2px; outline-offset: -2px; background: rgb(var(--DLP-blue));">
-                        <p class="DLP_Text_Style_1 DLP_NoSelect DLP_Inset_Text_1_ID" style="color: #FFF;">NEXT</p>
+                        <p class="DLP_Text_Style_1 DLP_NoSelect DLP_Inset_Text_1_ID" style="color: #FFF;">${system("pagination.next")}</p>
                         <p class="DLP_Text_Style_1 DLP_NoSelect DLP_Inset_Icon_1_ID" style="color: #FFF;">􀯻</p>
                     </div>
                 </div>
@@ -1249,18 +1618,18 @@ function Two() {
             <div class="DLP_VStack_8">
                 <div class="DLP_VStack_8" style="padding: 8px 0; max-width: 312px; align-self: center;">
                     <div class="DLP_VStack_0">
-                        <p class="DLP_Text_Style_1 DLP_NoSelect" style="font-size: 14px; background: url(${serverURL}/static/images/flow/secondary/256/light.png) lightgray 50% / cover no-repeat; background-clip: text; -webkit-background-clip: text; -webkit-text-fill-color: transparent;">${systemText[systemLanguage][52]}</p>
+                        <p class="DLP_Text_Style_1 DLP_NoSelect" style="font-size: 14px; background: url(${serverURL}/static/images/flow/secondary/256/light.png) lightgray 50% / cover no-repeat; background-clip: text; -webkit-background-clip: text; -webkit-text-fill-color: transparent;">${system("onboarding.welcome")}</p>
                         <div class="DLP_HStack_4" style="align-self: auto;">
                             <p class="DLP_Text_Style_2 DLP_NoSelect">Duolingo</p>
                             <p class="DLP_Text_Style_2 DLP_NoSelect" style="background: url(${serverURL}/static/images/flow/primary/256/light.png) lightgray 50% / cover no-repeat; background-clip: text; -webkit-background-clip: text; -webkit-text-fill-color: transparent;">PRO 3.1</p>
                         </div>
                     </div>
-                    <p class="DLP_Text_Style_1" style="align-self: stretch; text-align: center;">${systemText[systemLanguage][53]}</p>
-                    <p class="DLP_Text_Style_1" style="align-self: stretch; text-align: center;">${systemText[systemLanguage][61]}</p>
+                    <p class="DLP_Text_Style_1" style="align-self: stretch; text-align: center;">${system("onboarding.description")}</p>
+                    <p class="DLP_Text_Style_1" style="align-self: stretch; text-align: center;">${system("onboarding.modeDescription")}</p>
                 </div>
                 <div class="DLP_HStack_8">
                     <div id="DLP_Onboarding_Start_Button_1_ID" class="DLP_Button_Style_2 DLP_Magnetic_Hover_1" style="outline: 2px solid rgba(0, 0, 0, 0.20); outline-offset: -2px; background: rgb(var(--DLP-blue));">
-                        <p class="DLP_Text_Style_1 DLP_NoSelect" style="color: #FFF;">${systemText[systemLanguage][54]}</p>
+                        <p class="DLP_Text_Style_1 DLP_NoSelect" style="color: #FFF;">${system("actions.start")}</p>
                         <p class="DLP_Text_Style_1 DLP_NoSelect" style="color: #FFF;">􀰫</p>
                     </div>
                 </div>
@@ -1269,23 +1638,23 @@ function Two() {
 
 
         <div class="DLP_Main_Box_Divider" id="DLP_Main_Box_Divider_11_ID" style="display: none;">
-            <div class="DLP_VStack_8" style="height: 640px; max-height: calc(100vh - 220px);">
+            <div class="DLP_VStack_8" style="height: 640px; max-height: 80vh;">
                 <div class="DLP_HStack_Auto_Top">
                     <div id="DLP_Universal_Back_1_Button_1_ID" class="DLP_HStack_4 DLP_Hover_1" style="background: url(${serverURL}/static/images/flow/primary/256/light.png) center / cover no-repeat; -webkit-background-clip: text; background-clip: text; color: transparent;">
                         <p class="DLP_Text_Style_2 DLP_NoSelect" style="font-size: 20px; color: inherit;">􀯶</p>
-                        <p class="DLP_Text_Style_2 DLP_NoSelect" style="color: inherit;">Support</p>
+                        <p class="DLP_Text_Style_2 DLP_NoSelect" style="color: inherit;">${system("support.heading")}</p>
                     </div>
                     <p class="DLP_Text_Style_1 DLP_NoSelect" style="font-size: 14px; background: url(${serverURL}/static/images/flow/secondary/256/light.png) lightgray 50% / cover no-repeat; background-clip: text; -webkit-background-clip: text; -webkit-text-fill-color: transparent;">${VERSION_NAME}</p>
                 </div>
 
                 <div class="DLP_VStack_8" style="height: 100%;">
-                    <div id="DLP_Inset_Card_1" style="display: flex; padding: 16px; flex-direction: column; justify-content: flex-start; align-items: flex-start; gap: 4px; align-self: stretch; border-radius: var(--DLP-corner-r-m); corner-shape: var(--DLP-corner-s); outline: 2px solid rgba(var(--DLP-blue), 0.20); outline-offset: -2px; background: rgba(var(--DLP-blue), 0.10); overflow: hidden; transition: all 0.4s cubic-bezier(0.16, 1, 0.32, 1); display: none;">
+                    <div id="DLP_Inset_Card_1" style="display: flex; padding: 16px; flex-direction: column; justify-content: flex-start; align-items: flex-start; gap: 4px; align-self: stretch; border-radius: var(--DLP-corner-r-m); corner-shape: var(--DLP-corner-s); outline: 2px solid rgba(var(--DLP-blue), 0.20); outline-offset: -2px; background: rgba(var(--DLP-blue), 0.10); overflow: hidden; transition: width 0.4s cubic-bezier(0.16, 1, 0.32, 1), height 0.4s cubic-bezier(0.16, 1, 0.32, 1), background 0.4s cubic-bezier(0.16, 1, 0.32, 1), outline 0.4s cubic-bezier(0.16, 1, 0.32, 1), opacity 0.4s cubic-bezier(0.16, 1, 0.32, 1), filter 0.4s cubic-bezier(0.16, 1, 0.32, 1), transform 0.4s cubic-bezier(0.16, 1, 0.32, 1), box-shadow 0.4s cubic-bezier(0.16, 1, 0.32, 1); display: none;">
                         <div class="DLP_HStack_6">
                             <p class="DLP_Text_Style_1 DLP_NoSelect" style="color: rgb(var(--DLP-blue));">􀅵</p>
-                            <p class="DLP_Text_Style_1 DLP_NoSelect" style="color: rgb(var(--DLP-blue)); flex: 1 0 0;">Response Times</p>
+                            <p class="DLP_Text_Style_1 DLP_NoSelect" style="color: rgb(var(--DLP-blue)); flex: 1 0 0;">${system("support.responseTimesTitle")}</p>
                             <p class="DLP_Text_Style_1 DLP_NoSelect" style="color: rgb(var(--DLP-blue));">􀯻</p>
                         </div>
-                        <p class="DLP_Text_Style_1 DLP_NoSelect" style="align-self: stretch; color: rgba(var(--DLP-blue), 0.8); display: none; opacity: 0; filter: blur(4px); height: 0px; transition: 0.4s cubic-bezier(0.16, 1, 0.32, 1);">It may take a few hours for a developer to respond to you. You will be notified in Duolingo PRO when there's a reply.</p>
+                        <p class="DLP_Text_Style_1 DLP_NoSelect" style="align-self: stretch; color: rgba(var(--DLP-blue), 0.8); display: none; opacity: 0; filter: blur(4px); height: 0px; transition: height 0.4s cubic-bezier(0.16, 1, 0.32, 1), filter 0.4s cubic-bezier(0.16, 1, 0.32, 1), opacity 0.4s cubic-bezier(0.16, 1, 0.32, 1);">${system("support.responseTimesBody")}</p>
                     </div>
 
                     <div class="DLP_Chat_Box_1_ID_1" style="display: flex; flex-direction: column; align-items: center; gap: 8px; flex: 1 0 0; align-self: stretch; overflow-y: auto; margin: 0 -16px; padding: 0 16px; display: none;">
@@ -1295,20 +1664,20 @@ function Two() {
 
                     <div class="DLP_VStack_8" id="DLP_Inset_Group_5" style="padding: 0px 32px; flex: 1 0 0;">
                         <p class="DLP_Text_Style_1 DLP_NoSelect" style="background: url(${serverURL}/static/images/flow/primary/256/light.png) lightgray 50% / cover no-repeat; background-clip: text; -webkit-background-clip: text; -webkit-text-fill-color: transparent; font-size: 24px;">􀘲</p>
-                        <p class="DLP_Text_Style_1 DLP_NoSelect" style="align-self: stretch; text-align: center;">Send a message to start talking with a support member.</p>
+                        <p class="DLP_Text_Style_1 DLP_NoSelect" style="align-self: stretch; text-align: center;">${system("support.emptyPrompt")}</p>
                     </div>
 
                     <div class="DLP_VStack_8" id="DLP_Inset_Group_2" style="display: none;">
-                        <div id="DLP_Inset_Card_2" style="display: flex; padding: 16px; flex-direction: column; justify-content: flex-start; align-items: flex-start; gap: 4px; align-self: stretch; border-radius: var(--DLP-corner-r-m); corner-shape: var(--DLP-corner-s); outline: 2px solid rgba(var(--DLP-blue), 0.20); outline-offset: -2px; background: rgba(var(--DLP-blue), 0.10); overflow: hidden; transition: all 0.4s cubic-bezier(0.16, 1, 0.32, 1);">
+                        <div id="DLP_Inset_Card_2" style="display: flex; padding: 16px; flex-direction: column; justify-content: flex-start; align-items: flex-start; gap: 4px; align-self: stretch; border-radius: var(--DLP-corner-r-m); corner-shape: var(--DLP-corner-s); outline: 2px solid rgba(var(--DLP-blue), 0.20); outline-offset: -2px; background: rgba(var(--DLP-blue), 0.10); overflow: hidden; transition: width 0.4s cubic-bezier(0.16, 1, 0.32, 1), height 0.4s cubic-bezier(0.16, 1, 0.32, 1), background 0.4s cubic-bezier(0.16, 1, 0.32, 1), outline 0.4s cubic-bezier(0.16, 1, 0.32, 1), opacity 0.4s cubic-bezier(0.16, 1, 0.32, 1), filter 0.4s cubic-bezier(0.16, 1, 0.32, 1), transform 0.4s cubic-bezier(0.16, 1, 0.32, 1), box-shadow 0.4s cubic-bezier(0.16, 1, 0.32, 1);">
                             <div class="DLP_HStack_6">
                                 <p class="DLP_Text_Style_1 DLP_NoSelect" style="color: rgb(var(--DLP-blue));">􀿌</p>
-                                <p class="DLP_Text_Style_1 DLP_NoSelect" style="color: rgb(var(--DLP-blue)); flex: 1 0 0;">This chat was closed.</p>
+                                <p class="DLP_Text_Style_1 DLP_NoSelect" style="color: rgb(var(--DLP-blue)); flex: 1 0 0;">${system("support.closedTitle")}</p>
                             </div>
-                            <p class="DLP_Text_Style_1 DLP_NoSelect" style="align-self: stretch; color: rgba(var(--DLP-blue), 0.5);">We hope to have solved your issue. If not, you can start a new chat.</p>
+                            <p class="DLP_Text_Style_1 DLP_NoSelect" style="align-self: stretch; color: rgba(var(--DLP-blue), 0.5);">${system("support.closedBody")}</p>
                         </div>
 
                         <div class="DLP_Input_Button_Style_1_Active DLP_Magnetic_Hover_1" id="DLP_Inset_Button_3_ID" style="width: 100%;">
-                            <p class="DLP_Text_Style_1 DLP_NoSelect" style="color: #FFF;">Start a New Chat</p>
+                            <p class="DLP_Text_Style_1 DLP_NoSelect" style="color: #FFF;">${system("support.startNewChat")}</p>
                             <p class="DLP_Text_Style_1 DLP_NoSelect" style="color: #FFF;">􀅼</p>
                         </div>
                     </div>
@@ -1318,7 +1687,7 @@ function Two() {
                             <div class="DLP_Attachment_Box_Drop_1 DLP_Fill_Col" style="height: 128px; display: none;">
                                 <div class="DLP_Row DLP_Gap_6" style="opacity: 0.5;">
                                     <p class="DLP_Text_Style_1 DLP_NoSelect" style="color: rgb(var(--DLP-blue));">􀉂</p>
-                                    <p class="DLP_Text_Style_1 DLP_NoSelect" style="color: rgb(var(--DLP-blue));">Drop here to attach</p>
+                                    <p class="DLP_Text_Style_1 DLP_NoSelect" style="color: rgb(var(--DLP-blue));">${system("support.dropToAttach")}</p>
                                 </div>
                             </div>
                         </div>
@@ -1329,7 +1698,7 @@ function Two() {
                                 <input type="file" id="DLP_Attachment_Input_1" accept="image/*, video/*" multiple style="display: none;">
                             </div>
                             <div class="DLP_Input_Style_1_Active" style="padding: 0;">
-                                <textarea type="text" placeholder="Type here..." id="DLP_Inset_Input_1_ID" class="DLP_Input_Style_1 DLP_Hide_Scrollbar" style="padding: 16px; box-sizing: content-box; overflow: scroll;"></textarea>
+                                <textarea type="text" placeholder="${system("support.messagePlaceholder")}" id="DLP_Inset_Input_1_ID" class="DLP_Input_Style_1 DLP_Hide_Scrollbar" style="padding: 16px; box-sizing: content-box; overflow: scroll;"></textarea>
                             </div>
                             <div class="DLP_Input_Button_Style_1_Active DLP_Magnetic_Hover_1" id="DLP_Inset_Button_2_ID" style="width: 48px;">
                                 <p class="DLP_Text_Style_1 DLP_NoSelect" style="color: #FFF;">􀰫</p>
@@ -1344,7 +1713,7 @@ function Two() {
         <div class="DLP_Main_Box_Divider" id="DLP_Main_Box_Divider_12_ID" style="display: none;">
             <div class="DLP_VStack_8">
                 <div class="DLP_HStack_Auto_Top">
-                    <p class="DLP_Text_Style_2 DLP_NoSelect" style="background: url(${serverURL}/static/images/flow/primary/256/light.png) lightgray 50% / cover no-repeat; background-clip: text; -webkit-background-clip: text; -webkit-text-fill-color: transparent;">${systemText[systemLanguage][32]}</p>
+                    <p class="DLP_Text_Style_2 DLP_NoSelect" style="background: url(${serverURL}/static/images/flow/primary/256/light.png) lightgray 50% / cover no-repeat; background-clip: text; -webkit-background-clip: text; -webkit-text-fill-color: transparent;">${system("settings.title")}</p>
                     <p class="DLP_Text_Style_1 DLP_NoSelect" style="font-size: 14px; background: url(${serverURL}/static/images/flow/secondary/256/light.png) lightgray 50% / cover no-repeat; background-clip: text; -webkit-background-clip: text; -webkit-text-fill-color: transparent;">${VERSION_NAME}</p>
                 </div>
                 <div class="DLP_VStack_8" id="DLP_Onboarding_Setup_List_1_ID" style="height: 256px;">
@@ -1352,34 +1721,34 @@ function Two() {
                         <div class="DLP_HStack_12">
                             <div style="display: flex; flex-direction: column; align-items: flex-start; gap: 8px; flex: 1 0 0;">
                                 <img height="28" src="https://d35aaqx5ub95lt.cloudfront.net/images/max/928d0b52c29baf3b499d937c0ef85d06.svg" style="margin: 4px 0;" class="DLP_NoSelect">
-                                <p class="DLP_Text_Style_2" style="align-self: stretch;">Duolingo Max</p>
+                                <p class="DLP_Text_Style_2" style="align-self: stretch;">${system("onboarding.maxCardTitle")}</p>
                             </div>
                             <div id="DLP_Inset_Toggle_1_ID" class="DLP_Toggle_Style_1 DLP_Hover_1">
                                 <p class="DLP_Text_Style_1 DLP_NoSelect DLP_Inset_Icon_1_ID" style="color: rgb(255, 255, 255);">􀁣</p>
                             </div>
                         </div>
-                        <p class="DLP_Text_Style_1">Skip the worry of running out of hearts, get free entry to legendary challenges, access to personalized practice, and learn without ads. Do not turn on if you already have Super Duolingo or Max.</p>
+                        <p class="DLP_Text_Style_1">${system("onboarding.maxCardBody")}</p>
                     </div>
                     <div id="setting-1" style="display: none; flex-direction: column; justify-content: center; align-items: flex-start; gap: 8px; align-self: stretch; transition: filter 0.4s cubic-bezier(0.25, 0.46, 0.45, 0.94), opacity 0.4s cubic-bezier(0.25, 0.46, 0.45, 0.94);">
                         <div class="DLP_HStack_12">
                             <div style="display: flex; flex-direction: column; align-items: flex-start; gap: 8px; flex: 1 0 0;">
                                 <p class="DLP_Text_Style_2 DLP_NoSelect" style="font-size: 32px; background: url(${serverURL}/static/images/flow/primary/256/light.png) lightgray 0% / cover no-repeat; background-clip: text; -webkit-background-clip: text; -webkit-text-fill-color: transparent;">􀣉</p>
-                                <p class="DLP_Text_Style_2" style="align-self: stretch;">Help Improve Duolingo PRO</p>
+                                <p class="DLP_Text_Style_2" style="align-self: stretch;">${system("settings.helpImproveTitle")}</p>
                             </div>
                             <div id="DLP_Inset_Toggle_1_ID" class="DLP_Toggle_Style_1 DLP_Hover_1" style="${alpha ? 'opacity: 0.5; pointer-events: none; cursor: not-allowed;' : ''}">
                                 <p class="DLP_Text_Style_1 DLP_NoSelect DLP_Inset_Icon_1_ID" style="color: rgb(255, 255, 255);">􀁣</p>
                             </div>
                         </div>
-                        <p class="DLP_Text_Style_1">Allow Duolingo PRO to automatically send anonymous bug reports and usage data to help us improve the script.</p>
+                        <p class="DLP_Text_Style_1">${system("settings.helpImproveOnboardingDescription")}</p>
                     </div>
                 </div>
                 <div class="DLP_HStack_8" id="DLP_Onboarding_Setup_Controls_1_ID">
                     <div class="DLP_Button_Style_2 DLP_Magnetic_Hover_1" id="DLP_Inset_Button_1_ID" style="outline: 2px solid rgba(var(--DLP-blue), 0.20); outline-offset: -2px; background: linear-gradient(0deg, rgba(var(--DLP-blue), 0.10) 0%, rgba(var(--DLP-blue), 0.10) 100%), rgba(var(--color-snow), 0.80); backdrop-filter: blur(16px);">
                         <p class="DLP_Text_Style_1 DLP_NoSelect DLP_Inset_Text_1_ID" style="color: rgb(var(--DLP-blue));">􀯶</p>
-                        <p class="DLP_Text_Style_1 DLP_NoSelect DLP_Inset_Icon_1_ID" style="color: rgb(var(--DLP-blue));">PREVIOUS</p>
+                        <p class="DLP_Text_Style_1 DLP_NoSelect DLP_Inset_Icon_1_ID" style="color: rgb(var(--DLP-blue));">${system("pagination.previous")}</p>
                     </div>
                     <div class="DLP_Button_Style_2 DLP_Magnetic_Hover_1" id="DLP_Inset_Button_2_ID" style="outline: rgba(0, 0, 0, 0.2) solid 2px; outline-offset: -2px; background: rgb(var(--DLP-blue));">
-                        <p class="DLP_Text_Style_1 DLP_NoSelect DLP_Inset_Text_1_ID" style="color: #FFF;">NEXT</p>
+                        <p class="DLP_Text_Style_1 DLP_NoSelect DLP_Inset_Text_1_ID" style="color: #FFF;">${system("pagination.next")}</p>
                         <p class="DLP_Text_Style_1 DLP_NoSelect DLP_Inset_Icon_1_ID" style="color: #FFF;">􀯻</p>
                     </div>
                 </div>
@@ -1419,6 +1788,9 @@ function Two() {
 
     margin: 0;
     -webkit-font-smoothing: antialiased;
+}
+html[data-dlp-rtl-layout] [data-dlp-rtl-directional-icon] {
+    transform: rotate(180deg) !important;
 }
 .DLP_Text_Style_1 strong,
 .DLP_Text_Style_1 em,
@@ -1797,6 +2169,11 @@ svg {
 .DLP_Input_Input_Style_1::placeholder {
     color: rgba(var(--DLP-blue), 0.50);
 }
+#DLP_Get_Badge_1_ID #DLP_Inset_Input_2_ID,
+#DLP_Get_Badge_2_ID #DLP_Inset_Input_2_ID {
+    flex-shrink: 0;
+    min-width: 4ch;
+}
 .DLP_Input_Style_1_Active {
     display: flex;
     height: 48px;
@@ -1921,6 +2298,7 @@ svg {
     align-items: center;
 
     border-radius: 16px;
+    corner-shape: var(--DLP-corner-s);
     outline: 2px solid rgba(var(--color-black-white), 0.20);
     outline-offset: -2px;
     transition: transform 0.4s cubic-bezier(0.16, 1, 0.32, 1);
@@ -1949,7 +2327,7 @@ svg {
     font-family: Duolingo PRO Rounded, 'din-round' !important;
 
     resize: vertical;
-    transition: .2s;
+    transition: outline-color .2s;
 }
 .DLP_Large_Input_Box_Style_1::placeholder {
     font-weight: 600;
@@ -1996,14 +2374,12 @@ svg {
     justify-content: center;
     align-items: center;
 
-    transition: 0.8s cubic-bezier(0.16, 1, 0.32, 1);
+    transition: width 0.8s cubic-bezier(0.16, 1, 0.32, 1), height 0.8s cubic-bezier(0.16, 1, 0.32, 1), left 0.8s cubic-bezier(0.16, 1, 0.32, 1), right 0.8s cubic-bezier(0.16, 1, 0.32, 1);
     width: 300px;
     position: fixed;
     left: calc(50% - (300px / 2));
-    z-index: 210;
+    z-index: 211;
     bottom: 16px;
-    border-radius: var(--DLP-corner-r-l);
-    corner-shape: var(--DLP-corner-s);
 }
 .DLP_Notification_Box {
     display: flex;
@@ -2022,7 +2398,7 @@ svg {
     background: rgb(var(--color-snow), 0.90);
     backdrop-filter: blur(16px);
 
-    transition: 0.8s cubic-bezier(0.16, 1, 0.32, 1);
+    transition: bottom 0.8s cubic-bezier(0.16, 1, 0.32, 1), width 0.8s cubic-bezier(0.16, 1, 0.32, 1), height 0.8s cubic-bezier(0.16, 1, 0.32, 1), transform 0.8s cubic-bezier(0.16, 1, 0.32, 1), filter 0.8s cubic-bezier(0.16, 1, 0.32, 1), opacity 0.8s cubic-bezier(0.16, 1, 0.32, 1);
     filter: blur(16px);
     opacity: 0;
 }
@@ -2088,7 +2464,7 @@ svg {
     background: rgba(var(--color-snow), 0.00);
     backdrop-filter: blur(0px);
     z-index: 211;
-    transition: 0.4s cubic-bezier(0.16, 1, 0.32, 1);
+    transition: background 0.4s cubic-bezier(0.16, 1, 0.32, 1), backdrop-filter 0.4s cubic-bezier(0.16, 1, 0.32, 1);
 }
 .DLP_Attachment_Box_Drop_1 {
     display: flex;
@@ -2170,6 +2546,36 @@ svg {
     margin-bottom: 4px;
     top: 4px;
 }
+.playing-btn {
+    position: relative;
+    min-width: 132px;
+    font-size: 16px;
+    border: none;
+    border-bottom: 4px solid #2b70c9;
+    border-radius: 16px;
+    padding: 14px 18px;
+    transition: filter .0s;
+    font-weight: 700;
+    letter-spacing: .8px;
+    background: #1cb0f6;
+    color: rgb(var(--color-snow));
+    cursor: pointer;
+}
+.play-btn {
+    position: relative;
+    min-width: 104px;
+    font-size: 16px;
+    border: none;
+    border-bottom: 4px solid #ff9600;
+    border-radius: 16px;
+    padding: 14px 18px;
+    transition: filter .0s;
+    font-weight: 700;
+    letter-spacing: .8px;
+    background: #ffc800;
+    color: rgb(var(--color-snow));
+    cursor: pointer;
+}
 ._1lzAb._1Exx3 {
     padding-bottom: 0px !important;
 }
@@ -2183,17 +2589,17 @@ svg {
                 <p id="DLP_AutoServer_Close_Button_1_ID" class="DLP_AutoServer_Text_Style_1 DLP_Magnetic_Hover_1" style="color: rgb(var(--color-black-text));">􀆄</p>
             </div>
             <div style="display: flex; justify-content: center; align-items: center; gap: 6px; opacity: 0.5;">
-                <p class="DLP_AutoServer_Text_Style_1 DLP_NoSelect DLP_Inset_Text_1_ID" style="color: rgb(var(--color-black-text));">Unavailable</p>
-                <p class="DLP_AutoServer_Text_Style_1 DLP_NoSelect DLP_Inset_Icon_1_ID" style="color: rgb(var(--color-black-text));">􀌔</p>
+                <p id="DLP_AutoServer_Status_1_ID" class="DLP_AutoServer_Text_Style_1 DLP_NoSelect DLP_Inset_Text_1_ID" style="color: rgb(var(--color-black-text));">${system("status.loadingTitleCase")}</p>
+                <p id="DLP_AutoServer_Status_Icon_1_ID" class="DLP_AutoServer_Text_Style_1 DLP_NoSelect DLP_Inset_Icon_1_ID" style="color: rgb(var(--color-black-text));">􂆎</p>
             </div>
         </div>
         <div class="DLP_AutoServer_Scroll_Box">
 
             <div style="display: flex; justify-content: space-between; align-items: center; align-self: stretch;">
                 <div style="display: flex; align-items: flex-end; gap: 4px;">
-                    <p class="DLP_AutoServer_Text_Style_2 DLP_NoSelect">AutoServer</p>
+                    <p class="DLP_AutoServer_Text_Style_2 DLP_NoSelect">${system("autoserver.title")}</p>
                     <div class="DLP_HStack_4" style="align-items: center; padding-top: 6px;">
-                        <p class="DLP_AutoServer_Text_Style_1 DLP_NoSelect" style="opacity: 0.5;">by Duolingo</p>
+                        <p class="DLP_AutoServer_Text_Style_1 DLP_NoSelect" style="opacity: 0.5;">${system("autoserver.byline")}</p>
                         <p class="DLP_AutoServer_Text_Style_1 DLP_NoSelect" style="background: url(${serverURL}/static/images/flow/primary/512/light.png) lightgray 50% / cover no-repeat; background-clip: text; -webkit-background-clip: text; -webkit-text-fill-color: transparent;">PRO</p>
                     </div>
                 </div>
@@ -2201,25 +2607,25 @@ svg {
             </div>
 
             <div class="DLP_AutoServer_Default_Box" style="background: linear-gradient(rgba(var(--color-snow), 0.8), rgba(var(--color-snow), 0.8)), url(${serverURL}/static/images/flow/primary/512/light.png); background-position: center; background-size: cover; background-repeat: no-repeat;">
-                <div style="display: flex; display: none; flex-direction: column; align-items: flex-start; gap: 6px; align-self: stretch; width: 100%;">
+                <div style="display: flex; flex-direction: column; align-items: flex-start; gap: 6px; align-self: stretch; width: 100%;">
                     <div class="DLP_HStack_Auto">
-                        <p class="DLP_AutoServer_Text_Style_1 DLP_NoSelect">Settings</p>
+                        <p class="DLP_AutoServer_Text_Style_1 DLP_NoSelect">${system("autoserver.settings")}</p>
                         <p class="DLP_AutoServer_Text_Style_1 DLP_NoSelect">􀍟</p>
                     </div>
                     <div class="DLP_HStack_Auto">
                         <div class="DLP_HStack_4" style="align-items: center;">
                             <p class="DLP_AutoServer_Text_Style_1 DLP_NoSelect">􀆪</p>
-                            <p class="DLP_AutoServer_Text_Style_1 DLP_NoSelect">Timezone</p>
+                            <p class="DLP_AutoServer_Text_Style_1 DLP_NoSelect">${system("autoserver.timezone")}</p>
                         </div>
-                        <p class="DLP_AutoServer_Text_Style_1">America/NewYork - 11:45 PM</p>
+                        <p id="DLP_AutoServer_Timezone_1_ID" class="DLP_AutoServer_Text_Style_1">${system("status.loadingTitleCase")}</p>
                     </div>
                 </div>
-                <div style="display: flex; flex-direction: column; align-items: flex-start; gap: 6px; align-self: stretch; width: 100%;">
+                <div style="display: none; flex-direction: column; align-items: flex-start; gap: 6px; align-self: stretch; width: 100%;">
                     <div class="DLP_HStack_Auto" style="align-items: center; width: 100%;">
-                        <p class="DLP_AutoServer_Text_Style_1">Under Construction</p>
+                        <p class="DLP_AutoServer_Text_Style_1">${system("autoserver.underConstruction")}</p>
                         <p class="DLP_AutoServer_Text_Style_1 DLP_NoSelect">􀇿</p>
                     </div>
-                    <p class="DLP_AutoServer_Text_Style_1" style="opacity: 0.5;">AutoServer is currently under construction and unavailable. We appreciate your patience and will provide updates as progress continues.</p>
+                    <p class="DLP_AutoServer_Text_Style_1" style="opacity: 0.5;">${system("autoserver.underConstructionBody")}</p>
                 </div>
             </div>
 
@@ -2228,38 +2634,38 @@ svg {
                     <div class="DLP_VStack_6">
                         <div class="DLP_HStack_Auto">
                             <p class="DLP_AutoServer_Text_Style_1 DLP_NoSelect" style="color: #FFF;">􀙭</p>
-                            <p class="DLP_AutoServer_Text_Style_1 DLP_NoSelect" style="color: #FFF;">Streak Protector</p>
+                            <p class="DLP_AutoServer_Text_Style_1 DLP_NoSelect" style="color: #FFF;">${system("autoserver.streakProtector")}</p>
                         </div>
                         <div class="DLP_HStack_Auto">
                             <p class="DLP_AutoServer_Text_Style_1 DLP_NoSelect" style="color: #FFF; opacity: 0;">BETA</p>
-                            <div class="DLP_HStack_4 DLP_Magnetic_Hover_1">
-                                <p class="DLP_AutoServer_Text_Style_1 DLP_NoSelect" style="color: #FFF;">Active</p>
-                                <p class="DLP_AutoServer_Text_Style_1 DLP_NoSelect DLP_Inset_Icon_1_ID" style="color: #FFF;">􀃳</p>
-                                <p class="DLP_AutoServer_Text_Style_1 DLP_NoSelect DLP_Inset_Icon_1_ID" style="color: #FFF; display: none;">􀂒</p>
+                            <div id="DLP_AutoServer_Streak_Toggle_1_ID" class="DLP_HStack_4 DLP_Magnetic_Hover_1">
+                                <p id="DLP_AutoServer_Streak_Toggle_Text_1_ID" class="DLP_AutoServer_Text_Style_1 DLP_NoSelect" style="color: #FFF;">${system("autoserver.inactive")}</p>
+                                <p id="DLP_AutoServer_Streak_Toggle_On_1_ID" class="DLP_AutoServer_Text_Style_1 DLP_NoSelect DLP_Inset_Icon_1_ID" style="color: #FFF; display: none;">􀃳</p>
+                                <p id="DLP_AutoServer_Streak_Toggle_Off_1_ID" class="DLP_AutoServer_Text_Style_1 DLP_NoSelect DLP_Inset_Icon_1_ID" style="color: #FFF;">􀂒</p>
                             </div>
                         </div>
                     </div>
                     <div class="DLP_VStack_12">
                         <div class="DLP_VStack_6">
                             <div class="DLP_HStack_Auto">
-                                <p class="DLP_AutoServer_Text_Style_1 DLP_NoSelect" style="color: #FFF; opacity: 0.5;">Protecting:</p>
+                                <p class="DLP_AutoServer_Text_Style_1 DLP_NoSelect" style="color: #FFF; opacity: 0.5;">${system("autoserver.protecting")}</p>
                                 <p class="DLP_AutoServer_Text_Style_1 DLP_NoSelect" style="color: #FFF; opacity: 0;">BETA</p>
                             </div>
                             <div class="DLP_HStack_Auto">
-                                <p class="DLP_AutoServer_Text_Style_1 DLP_NoSelect DLP_Magnetic_Hover_1 DLP_Inset_Icon_1_ID" style="color: #FFF;">􀃟</p>
-                                <p class="DLP_AutoServer_Text_Style_1 DLP_NoSelect" style="color: #FFF;">2 Days</p>
-                                <p class="DLP_AutoServer_Text_Style_1 DLP_NoSelect DLP_Magnetic_Hover_1 DLP_Inset_Icon_2_ID" style="color: #FFF;">􀑎</p>
+                                <p id="DLP_AutoServer_Streak_Length_Decrease_1_ID" class="DLP_AutoServer_Text_Style_1 DLP_NoSelect DLP_Magnetic_Hover_1 DLP_Inset_Icon_1_ID" style="color: #FFF;">􀃟</p>
+                                <p id="DLP_AutoServer_Streak_Length_Value_1_ID" class="DLP_AutoServer_Text_Style_1 DLP_NoSelect" style="color: #FFF;">${system("autoserver.zeroDays")}</p>
+                                <p id="DLP_AutoServer_Streak_Length_Increase_1_ID" class="DLP_AutoServer_Text_Style_1 DLP_NoSelect DLP_Magnetic_Hover_1 DLP_Inset_Icon_2_ID" style="color: #FFF;">􀑎</p>
                             </div>
                         </div>
                         <div class="DLP_VStack_6">
                             <div class="DLP_HStack_Auto">
-                                <p class="DLP_AutoServer_Text_Style_1 DLP_NoSelect" style="color: #FFF; opacity: 0.5;">Protecting Time:</p>
+                                <p class="DLP_AutoServer_Text_Style_1 DLP_NoSelect" style="color: #FFF; opacity: 0.5;">${system("autoserver.protectingTime")}</p>
                                 <p class="DLP_AutoServer_Text_Style_1 DLP_NoSelect" style="color: #FFF; opacity: 0;">BETA</p>
                             </div>
                             <div class="DLP_HStack_Auto">
-                                <p class="DLP_AutoServer_Text_Style_1 DLP_NoSelect DLP_Magnetic_Hover_1 DLP_Inset_Icon_1_ID" style="color: #FFF;">􀄃</p>
-                                <p class="DLP_AutoServer_Text_Style_1 DLP_NoSelect" style="color: #FFF;">Morning</p>
-                                <p class="DLP_AutoServer_Text_Style_1 DLP_NoSelect DLP_Magnetic_Hover_1 DLP_Inset_Icon_2_ID" style="color: #FFF;">􀯿</p>
+                                <p id="DLP_AutoServer_Streak_Time_Decrease_1_ID" class="DLP_AutoServer_Text_Style_1 DLP_NoSelect DLP_Magnetic_Hover_1 DLP_Inset_Icon_1_ID" style="color: #FFF;">􀄃</p>
+                                <p id="DLP_AutoServer_Streak_Time_Value_1_ID" class="DLP_AutoServer_Text_Style_1 DLP_NoSelect" style="color: #FFF;">${system("autoserver.earlyMorning")}</p>
+                                <p id="DLP_AutoServer_Streak_Time_Increase_1_ID" class="DLP_AutoServer_Text_Style_1 DLP_NoSelect DLP_Magnetic_Hover_1 DLP_Inset_Icon_2_ID" style="color: #FFF;">􀯿</p>
                             </div>
                         </div>
                     </div>
@@ -2269,55 +2675,55 @@ svg {
                         <div class="DLP_HStack_Auto">
                             <div class="DLP_HStack_4">
                                 <p class="DLP_AutoServer_Text_Style_1 DLP_NoSelect" style="color: #FFF;">􀅵</p>
-                                <p class="DLP_AutoServer_Text_Style_1 DLP_NoSelect" style="color: #FFF;">Info</p>
+                                <p class="DLP_AutoServer_Text_Style_1 DLP_NoSelect" style="color: #FFF;">${system("autoserver.info")}</p>
                             </div>
-                            <p class="DLP_AutoServer_Text_Style_1 DLP_NoSelect" style="color: #FFF; opacity: 0.5;">This function is in BETA</p>
+                            <p class="DLP_AutoServer_Text_Style_1 DLP_NoSelect" style="color: #FFF; opacity: 0.5;">${system("autoserver.betaNotice")}</p>
                         </div>
-                        <p class="DLP_AutoServer_Text_Style_1 DLP_NoSelect" style="color: #FFF; opacity: 0.5;">Streak Protector extends your streak by completing a lesson in our servers.</p>
-                        <p class="DLP_AutoServer_Text_Style_1 DLP_NoSelect" style="color: #FFF; opacity: 0.5;">You can only protect your streak for up to 7 days. Donate to protect longer.</p>
+                        <p class="DLP_AutoServer_Text_Style_1 DLP_NoSelect" style="color: #FFF; opacity: 0.5;">${system("autoserver.streakDescription")}</p>
+                        <p id="DLP_AutoServer_Streak_Maximum_Length_1_ID" class="DLP_AutoServer_Text_Style_1 DLP_NoSelect" style="color: #FFF; opacity: 0.5;"></p>
                         <div style="display: flex; justify-content: flex-end; align-items: flex-end; gap: 6px; flex: 1 0 0; align-self: stretch;">
-                            <p class="DLP_AutoServer_Text_Style_1 DLP_Magnetic_Hover_1 DLP_NoSelect" style="color: #FFF; opacity: 0.5;">Learn More</p>
+                            <p class="DLP_AutoServer_Text_Style_1 DLP_Magnetic_Hover_1 DLP_NoSelect" style="color: #FFF; opacity: 0.5;">${system("autoserver.learnMore")}</p>
                         </div>
                     </div>
                 </div>
             </div>
 
-            <div class="DLP_AutoServer_Default_Box" style="height: 256px; background: linear-gradient(rgba(var(--color-snow), 0), rgba(var(--color-snow), 0)), url(${serverURL}/static/images/flow/secondary/512/light.png); background-position: center; background-size: cover; background-repeat: no-repeat;">
+            <div class="DLP_AutoServer_Default_Box" style="height: 256px; background: linear-gradient(rgba(var(--color-snow), 0), rgba(var(--color-snow), 0)), url(${serverURL}/static/images/flow/secondary/512/light.png); background-position: center; background-size: cover; background-repeat: no-repeat; opacity: 0.5; pointer-events: none;">
                 <div style="display: flex; width: 168px; flex-direction: column; justify-content: space-between; align-items: flex-start; align-self: stretch;">
                     <div class="DLP_VStack_6">
                         <div class="DLP_HStack_Auto">
                             <p class="DLP_AutoServer_Text_Style_1 DLP_NoSelect" style="color: #FFF;">􀙨</p>
-                            <p class="DLP_AutoServer_Text_Style_1 DLP_NoSelect" style="color: #FFF;">League Protector</p>
+                            <p class="DLP_AutoServer_Text_Style_1 DLP_NoSelect" style="color: #FFF;">${system("autoserver.leagueProtector")}</p>
                         </div>
                         <div class="DLP_HStack_Auto">
                             <p class="DLP_AutoServer_Text_Style_1 DLP_NoSelect" style="color: #FFF; opacity: 0;">BETA</p>
                             <div class="DLP_HStack_4 DLP_Magnetic_Hover_1">
-                                <p class="DLP_AutoServer_Text_Style_1 DLP_NoSelect" style="color: #FFF;">Active</p>
-                                <p class="DLP_AutoServer_Text_Style_1 DLP_NoSelect DLP_Inset_Icon_1_ID" style="color: #FFF;">􀃳</p>
-                                <p class="DLP_AutoServer_Text_Style_1 DLP_NoSelect DLP_Inset_Icon_1_ID" style="color: #FFF; display: none;">􀂒</p>
+                                <p class="DLP_AutoServer_Text_Style_1 DLP_NoSelect" style="color: #FFF;">${system("status.unavailable")}</p>
+                                <p class="DLP_AutoServer_Text_Style_1 DLP_NoSelect DLP_Inset_Icon_1_ID" style="color: #FFF; display: none;">􀃳</p>
+                                <p class="DLP_AutoServer_Text_Style_1 DLP_NoSelect DLP_Inset_Icon_1_ID" style="color: #FFF;">􀂒</p>
                             </div>
                         </div>
                     </div>
                     <div class="DLP_VStack_12">
                         <div class="DLP_VStack_6">
                             <div class="DLP_HStack_Auto">
-                                <p class="DLP_AutoServer_Text_Style_1 DLP_NoSelect" style="color: #FFF; opacity: 0.5;">Protecting:</p>
+                                <p class="DLP_AutoServer_Text_Style_1 DLP_NoSelect" style="color: #FFF; opacity: 0.5;">${system("autoserver.protecting")}</p>
                                 <p class="DLP_AutoServer_Text_Style_1 DLP_NoSelect" style="color: #FFF; opacity: 0;">BETA</p>
                             </div>
                             <div class="DLP_HStack_Auto">
                                 <p class="DLP_AutoServer_Text_Style_1 DLP_NoSelect DLP_Magnetic_Hover_1 DLP_Inset_Icon_1_ID" style="color: #FFF;">􀃟</p>
-                                <p class="DLP_AutoServer_Text_Style_1 DLP_NoSelect" style="color: #FFF;">5 Days</p>
+                                <p class="DLP_AutoServer_Text_Style_1 DLP_NoSelect" style="color: #FFF;">${system("autoserver.zeroDays")}</p>
                                 <p class="DLP_AutoServer_Text_Style_1 DLP_NoSelect DLP_Magnetic_Hover_1 DLP_Inset_Icon_2_ID" style="color: #FFF;">􀑎</p>
                             </div>
                         </div>
                         <div class="DLP_VStack_6">
                             <div class="DLP_HStack_Auto">
-                                <p class="DLP_AutoServer_Text_Style_1 DLP_NoSelect" style="color: #FFF; opacity: 0.5;">Protecting Mode:</p>
+                                <p class="DLP_AutoServer_Text_Style_1 DLP_NoSelect" style="color: #FFF; opacity: 0.5;">${system("autoserver.protectingMode")}</p>
                                 <p class="DLP_AutoServer_Text_Style_1 DLP_NoSelect" style="color: #FFF; opacity: 0;">BETA</p>
                             </div>
                             <div class="DLP_HStack_Auto">
                                 <p class="DLP_AutoServer_Text_Style_1 DLP_NoSelect DLP_Magnetic_Hover_1 DLP_Inset_Icon_1_ID" style="color: #FFF;">􀄃</p>
-                                <p class="DLP_AutoServer_Text_Style_1 DLP_NoSelect" style="color: #FFF;">Chill</p>
+                                <p class="DLP_AutoServer_Text_Style_1 DLP_NoSelect" style="color: #FFF;">${system("autoserver.chill")}</p>
                                 <p class="DLP_AutoServer_Text_Style_1 DLP_NoSelect DLP_Magnetic_Hover_1 DLP_Inset_Icon_2_ID" style="color: #FFF;">􀯿</p>
                             </div>
                         </div>
@@ -2328,14 +2734,14 @@ svg {
                         <div class="DLP_HStack_Auto">
                             <div class="DLP_HStack_4">
                                 <p class="DLP_AutoServer_Text_Style_1 DLP_NoSelect" style="color: #FFF;">􀅵</p>
-                                <p class="DLP_AutoServer_Text_Style_1 DLP_NoSelect" style="color: #FFF;">Info</p>
+                                <p class="DLP_AutoServer_Text_Style_1 DLP_NoSelect" style="color: #FFF;">${system("autoserver.info")}</p>
                             </div>
-                            <p class="DLP_AutoServer_Text_Style_1 DLP_NoSelect" style="color: #FFF; opacity: 0.5;">This function is in BETA</p>
+                            <p class="DLP_AutoServer_Text_Style_1 DLP_NoSelect" style="color: #FFF; opacity: 0.5;">${system("autoserver.betaNotice")}</p>
                         </div>
-                        <p class="DLP_AutoServer_Text_Style_1 DLP_NoSelect" style="color: #FFF; opacity: 0.5;">League Protector protects your league position by completing lessons in our servers.</p>
-                        <p class="DLP_AutoServer_Text_Style_1 DLP_NoSelect" style="color: #FFF; opacity: 0.5;">You only have access to Chill and Standard Mode with up to 7 days of protection. Donate to get access to Aggressive Mode and longer protection.</p>
+                        <p class="DLP_AutoServer_Text_Style_1 DLP_NoSelect" style="color: #FFF; opacity: 0.5;">${system("autoserver.leagueDescription")}</p>
+                        <p class="DLP_AutoServer_Text_Style_1 DLP_NoSelect" style="color: #FFF; opacity: 0.5;">${system("autoserver.leagueLimitsNotice")}</p>
                         <div style="display: flex; justify-content: flex-end; align-items: flex-end; gap: 6px; flex: 1 0 0; align-self: stretch;">
-                            <p class="DLP_AutoServer_Text_Style_1 DLP_Magnetic_Hover_1 DLP_NoSelect" style="color: #FFF; opacity: 0.5;">Learn More</p>
+                            <p class="DLP_AutoServer_Text_Style_1 DLP_Magnetic_Hover_1 DLP_NoSelect" style="color: #FFF; opacity: 0.5;">${system("autoserver.learnMore")}</p>
                         </div>
                     </div>
                 </div>
@@ -2461,7 +2867,7 @@ svg {
             </clipPath>
         </defs>
     </svg>
-    <p class="DPAutoServerElementsMenu DLP_NoSelect" style="flex: 1 0 0; color: rgb(var(--DLP-blue)); font-size: 16px; font-style: normal; font-weight: 700; line-height: normal; margin: 0px;">AUTOSERVER</p>
+    <p class="DPAutoServerElementsMenu DLP_NoSelect" style="flex: 1 0 0; color: rgb(var(--DLP-blue)); font-size: 16px; font-style: normal; font-weight: 700; line-height: normal; margin: 0px;">${system("autoserver.brand")}</p>
     <svg class="DPAutoServerElementsMenu" style="opacity: 0;" width="9" height="16" viewBox="0 0 9 16" fill="none" xmlns="http://www.w3.org/2000/svg">
         <path d="M8.57031 7.85938C8.57031 8.24219 8.4375 8.5625 8.10938 8.875L2.20312 14.6641C1.96875 14.8984 1.67969 15.0156 1.33594 15.0156C0.648438 15.0156 0.0859375 14.4609 0.0859375 13.7734C0.0859375 13.4219 0.226562 13.1094 0.484375 12.8516L5.63281 7.85156L0.484375 2.85938C0.226562 2.60938 0.0859375 2.28906 0.0859375 1.94531C0.0859375 1.26562 0.648438 0.703125 1.33594 0.703125C1.67969 0.703125 1.96875 0.820312 2.20312 1.05469L8.10938 6.84375C8.42969 7.14844 8.57031 7.46875 8.57031 7.85938Z" fill="rgb(var(--DLP-blue))"/>
     </svg>
@@ -2512,10 +2918,10 @@ svg {
     </div>
     <div class="DLP_TheBarThing_Button_Style_1 DLP_Magnetic_Hover_1 DLP_Inset_Button_2_ID">
         <p class="DLP_Text_Style_1 DLP_NoSelect DLP_Inset_Icon_1_ID" style="color: rgb(var(--color-eel));">􀊣</p>
-        <p class="DLP_Text_Style_1 DLP_NoSelect DLP_Inset_Text_1_ID">Mute</p>
+        <p class="DLP_Text_Style_1 DLP_NoSelect DLP_Inset_Text_1_ID">${system("barThing.mute")}</p>
     </div>
     <div class="DLP_TheBarThing_Button_Style_1 DLP_Magnetic_Hover_1 DLP_Inset_Button_3_ID" style="width: 40px; padding: 0;">
-        <p class="DLP_Text_Style_1 DLP_NoSelect DLP_Inset_Icon_1_ID" style="color: rgb(var(--color-eel)); transition: all 0.8s cubic-bezier(0.16, 1, 0.32, 1);">􀯸</p>
+        <p class="DLP_Text_Style_1 DLP_NoSelect DLP_Inset_Icon_1_ID" style="color: rgb(var(--color-eel)); transition: transform 0.8s cubic-bezier(0.16, 1, 0.32, 1);">􀯸</p>
     </div>
 </div>
 `;
@@ -2781,6 +3187,85 @@ function One() {
         sessionStorage.setItem("DLP_Session_Storage", JSON.stringify(storageSession));
     }
 
+    const SERVER_MODERN_FEATURE_KEYS = {
+        xp: 'xp',
+        gem: 'gems',
+        streak: 'streak',
+        streak_freeze: 'streak_freeze',
+        badge: 'badge',
+        double_xp_boost: 'double_xp_boost',
+        heart_refill: 'heart_refill',
+        quest: 'quests',
+        super: null,
+        local_max: null
+    };
+    const SERVER_MODERN_BUTTONS = {
+        xp: ['DLP_Get_XP_1_ID', 'DLP_Get_XP_2_ID'],
+        gem: ['DLP_Get_GEM_1_ID', 'DLP_Get_GEM_2_ID'],
+        streak: ['DLP_Get_Streak_1_ID', 'DLP_Get_Streak_2_ID'],
+        super: ['DLP_Get_SUPER_1_ID', 'DLP_Get_SUPER_2_ID'],
+        double_xp_boost: ['DLP_Get_DOUBLE_XP_BOOST_1_ID', 'DLP_Get_DOUBLE_XP_BOOST_2_ID'],
+        streak_freeze: ['DLP_Get_Streak_Freeze_1_ID', 'DLP_Get_Streak_Freeze_2_ID'],
+        heart_refill: ['DLP_Get_Heart_Refill_1_ID', 'DLP_Get_Heart_Refill_2_ID'],
+        quest: ['DLP_Get_Quest_1_ID', 'DLP_Get_Quest_2_ID'],
+        badge: ['DLP_Get_Badge_1_ID', 'DLP_Get_Badge_2_ID'],
+        local_max: ['DLP_Get_Local_Duolingo_Max_1_ID', 'DLP_Get_Local_Duolingo_Max_2_ID']
+    };
+    const SERVER_LEGACY_BUTTONS = {
+        path: ['DLP_Get_PATH_1_ID', 'DLP_Get_PATH_2_ID'],
+        practice: ['DLP_Get_PRACTICE_1_ID', 'DLP_Get_PRACTICE_2_ID'],
+        listen: ['DLP_Get_LISTEN_1_ID', 'DLP_Get_LISTEN_2_ID'],
+        lesson: ['DLP_Get_LESSON_1_ID', 'DLP_Get_LESSON_2_ID']
+    };
+
+    function isServerObject(value) {
+        return value !== null && typeof value === 'object' && !Array.isArray(value);
+    }
+
+    function isServerFeatureEnabled(group, feature) {
+        const config = storageSession?.script?.[group];
+        if (config === false) return false;
+        if (!isServerObject(config)) return true;
+        if (config.enabled === false) return false;
+
+        const featureKey = group === 'modern' ? SERVER_MODERN_FEATURE_KEYS[feature] : feature;
+        return !featureKey || config[featureKey] !== false;
+    }
+
+    function notifyServerFeatureDisabled() {
+        showNotification("warning", system("notifications.featureDisabledTitle"), system("notifications.featureDisabledBody"), 15);
+    }
+
+    function setServerFeatureAvailability(elementId, enabled) {
+        const element = document.getElementById(elementId);
+        if (!element) return;
+
+        if (enabled) {
+            if (element.hasAttribute('data-dlp-server-feature-disabled')) {
+                element.style.opacity = '';
+                element.removeAttribute('data-dlp-server-feature-disabled');
+                element.removeAttribute('aria-disabled');
+            }
+            return;
+        }
+
+        element.style.opacity = '0.5';
+        element.setAttribute('data-dlp-server-feature-disabled', '');
+        element.setAttribute('aria-disabled', 'true');
+    }
+
+    function applyServerFeatureAvailability() {
+        Object.entries(SERVER_MODERN_BUTTONS).forEach(([feature, elementIds]) => {
+            elementIds.forEach(elementId => setServerFeatureAvailability(elementId, isServerFeatureEnabled('modern', feature)));
+        });
+        Object.entries(SERVER_LEGACY_BUTTONS).forEach(([feature, elementIds]) => {
+            elementIds.forEach(elementId => setServerFeatureAvailability(elementId, isServerFeatureEnabled('legacy', feature)));
+        });
+
+        const switchTarget = storageSession?.legacy?.page === 0 ? 'legacy' : 'modern';
+        setServerFeatureAvailability('DLP_Switch_Legacy_Button_1_ID', isServerFeatureEnabled(switchTarget));
+    }
+
     if (alpha) {
         apiURL = "https://api.duolingopro.net/alpha";
         if (!storageLocal.settings.anonymousUsageData) storageLocal.settings.anonymousUsageData = true;
@@ -2789,17 +3274,552 @@ function One() {
 
     Two();
 
-    document.head.appendChild(Object.assign(document.createElement('style'), { type: 'text/css', textContent: CSS1 }));
+    const squircleMarkerProperty = '--DLP-use-squircle';
+    const markSquircleRules = cssText => cssText.replace(
+        /(^|[;{])(\s*)corner-shape\s*:/gim,
+        `$1$2${squircleMarkerProperty}: 1;$2corner-shape:`
+    );
+
+    document.head.appendChild(Object.assign(document.createElement('style'), { type: 'text/css', textContent: markSquircleRules(CSS1) }));
     document.body.insertAdjacentHTML('beforeend', HTML2);
-    document.head.appendChild(Object.assign(document.createElement('style'), { type: 'text/css', textContent: CSS2 }));
+    document.head.appendChild(Object.assign(document.createElement('style'), { type: 'text/css', textContent: markSquircleRules(CSS2) }));
+
+    const dlpIsRTLLayout = isRightToLeftLayout();
+    mirrorRTLDirectionalText(document.body);
+    if (dlpIsRTLLayout) {
+        document.documentElement.setAttribute('data-dlp-rtl-layout', 'true');
+    } else {
+        document.documentElement.removeAttribute('data-dlp-rtl-layout');
+    }
+    if (dlpIsRTLLayout) {
+        const mainMenu = document.querySelector('.DLP_Main');
+        if (mainMenu) {
+            mainMenu.style.left = '16px';
+            mainMenu.style.right = 'auto';
+        }
+    }
+    setupRTLDirectionalIconMarking();
 
     if (storageLocal.settings.showAutoServerButton && alpha) {
         document.body.insertAdjacentHTML('beforeend', HTML5);
-        document.head.appendChild(Object.assign(document.createElement('style'), { type: 'text/css', textContent: CSS5 }));
+        document.head.appendChild(Object.assign(document.createElement('style'), { type: 'text/css', textContent: markSquircleRules(CSS5) }));
+    }
+
+    if (!globalThis.squircle) {
+        console.error('squircle did not load; squircle rendering is unavailable.');
+    } else {
+
+        const managedSquircles = new WeakMap();
+        const squircleSelectors = new Set();
+
+        function collectSquircleSelectors(ruleList) {
+            Array.from(ruleList || []).forEach(rule => {
+                if (
+                    rule.selectorText &&
+                    (
+                        rule.style?.getPropertyValue(squircleMarkerProperty) ||
+                        rule.style?.getPropertyValue('corner-shape')
+                    )
+                ) {
+                    squircleSelectors.add(rule.selectorText);
+                }
+                if (rule.cssRules) collectSquircleSelectors(rule.cssRules);
+            });
+        }
+
+        function refreshSquircleSelectors() {
+            squircleSelectors.clear();
+            Array.from(document.styleSheets).forEach(sheet => {
+                try {
+                    if (sheet.ownerNode?.textContent?.includes('corner-shape')) {
+                        collectSquircleSelectors(sheet.cssRules);
+                    }
+                } catch (_) {}
+            });
+        }
+
+        function isSquircleTarget(element) {
+            const inlineCornerShape = element.getAttribute('style')?.match(/corner-shape\s*:\s*([^;]+)/)?.[1]?.trim();
+            if (inlineCornerShape) return true;
+            return Array.from(squircleSelectors).some(selector => {
+                try {
+                    return element.matches(selector);
+                } catch (_) {
+                    return false;
+                }
+            });
+        }
+
+        function getSquircleRadius(value, width, height) {
+            const text = String(value || '').trim();
+            const radius = parseFloat(text) || 0;
+            return text.endsWith('%') ? Math.min(width, height) * radius / 100 : radius;
+        }
+
+        function updateSquircle(element) {
+            if (!element.isConnected) return;
+            const { width, height } = globalThis.squircle.getLayoutSize(element);
+            if (width <= 0 || height <= 0) return;
+
+            const style = getComputedStyle(element);
+            const corner = value => ({
+                radius: getSquircleRadius(value, width, height),
+                curve: 'squircle',
+                smoothing: 0.65
+            });
+            const options = {
+                topLeft: corner(style.borderTopLeftRadius),
+                topRight: corner(style.borderTopRightRadius),
+                bottomRight: corner(style.borderBottomRightRadius),
+                bottomLeft: corner(style.borderBottomLeftRadius)
+            };
+            const squirclePath = globalThis.squircle.generatePath(width, height, options);
+            const clipPath = `path("${squirclePath}")`;
+            if (element.style.clipPath !== clipPath) element.style.clipPath = clipPath;
+
+            const managed = managedSquircles.get(element);
+            if (managed?.effects) {
+                let outline = managed.outline;
+                const currentOutlineColor = globalThis.squircle.parseColor(style.outlineColor);
+                if (outline && currentOutlineColor) {
+                    outline = { ...outline, color: currentOutlineColor.hex, opacity: currentOutlineColor.opacity };
+                    managed.outline = outline;
+                }
+                managed.effects.update(options, { outline }, width, height);
+                if (element.style.outlineStyle !== 'none') element.style.outlineStyle = 'none';
+            }
+        }
+
+        function manageSquircle(element) {
+            if (!(element instanceof HTMLElement) || !isSquircleTarget(element)) return;
+            if (!managedSquircles.has(element)) {
+                const outline = globalThis.squircle.parseOutline(element);
+                const savedClipPath = element.style.clipPath;
+                const savedOutline = element.style.outline;
+                const savedOutlineStyle = element.style.outlineStyle;
+                const savedOutlineOffset = element.style.outlineOffset;
+                let effects;
+                let didAcquirePosition = false;
+
+                if (outline) {
+                    element.style.outlineStyle = 'none';
+                    element.style.outlineOffset = '0';
+                    didAcquirePosition = globalThis.squircle.acquirePosition(element);
+                    effects = globalThis.squircle.createSvgEffects(element);
+                }
+
+                managedSquircles.set(element, {
+                    stopResize: globalThis.squircle.observeResize(element, () => updateSquircle(element)),
+                    effects,
+                    outline,
+                    savedClipPath,
+                    savedOutline,
+                    savedOutlineStyle,
+                    savedOutlineOffset,
+                    didAcquirePosition
+                });
+            }
+            updateSquircle(element);
+        }
+
+        function scanSquircles(root = document) {
+            const candidates = new Set();
+            if (root instanceof HTMLElement && root.getAttribute('style')?.includes('corner-shape')) candidates.add(root);
+            root.querySelectorAll?.('[style*="corner-shape"]').forEach(element => candidates.add(element));
+            squircleSelectors.forEach(selector => {
+                try {
+                    if (root instanceof HTMLElement && root.matches(selector)) candidates.add(root);
+                    root.querySelectorAll?.(selector).forEach(element => candidates.add(element));
+                } catch (_) {}
+            });
+            candidates.forEach(manageSquircle);
+        }
+
+        function stopManagingSquircle(element) {
+            const managed = managedSquircles.get(element);
+            if (!managed) return;
+            managedSquircles.delete(element);
+            managed.stopResize?.();
+            managed.effects?.destroy();
+            element.style.clipPath = managed.savedClipPath;
+            element.style.outline = managed.savedOutline;
+            element.style.outlineStyle = managed.savedOutlineStyle;
+            element.style.outlineOffset = managed.savedOutlineOffset;
+            if (managed.didAcquirePosition) globalThis.squircle.releasePosition(element);
+        }
+
+        function stopManagingSquircles(root) {
+            if (!(root instanceof HTMLElement)) return;
+            [root, ...root.querySelectorAll('*')].forEach(stopManagingSquircle);
+        }
+
+        refreshSquircleSelectors();
+        scanSquircles();
+
+        new MutationObserver(mutations => {
+            let refreshSelectors = false;
+            let refreshAllSquircles = false;
+            mutations.forEach(mutation => {
+                mutation.removedNodes.forEach(stopManagingSquircles);
+                mutation.addedNodes.forEach(node => {
+                    if (node instanceof HTMLStyleElement) refreshSelectors = true;
+                    else if (node instanceof HTMLElement) scanSquircles(node);
+                });
+                if (mutation.type === 'attributes' && mutation.target instanceof HTMLElement) {
+                    if (mutation.target === document.documentElement || mutation.target === document.body) {
+                        refreshAllSquircles = true;
+                    }
+                    if (isSquircleTarget(mutation.target)) manageSquircle(mutation.target);
+                    else if (managedSquircles.has(mutation.target)) stopManagingSquircle(mutation.target);
+                }
+            });
+
+            if (refreshSelectors) {
+                refreshSquircleSelectors();
+                scanSquircles();
+            }
+            if (refreshAllSquircles) scanSquircles();
+        }).observe(document.documentElement, {
+            childList: true,
+            subtree: true,
+            attributes: true,
+            attributeFilter: ['class', 'style']
+        });
+
+        const colorSchemeMedia = globalThis.matchMedia?.('(prefers-color-scheme: dark)');
+        colorSchemeMedia?.addEventListener?.('change', () => scanSquircles());
     }
 
     let DPAutoServerButtonMainMenuElement = null;
     let DPAutoServerButtonMainMenuStyle = null;
+    let autoServerStreakSettings = null;
+    let autoServerStreakUI = null;
+    let autoServerStreakBusy = false;
+    let autoServerStreakPendingControlId = null;
+
+    function getAutoServerJwt() {
+        return document.cookie.split('; ').find(cookie => cookie.startsWith('jwt_token='))?.split('=')[1];
+    }
+
+    function getAutoServerTimezone() {
+        const offsetMinutes = Math.round((-new Date().getTimezoneOffset()) / 15) * 15;
+        const clampedOffset = Math.max(-12 * 60, Math.min(14 * 60, offsetMinutes));
+        const sign = clampedOffset >= 0 ? '+' : '-';
+        const absoluteOffset = Math.abs(clampedOffset);
+        const hours = String(Math.floor(absoluteOffset / 60)).padStart(2, '0');
+        const minutes = String(absoluteOffset % 60).padStart(2, '0');
+        return `UTC${sign}${hours}:${minutes}`;
+    }
+
+    async function autoServerRequest(path, options = {}) {
+        const jwtToken = getAutoServerJwt();
+        if (!jwtToken) throw new Error(system("autoserver.missingToken"));
+
+        const headers = {
+            'Authorization': `Bearer ${jwtToken}`,
+            ...options.headers
+        };
+        if (options.body) headers['Content-Type'] = 'application/json';
+
+        const response = await fetch(autoServerURL + path, { ...options, headers });
+        let data = {};
+        try {
+            data = await response.json();
+        } catch (error) { }
+
+        if (!response.ok) {
+            const detail = typeof data.detail === "string" ? data.detail : system("autoserver.requestFailed");
+            throw new Error(detail);
+        }
+        return data;
+    }
+
+    function setAutoServerStatus(statusText) {
+        const statusElement = document.querySelector('#DLP_AutoServer_Status_1_ID');
+        const statusIconElement = document.querySelector('#DLP_AutoServer_Status_Icon_1_ID');
+        const statusConfig = {
+            Loading: { text: system("status.loadingTitleCase"), color: "rgb(var(--color-black-text))", icon: "􂆎" },
+            Saving: { text: system("status.saving"), color: "rgb(var(--color-black-text))", icon: "􂆎" },
+            Available: { text: system("status.available"), color: "rgb(var(--DLP-green))", icon: "􀢔" },
+            Unavailable: { text: system("status.unavailable"), color: "rgb(var(--DLP-pink))", icon: "􀌔" }
+        };
+        const config = statusConfig[statusText] || statusConfig.Unavailable;
+
+        if (statusElement) {
+            statusElement.textContent = config.text;
+            statusElement.style.color = config.color;
+        }
+        if (statusIconElement) {
+            statusIconElement.textContent = config.icon;
+            statusIconElement.style.color = config.color;
+        }
+    }
+
+    function showAutoServerResponseNotifications(data) {
+        const notifications = Array.isArray(data?.notifications)
+            ? data.notifications
+            : (data?.notification ? [data.notification] : []);
+
+        notifications.forEach(notification => {
+            showNotification(notification.icon, notification.head, notification.body, notification.duration);
+        });
+        return notifications.length > 0;
+    }
+
+    function setAutoServerControlState(elementId, unavailable) {
+        const element = document.querySelector(`#${elementId}`);
+        if (!element) return;
+
+        const pending = autoServerStreakPendingControlId === elementId;
+        element.style.opacity = unavailable || pending ? "0.5" : "";
+        element.style.pointerEvents = unavailable || autoServerStreakBusy ? "none" : "";
+    }
+
+    function setAutoServerStreakControlsUnavailable() {
+        [
+            'DLP_AutoServer_Streak_Toggle_1_ID',
+            'DLP_AutoServer_Streak_Length_Decrease_1_ID',
+            'DLP_AutoServer_Streak_Length_Increase_1_ID',
+            'DLP_AutoServer_Streak_Time_Decrease_1_ID',
+            'DLP_AutoServer_Streak_Time_Increase_1_ID'
+        ].forEach(elementId => setAutoServerControlState(elementId, true));
+    }
+
+    function showAutoServerConfigError() {
+        showNotification("error", system("autoserver.settingsUnavailableTitle"), system("autoserver.settingsUnavailableBody"), 15);
+    }
+
+    function isAutoServerRange(range) {
+        return Array.isArray(range) && range.length === 2 && Number.isInteger(range[0]) && Number.isInteger(range[1]) && range[0] <= range[1];
+    }
+
+    function validateAutoServerStreakUI(streakUI) {
+        if (!streakUI || !isAutoServerRange(streakUI.length?.range) || !isAutoServerRange(streakUI.time?.range)) return false;
+        const [minimumTime, maximumTime] = streakUI.time.range;
+        return Array.isArray(streakUI.time.labels) && streakUI.time.labels.length > maximumTime && minimumTime >= 0;
+    }
+
+    function validateAutoServerStreakState(streakSettings, streakUI) {
+        if (!streakSettings || !validateAutoServerStreakUI(streakUI)) return false;
+        const [minimumLength, maximumLength] = streakUI.length.range;
+        const [minimumTime, maximumTime] = streakUI.time.range;
+        return typeof streakSettings.enabled === "boolean"
+            && Number.isInteger(streakSettings.length)
+            && Number.isInteger(streakSettings.time)
+            && minimumLength <= streakSettings.length
+            && streakSettings.length <= maximumLength
+            && minimumTime <= streakSettings.time
+            && streakSettings.time <= maximumTime;
+    }
+
+    function getAutoServerStreakLengthRange() {
+        if (!validateAutoServerStreakUI(autoServerStreakUI)) {
+            throw new Error(system("autoserver.streakUiUnavailable"));
+        }
+        return autoServerStreakUI.length.range;
+    }
+
+    function getAutoServerStreakTimeRange() {
+        if (!validateAutoServerStreakUI(autoServerStreakUI)) {
+            throw new Error(system("autoserver.streakUiUnavailable"));
+        }
+        return autoServerStreakUI.time.range;
+    }
+
+    function getAutoServerStreakLength() {
+        if (!validateAutoServerStreakState(autoServerStreakSettings, autoServerStreakUI)) {
+            throw new Error(system("autoserver.streakSettingsUnavailable"));
+        }
+        return autoServerStreakSettings.length;
+    }
+
+    function getAutoServerStreakTime() {
+        if (!validateAutoServerStreakState(autoServerStreakSettings, autoServerStreakUI)) {
+            throw new Error(system("autoserver.streakSettingsUnavailable"));
+        }
+        return autoServerStreakSettings.time;
+    }
+
+    function getAutoServerStreakActive() {
+        if (!validateAutoServerStreakState(autoServerStreakSettings, autoServerStreakUI)) {
+            throw new Error(system("autoserver.streakSettingsUnavailable"));
+        }
+        return autoServerStreakSettings.enabled && getAutoServerStreakLength() > 0;
+    }
+
+    function renderAutoServerStreakSettings() {
+        if (!validateAutoServerStreakState(autoServerStreakSettings, autoServerStreakUI)) {
+            setAutoServerStreakControlsUnavailable();
+            return;
+        }
+
+        const enabled = getAutoServerStreakActive();
+        const length = getAutoServerStreakLength();
+        const time = getAutoServerStreakTime();
+        const [minimumLength, maximumLength] = getAutoServerStreakLengthRange();
+        const [minimumTime, maximumTime] = getAutoServerStreakTimeRange();
+        const timeLabels = autoServerStreakUI.time.labels;
+
+        document.querySelector('#DLP_AutoServer_Streak_Toggle_Text_1_ID').textContent = enabled ? system("autoserver.active") : system("autoserver.inactive");
+        document.querySelector('#DLP_AutoServer_Streak_Toggle_On_1_ID').style.display = enabled ? "" : "none";
+        document.querySelector('#DLP_AutoServer_Streak_Toggle_Off_1_ID').style.display = enabled ? "none" : "";
+        document.querySelector('#DLP_AutoServer_Streak_Length_Value_1_ID').textContent = systemFormat("autoserver.lengthDays", { length, plural: length === 1 ? "" : "s" });
+        document.querySelector('#DLP_AutoServer_Streak_Maximum_Length_1_ID').textContent = systemFormat("autoserver.maximumLengthNotice", { maximumLength, plural: maximumLength === 1 ? "" : "s" });
+        document.querySelector('#DLP_AutoServer_Streak_Time_Value_1_ID').textContent = timeLabels[time];
+        document.querySelector('#DLP_AutoServer_Timezone_1_ID').textContent = getAutoServerTimezone();
+
+        setAutoServerControlState('DLP_AutoServer_Streak_Toggle_1_ID', false);
+        setAutoServerControlState('DLP_AutoServer_Streak_Length_Decrease_1_ID', length <= minimumLength);
+        setAutoServerControlState('DLP_AutoServer_Streak_Length_Increase_1_ID', length >= maximumLength);
+        setAutoServerControlState('DLP_AutoServer_Streak_Time_Decrease_1_ID', time <= minimumTime);
+        setAutoServerControlState('DLP_AutoServer_Streak_Time_Increase_1_ID', time >= maximumTime);
+    }
+
+    async function initializeAutoServer() {
+        return autoServerRequest('/api/autoserver/initialize', {
+            method: 'POST',
+            body: JSON.stringify({ timezone: getAutoServerTimezone() })
+        });
+    }
+
+    async function loadAutoServerStreakSettings(showLoadingStatus = true) {
+        if (showLoadingStatus) setAutoServerStatus("Loading");
+        try {
+            let data = await autoServerRequest('/api/autoserver/settings');
+            if (data.status === "initialize") {
+                await initializeAutoServer();
+                data = await autoServerRequest('/api/autoserver/settings');
+            }
+
+            if (!validateAutoServerStreakState(data.user?.streak, data.ui?.streak)) throw new Error(system("autoserver.streakDataMissing"));
+            autoServerStreakSettings = data.user.streak;
+            autoServerStreakUI = data.ui.streak;
+            renderAutoServerStreakSettings();
+            setAutoServerStatus("Available");
+        } catch (error) {
+            autoServerStreakSettings = null;
+            autoServerStreakUI = null;
+            setAutoServerStatus("Unavailable");
+            setAutoServerStreakControlsUnavailable();
+            showAutoServerConfigError();
+            if (debug) console.error("Failed to load AutoServer streak settings:", error);
+        }
+    }
+
+    async function updateAutoServerStreakSettings(updates, controlId) {
+        if (autoServerStreakBusy || !validateAutoServerStreakState(autoServerStreakSettings, autoServerStreakUI)) {
+            showAutoServerConfigError();
+            return;
+        }
+        autoServerStreakBusy = true;
+        autoServerStreakPendingControlId = controlId;
+        setAutoServerStatus("Saving");
+        renderAutoServerStreakSettings();
+
+        try {
+            let data = await autoServerRequest('/api/autoserver/settings/edit', {
+                method: 'POST',
+                body: JSON.stringify(updates)
+            });
+            if (data.status === "initialize") {
+                await initializeAutoServer();
+                data = await autoServerRequest('/api/autoserver/settings/edit', {
+                    method: 'POST',
+                    body: JSON.stringify(updates)
+                });
+            }
+            const notificationShown = showAutoServerResponseNotifications(data);
+            if (data.status !== "success") {
+                if (!notificationShown) {
+                    showNotification("error", system("autoserver.updateFailedTitle"), data.message || system("autoserver.updateFailedBody"), 15);
+                }
+                setAutoServerStatus("Available");
+                return;
+            }
+
+            await loadAutoServerStreakSettings(false);
+        } catch (error) {
+            setAutoServerStatus("Unavailable");
+            showNotification("error", system("autoserver.updateFailedTitle"), error.message || system("autoserver.updateFailedBody"), 15);
+        } finally {
+            autoServerStreakBusy = false;
+            autoServerStreakPendingControlId = null;
+            renderAutoServerStreakSettings();
+        }
+    }
+
+    function bindAutoServerStreakControls() {
+        document.querySelector('#DLP_AutoServer_Streak_Toggle_1_ID').addEventListener('click', () => {
+            if (autoServerStreakBusy) return;
+            if (!validateAutoServerStreakState(autoServerStreakSettings, autoServerStreakUI)) {
+                showAutoServerConfigError();
+                return;
+            }
+            const enabled = getAutoServerStreakActive();
+            const updates = enabled
+                ? { streak_enabled: false, streak_length: 0 }
+                : { streak_enabled: true, streak_length: 1 };
+            updateAutoServerStreakSettings(updates, 'DLP_AutoServer_Streak_Toggle_1_ID');
+        });
+
+        document.querySelector('#DLP_AutoServer_Streak_Length_Decrease_1_ID').addEventListener('click', () => {
+            if (autoServerStreakBusy) return;
+            if (!validateAutoServerStreakState(autoServerStreakSettings, autoServerStreakUI)) {
+                showAutoServerConfigError();
+                return;
+            }
+            const [minimum] = getAutoServerStreakLengthRange();
+            const currentLength = getAutoServerStreakLength();
+            if (currentLength <= minimum) return;
+            const length = currentLength - 1;
+            updateAutoServerStreakSettings({
+                streak_enabled: length > 0,
+                streak_length: length
+            }, 'DLP_AutoServer_Streak_Length_Decrease_1_ID');
+        });
+        document.querySelector('#DLP_AutoServer_Streak_Length_Increase_1_ID').addEventListener('click', () => {
+            if (autoServerStreakBusy) return;
+            if (!validateAutoServerStreakState(autoServerStreakSettings, autoServerStreakUI)) {
+                showAutoServerConfigError();
+                return;
+            }
+            const [, maximum] = getAutoServerStreakLengthRange();
+            const currentLength = getAutoServerStreakLength();
+            if (currentLength >= maximum) return;
+            const length = currentLength + 1;
+            updateAutoServerStreakSettings({
+                streak_enabled: length > 0,
+                streak_length: length
+            }, 'DLP_AutoServer_Streak_Length_Increase_1_ID');
+        });
+
+        document.querySelector('#DLP_AutoServer_Streak_Time_Decrease_1_ID').addEventListener('click', () => {
+            if (autoServerStreakBusy) return;
+            if (!validateAutoServerStreakState(autoServerStreakSettings, autoServerStreakUI)) {
+                showAutoServerConfigError();
+                return;
+            }
+            const [minimum] = getAutoServerStreakTimeRange();
+            const currentTime = getAutoServerStreakTime();
+            if (currentTime <= minimum) return;
+            updateAutoServerStreakSettings({
+                streak_time: currentTime - 1
+            }, 'DLP_AutoServer_Streak_Time_Decrease_1_ID');
+        });
+        document.querySelector('#DLP_AutoServer_Streak_Time_Increase_1_ID').addEventListener('click', () => {
+            if (autoServerStreakBusy) return;
+            if (!validateAutoServerStreakState(autoServerStreakSettings, autoServerStreakUI)) {
+                showAutoServerConfigError();
+                return;
+            }
+            const [, maximum] = getAutoServerStreakTimeRange();
+            const currentTime = getAutoServerStreakTime();
+            if (currentTime >= maximum) return;
+            updateAutoServerStreakSettings({
+                streak_time: currentTime + 1
+            }, 'DLP_AutoServer_Streak_Time_Increase_1_ID');
+        });
+    }
 
     function DPAutoServerButtonMainMenuFunction() {
         try {
@@ -2855,10 +3875,13 @@ function One() {
                 manageAutoServerWindowVisibility(false);
             }
         });
+        bindAutoServerStreakControls();
+        loadAutoServerStreakSettings();
     }
 
     function manageAutoServerWindowVisibility(state) {
         if (state) {
+            loadAutoServerStreakSettings();
             document.querySelector('.DLP_AutoServer_Mother_Box').style.display = "";
             document.querySelector('.DLP_AutoServer_Mother_Box').offsetHeight;
             document.querySelector('.DLP_AutoServer_Mother_Box').style.opacity = "1";
@@ -2916,7 +3939,7 @@ function One() {
                         button.style.padding = "";
                         let remember0010 = button.offsetWidth;
                         button.style.width = "0px";
-                        button.style.transition = "all 0.4s cubic-bezier(0.16, 1, 0.32, 1)";
+                        button.style.transition = "width 0.4s cubic-bezier(0.16, 1, 0.32, 1), padding 0.4s cubic-bezier(0.16, 1, 0.32, 1), margin 0.4s cubic-bezier(0.16, 1, 0.32, 1), filter 0.4s cubic-bezier(0.16, 1, 0.32, 1), opacity 0.4s cubic-bezier(0.16, 1, 0.32, 1)";
                         void button.offsetWidth;
                         requestAnimationFrame(() => {
                             button.style.width = remember0010 + "px";
@@ -2929,7 +3952,7 @@ function One() {
                             }, 400);
                         });
                     } else {
-                        button.style.transition = "all 0.4s cubic-bezier(0.16, 1, 0.32, 1)";
+                        button.style.transition = "width 0.4s cubic-bezier(0.16, 1, 0.32, 1), padding 0.4s cubic-bezier(0.16, 1, 0.32, 1), margin 0.4s cubic-bezier(0.16, 1, 0.32, 1), filter 0.4s cubic-bezier(0.16, 1, 0.32, 1), opacity 0.4s cubic-bezier(0.16, 1, 0.32, 1)";
                         button.style.width = button.offsetWidth + "px";
                         void button.offsetWidth;
                         requestAnimationFrame(() => {
@@ -2972,46 +3995,48 @@ function One() {
 
             function updateCounter() {
                 let button = theBarThing.querySelector('.DLP_Inset_Button_1_ID');
+                ensureScrittoButtonLabel(button);
                 let text = button.querySelector('.DLP_Inset_Text_1_ID');
+                let currentText = getScrittoButtonText(text);
 
-                if (storageSession.legacy[storageSession.legacy.status].type === 'infinity' && text.textContent !== 'Infinity') {
-                    setButtonState(button, { button: 'rgb(var(--color-snow), 0.84)', outline: 'rgb(var(--color-swan))', text: 'rgb(var(--color-black-text))', icon: 'rgb(var(--color-black-text))' }, { text: 'Infinity', icon: '􀯠' }, { text: '', icon: '' });
-                } else if (storageSession.legacy[storageSession.legacy.status].type === 'xp' && text.textContent !== String(storageSession.legacy[storageSession.legacy.status].amount + ' XP Left')) {
-                    setButtonState(button, { button: 'rgb(var(--color-snow), 0.84)', outline: 'rgb(var(--color-swan))', text: 'rgb(var(--color-black-text))', icon: 'rgb(var(--color-black-text))' }, { text: String(storageSession.legacy[storageSession.legacy.status].amount + ' XP Left'), icon: '' }, { text: '', icon: '' });
+                if (storageSession.legacy[storageSession.legacy.status].type === 'infinity' && currentText !== system("barThing.infinity")) {
+                    setButtonState(button, { button: 'rgb(var(--color-snow), 0.84)', outline: 'rgb(var(--color-swan))', text: 'rgb(var(--color-black-text))', icon: 'rgb(var(--color-black-text))' }, { text: system("barThing.infinity"), icon: '􀯠' }, { text: '', icon: '' });
+                } else if (storageSession.legacy[storageSession.legacy.status].type === 'xp' && currentText !== systemFormat("barThing.xpLeft", { amount: storageSession.legacy[storageSession.legacy.status].amount })) {
+                    setButtonState(button, { button: 'rgb(var(--color-snow), 0.84)', outline: 'rgb(var(--color-swan))', text: 'rgb(var(--color-black-text))', icon: 'rgb(var(--color-black-text))' }, { text: systemFormat("barThing.xpLeft", { amount: storageSession.legacy[storageSession.legacy.status].amount }), icon: '' }, { text: '', icon: '' });
                 } else if (storageSession.legacy[storageSession.legacy.status].type === 'time') {
                     const totalSeconds = storageSession.legacy[storageSession.legacy.status].amount;
                     let timeText;
                     if (totalSeconds <= 0) {
-                        timeText = 'Finishing Up';
+                        timeText = system("barThing.finishingUp");
                     } else {
                         const minutes = Math.floor(totalSeconds / 60);
                         const seconds = totalSeconds % 60;
                         if (minutes > 0 && seconds > 0) {
-                            timeText = `${minutes}m ${seconds}s Left`;
+                            timeText = systemFormat("barThing.timeLeftMinutesSeconds", { minutes, seconds });
                         } else if (minutes > 0) {
-                            timeText = `${minutes}m Left`;
+                            timeText = systemFormat("barThing.timeLeftMinutes", { minutes });
                         } else {
-                            timeText = `${seconds}s Left`;
+                            timeText = systemFormat("barThing.timeLeftSeconds", { seconds });
                         }
                     }
-                    if (text.textContent !== timeText) {
+                    if (currentText !== timeText) {
                         setButtonState(button, { button: 'rgb(var(--color-snow), 0.84)', outline: 'rgb(var(--color-swan))', text: 'rgb(var(--color-black-text))', icon: 'rgb(var(--color-black-text))' }, { text: timeText, icon: '􀐬' }, { text: '', icon: '' });
                     }
                 } else if (window.location.pathname === '/practice') {
-                    if (storageSession.legacy[storageSession.legacy.status].amount === 1 && text.textContent !== 'Last Practice') {
-                        setButtonState(button, { button: 'rgb(var(--color-snow), 0.84)', outline: 'rgb(var(--color-swan))', text: 'rgb(var(--color-black-text))', icon: 'rgb(var(--color-black-text))' }, { text: 'Last Practice', icon: '' }, { text: '', icon: '' });
-                    } else if (storageSession.legacy[storageSession.legacy.status].amount === 0 && text.textContent !== 'Finishing Up') {
-                        setButtonState(button, { button: 'rgb(var(--color-snow), 0.84)', outline: 'rgb(var(--color-swan))', text: 'rgb(var(--color-black-text))', icon: 'rgb(var(--color-black-text))' }, { text: 'Finishing Up', icon: '' }, { text: '', icon: '' });
-                    } else if (storageSession.legacy[storageSession.legacy.status].amount > 1 && text.textContent !== String(storageSession.legacy[storageSession.legacy.status].amount + ' Practices Left')) {
-                        setButtonState(button, { button: 'rgb(var(--color-snow), 0.84)', outline: 'rgb(var(--color-swan))', text: 'rgb(var(--color-black-text))', icon: 'rgb(var(--color-black-text))' }, { text: String(storageSession.legacy[storageSession.legacy.status].amount + ' Practices Left'), icon: '' }, { text: '', icon: '' });
+                    if (storageSession.legacy[storageSession.legacy.status].amount === 1 && currentText !== system("barThing.lastPractice")) {
+                        setButtonState(button, { button: 'rgb(var(--color-snow), 0.84)', outline: 'rgb(var(--color-swan))', text: 'rgb(var(--color-black-text))', icon: 'rgb(var(--color-black-text))' }, { text: system("barThing.lastPractice"), icon: '' }, { text: '', icon: '' });
+                    } else if (storageSession.legacy[storageSession.legacy.status].amount === 0 && currentText !== system("barThing.finishingUp")) {
+                        setButtonState(button, { button: 'rgb(var(--color-snow), 0.84)', outline: 'rgb(var(--color-swan))', text: 'rgb(var(--color-black-text))', icon: 'rgb(var(--color-black-text))' }, { text: system("barThing.finishingUp"), icon: '' }, { text: '', icon: '' });
+                    } else if (storageSession.legacy[storageSession.legacy.status].amount > 1 && currentText !== systemFormat("barThing.practicesLeft", { amount: storageSession.legacy[storageSession.legacy.status].amount })) {
+                        setButtonState(button, { button: 'rgb(var(--color-snow), 0.84)', outline: 'rgb(var(--color-swan))', text: 'rgb(var(--color-black-text))', icon: 'rgb(var(--color-black-text))' }, { text: systemFormat("barThing.practicesLeft", { amount: storageSession.legacy[storageSession.legacy.status].amount }), icon: '' }, { text: '', icon: '' });
                     }
                 } else if (storageSession.legacy[storageSession.legacy.status].type === 'lesson') {
-                    if (storageSession.legacy[storageSession.legacy.status].amount === 1 && text.textContent !== 'Last Lesson') {
-                        setButtonState(button, { button: 'rgb(var(--color-snow), 0.84)', outline: 'rgb(var(--color-swan))', text: 'rgb(var(--color-black-text))', icon: 'rgb(var(--color-black-text))' }, { text: 'Last Lesson', icon: '' }, { text: '', icon: '' });
-                    } else if (storageSession.legacy[storageSession.legacy.status].amount === 0 && text.textContent !== 'Finishing Up') {
-                        setButtonState(button, { button: 'rgb(var(--color-snow), 0.84)', outline: 'rgb(var(--color-swan))', text: 'rgb(var(--color-black-text))', icon: 'rgb(var(--color-black-text))' }, { text: 'Finishing Up', icon: '' }, { text: '', icon: '' });
-                    } else if (storageSession.legacy[storageSession.legacy.status].amount > 1 && text.textContent !== String(storageSession.legacy[storageSession.legacy.status].amount + ' Lessons Left')) {
-                        setButtonState(button, { button: 'rgb(var(--color-snow), 0.84)', outline: 'rgb(var(--color-swan))', text: 'rgb(var(--color-black-text))', icon: 'rgb(var(--color-black-text))' }, { text: String(storageSession.legacy[storageSession.legacy.status].amount + ' Lessons Left'), icon: '' }, { text: '', icon: '' },);
+                    if (storageSession.legacy[storageSession.legacy.status].amount === 1 && currentText !== system("barThing.lastLesson")) {
+                        setButtonState(button, { button: 'rgb(var(--color-snow), 0.84)', outline: 'rgb(var(--color-swan))', text: 'rgb(var(--color-black-text))', icon: 'rgb(var(--color-black-text))' }, { text: system("barThing.lastLesson"), icon: '' }, { text: '', icon: '' });
+                    } else if (storageSession.legacy[storageSession.legacy.status].amount === 0 && currentText !== system("barThing.finishingUp")) {
+                        setButtonState(button, { button: 'rgb(var(--color-snow), 0.84)', outline: 'rgb(var(--color-swan))', text: 'rgb(var(--color-black-text))', icon: 'rgb(var(--color-black-text))' }, { text: system("barThing.finishingUp"), icon: '' }, { text: '', icon: '' });
+                    } else if (storageSession.legacy[storageSession.legacy.status].amount > 1 && currentText !== systemFormat("barThing.lessonsLeft", { amount: storageSession.legacy[storageSession.legacy.status].amount })) {
+                        setButtonState(button, { button: 'rgb(var(--color-snow), 0.84)', outline: 'rgb(var(--color-swan))', text: 'rgb(var(--color-black-text))', icon: 'rgb(var(--color-black-text))' }, { text: systemFormat("barThing.lessonsLeft", { amount: storageSession.legacy[storageSession.legacy.status].amount }), icon: '' }, { text: '', icon: '' },);
                     }
                 }
             }
@@ -3043,13 +4068,13 @@ function One() {
                 }
                 let button = theBarThing.querySelector('.DLP_Inset_Button_2_ID');
                 if (storageLocal.settings.muteLessons) {
-                    setButtonState(button, { button: 'rgb(var(--color-snow), 0.84)', outline: 'rgb(var(--color-swan))', text: 'rgb(var(--color-black-text))', icon: 'rgb(var(--color-black-text))' }, { text: 'Muted', icon: '􀊣' }, { text: '', icon: ' ' }, () => {
+                    setButtonState(button, { button: 'rgb(var(--color-snow), 0.84)', outline: 'rgb(var(--color-swan))', text: 'rgb(var(--color-black-text))', icon: 'rgb(var(--color-black-text))' }, { text: system("barThing.muted"), icon: '􀊣' }, { text: '', icon: ' ' }, () => {
                         setTimeout(() => {
                             if (!visualOnly) isTheBarThingButtonBusy = false;
                         }, 400);
                     });
                 } else {
-                    setButtonState(button, { button: 'rgb(var(--color-snow), 0.84)', outline: 'rgb(var(--color-swan))', text: 'rgb(var(--color-black-text))', icon: 'rgb(var(--color-black-text))' }, { text: 'Mute', icon: '􀊧' }, { text: '', icon: ' ' }, () => {
+                    setButtonState(button, { button: 'rgb(var(--color-snow), 0.84)', outline: 'rgb(var(--color-swan))', text: 'rgb(var(--color-black-text))', icon: 'rgb(var(--color-black-text))' }, { text: system("barThing.mute"), icon: '􀊧' }, { text: '', icon: ' ' }, () => {
                         setTimeout(() => {
                             if (!visualOnly) isTheBarThingButtonBusy = false;
                         }, 400);
@@ -3060,7 +4085,7 @@ function One() {
             let duolingoPROTheThingBarDisappearObserverTimeout = null;
             new MutationObserver((mutations, observer) => {
                 if (duolingoPROTheThingBarDisappearObserverTimeout) return;
-                if (!document.querySelector('.auto-solver-btn.solve-btn, .auto-solver-btn.solving-btn')) {
+                if (!document.querySelector('.auto-solver-btn.solve-btn, .auto-solver-btn.solving-btn, .auto-solver-btn.play-btn, .auto-solver-btn.playing-btn')) {
                     duolingoPROTheThingBarDisappearObserverTimeout = setTimeout(() => {
                         initDuolingoPROTheBarThingObserver();
                         duolingoPROTheThingBarDisappearObserverTimeout = null;
@@ -3092,6 +4117,7 @@ function One() {
     function addButtons() {
         if (!storageLocal.settings.showSolveButtons) return;
         if (window.location.pathname === '/learn' && document.querySelector('a[data-test="global-practice"]')) return;
+        if (window.location.pathname.endsWith('/chess-match')) return;
         if (document.querySelector("#solveAllButton")) return;
 
         document.querySelector('[data-test="quit-button"]')?.addEventListener('click', function outerHandler() {
@@ -3137,36 +4163,86 @@ function One() {
 
         syncReactLookupByContext();
 
+        if (!isChessLessonSolveContext()) {
+            refreshWindowSolFromReact();
+        }
+
         const nextButton = document.querySelector('[data-test="player-next"]');
         const storiesContinueButton = document.querySelector('[data-test="stories-player-continue"]');
         const storiesDoneButton = document.querySelector('[data-test="stories-player-done"]');
         const target = nextButton || storiesContinueButton || storiesDoneButton;
+        const isChessLessonContext = isChessLessonSolveContext();
+        const isMatchMadnessContext = isMathMatchMadnessSolveContext();
+        const isMathLessonContext = isMathLessonSolveContext();
+        const chessLessonTarget = isChessLessonContext ? document.querySelector('div._8dMUn._3neHb._1cwlN, div._8dMUn._1cwlN') : null; // The HINT button
+        const matchMadnessButtonHost = isMatchMadnessContext ? getMathMatchMadnessButtonHost() : null;
+        const mathLessonButtonHost = isMathLessonContext && !isMatchMadnessContext
+            ? (document.querySelector('.MYehf') || document.getElementById('session/PlayerFooter'))
+            : null;
 
         if (document.querySelector('[data-test="story-start"]') && storageSession.legacy.status) {
             document.querySelector('[data-test="story-start"]').click();
         }
-        if (target) {
+        if (target || chessLessonTarget || mathLessonButtonHost || matchMadnessButtonHost) {
             if (document.querySelector('.MYehf') !== null) {
                 document.querySelector('.MYehf').style.display = "flex";
                 document.querySelector('.MYehf').style.gap = "20px";
             } else if (document.querySelector(".FmlUF") !== null) { // Story
                 document.querySelector('._3TJzR').style.display = "flex";
                 document.querySelector('._3TJzR').style.gap = "20px";
+            } else if (chessLessonTarget) {
+                let chessLessonRow = document.getElementById(CHESS_LESSON_BUTTON_ROW_ID);
+                if (!chessLessonRow) {
+                    chessLessonRow = document.createElement('div');
+                    chessLessonRow.id = CHESS_LESSON_BUTTON_ROW_ID;
+                    chessLessonRow.style.display = 'flex';
+                    chessLessonRow.style.flexDirection = 'row';
+                    chessLessonRow.style.alignItems = 'center';
+                    chessLessonRow.style.gap = '20px';
+                    chessLessonRow.style.margin = '32px 0';
+
+                    const chessLessonButtonContainer = document.querySelector('div._8dMUn._1cwlN');
+                    if (chessLessonButtonContainer) {
+                        chessLessonButtonContainer.style.height = '50.4px';
+                        chessLessonButtonContainer.style.margin = '0';
+                    }
+
+                    chessLessonTarget.parentElement.insertBefore(chessLessonRow, chessLessonTarget);
+                    chessLessonRow.appendChild(chessLessonTarget);
+                }
+            } else if (matchMadnessButtonHost && !matchMadnessButtonHost.classList.contains('MYehf')) {
+                matchMadnessButtonHost.style.display = 'flex';
+                matchMadnessButtonHost.style.justifyContent = 'center';
+                matchMadnessButtonHost.style.alignItems = 'center';
+                matchMadnessButtonHost.style.gap = '20px';
             }
 
             const buttonsCSS = document.createElement('style');
             buttonsCSS.innerHTML = HTML4;
             document.head.appendChild(buttonsCSS);
 
-            const solveButtonCopy = createButton('solveAllButton', systemText[systemLanguage][101], 'auto-solver-btn solving-btn', { click: solving });
-            const solveAllButtonCopy = createButton('', systemText[systemLanguage][100], 'auto-solver-btn solve-btn', { click: solve });
+            const solveButtonCopy = createButton(
+                'solveAllButton',
+                getSolveAllButtonTextForCurrentContext(isAutoMode),
+                isChessLessonContext ? 'auto-solver-btn playing-btn' : 'auto-solver-btn solving-btn',
+                { click: solving }
+            );
+            const solveAllButtonCopy = createButton(
+                '',
+                isChessLessonContext ? system("solver.play") : system("solver.solve"),
+                isChessLessonContext ? 'auto-solver-btn play-btn' : 'auto-solver-btn solve-btn',
+                { click: isChessLessonContext ? playChessLesson : solve }
+            );
 
-            target.parentElement.appendChild(solveAllButtonCopy);
-            target.parentElement.appendChild(solveButtonCopy);
+            const buttonHost = chessLessonTarget
+                ? document.getElementById(CHESS_LESSON_BUTTON_ROW_ID)
+                : (matchMadnessButtonHost || target?.parentElement || mathLessonButtonHost);
+            if (!buttonHost) return;
+            buttonHost.appendChild(solveAllButtonCopy);
+            buttonHost.appendChild(solveButtonCopy);
 
             if (storageSession.legacy.status) {
                 if (!isAutoMode) solving("start");
-                else updateSolveButtonText(systemText[systemLanguage][102]);
                 muteTab(storageLocal.settings.muteLessons);
             }
 
@@ -3211,19 +4287,26 @@ function One() {
     }
     initDuolingoPROTheBarThingObserver();
 
+    function shouldInitSolveButtons() {
+        syncReactLookupByContext();
+        refreshWindowSolFromReact();
+        if (document.querySelector(SOLVE_BUTTON_TRIGGER_SELECTOR)) return true;
+        return isMathMatchMadnessSolveContext();
+    }
+
     let duolingoPROSolveButtonsObserver = null;
     function initDuolingoPROSolveButtonsObserver() {
         if (duolingoPROSolveButtonsObserver) duolingoPROSolveButtonsObserver.disconnect();
         let initDuolingoPROSolveButtonsObserverTimeout = null;
 
-        if (document.querySelector('[data-test="player-next"], [data-test="stories-player-continue"], [data-test="stories-player-done"], [data-test="story-start"]')) {
+        if (shouldInitSolveButtons()) {
             addButtons();
             return;
         }
 
         duolingoPROSolveButtonsObserver = new MutationObserver((mutations) => {
             if (initDuolingoPROSolveButtonsObserverTimeout) return;
-            if (document.querySelector('[data-test="player-next"], [data-test="stories-player-continue"], [data-test="stories-player-done"], [data-test="story-start"]')) {
+            if (shouldInitSolveButtons()) {
                 initDuolingoPROSolveButtonsObserverTimeout = setTimeout(() => {
                     addButtons();
                     initDuolingoPROSolveButtonsObserverTimeout = null;
@@ -3282,7 +4365,7 @@ function One() {
             playHaptic("error");
         } else {
             iconElement.style.color = icon.color;
-            iconElement.textContent = icon.icon;
+            iconElement.textContent = getRTLDirectionalIcon(icon.icon);
             playHaptic();
         }
 
@@ -3325,13 +4408,15 @@ function One() {
                 requestAnimationFrame(() => {
                     notificationMain.style.width = "300px";
                     notificationMain.style.position = "fixed";
-                    notificationMain.style.left = "16px";
+                    notificationMain.style.left = dlpIsRTLLayout ? "auto" : "16px";
+                    notificationMain.style.right = dlpIsRTLLayout ? "16px" : "auto";
                 });
             } else {
                 requestAnimationFrame(() => {
                     notificationMain.style.width = "";
                     notificationMain.style.position = "";
                     notificationMain.style.left = "";
+                    notificationMain.style.right = "";
                 });
             }
 
@@ -3444,13 +4529,9 @@ function One() {
     setTimeout(() => {
         if (document.querySelectorAll('.DLP_Main').length > 1) {
             multipleScriptsDetected = true;
-            showNotification("error", "Multiple Scripts Detected", "Multiple Duolingo PRO scripts were detected. Please uninstall any extra copies from your userscript manager to continue using Duolingo PRO.", 0);
+            showNotification("error", system("notifications.multipleScriptsTitle"), system("notifications.multipleScriptsBody"), 0);
         }
     }, 10);
-
-    if (typeof GM_log === 'undefined') {
-        showNotification("warning", "Userscript Manager Recommended", "Duolingo PRO may not work properly without a userscript manager. Install <a href='https://www.tampermonkey.net/' target='_blank'>Tampermonkey</a> or another userscript manager to get the most stable experience.", 0);
-    }
 
     let isBusySwitchingPages = false;
     let pages = {
@@ -3519,6 +4600,14 @@ function One() {
                 toNumber = 3;
             }
         }
+        if (buttonID === 'DLP_Switch_Legacy_Button_1_ID') {
+            const switchTarget = toNumber === 3 ? 'legacy' : toNumber === 1 ? 'modern' : null;
+            if (switchTarget && !isServerFeatureEnabled(switchTarget)) {
+                notifyServerFeatureDisabled();
+                isBusySwitchingPages = false;
+                return;
+            }
+        }
         if (toNumber === pageHistory[pageHistory.length - 1] && !buttonID === 'DLP_Switch_Legacy_Button_1_ID') {
             isBusySwitchingPages = false;
             return;
@@ -3526,19 +4615,19 @@ function One() {
 
         if (toNumber === 7) {
             if (storageSession.script.settings.enabled === false) {
-                showNotification("warning", "Feature Disabled", "This feature has been temporarily disabled.", 15);
+                showNotification("warning", system("notifications.featureDisabledTitle"), system("notifications.featureDisabledBody"), 15);
                 isBusySwitchingPages = false;
                 return;
             }
         } else if (toNumber === 9) {
             if (storageSession.script.release_notes === false) {
-                showNotification("warning", "Feature Disabled", "This feature has been temporarily disabled.", 15);
+                showNotification("warning", system("notifications.featureDisabledTitle"), system("notifications.featureDisabledBody"), 15);
                 isBusySwitchingPages = false;
                 return;
             }
         } else if (toNumber === 11) {
             if (storageSession.script.support.enabled === false) {
-                showNotification("warning", "Feature Disabled", "This feature has been temporarily disabled.", 15);
+                showNotification("warning", system("notifications.featureDisabledTitle"), system("notifications.featureDisabledBody"), 15);
                 isBusySwitchingPages = false;
                 return;
             }
@@ -3563,15 +4652,16 @@ function One() {
             let button = document.querySelector('#DLP_Switch_Legacy_Button_1_ID');
             if (storageSession.legacy.page !== 0) {
                 toPage = document.querySelector(`#DLP_Main_Box_Divider_${toNumber}_ID`);
-                setButtonState(button, { button: 'linear-gradient(0deg, rgba(var(--DLP-blue), 0.10) 0%, rgba(var(--DLP-blue), 0.10) 100%), rgba(var(--color-snow), 0.80)', outline: 'rgba(var(--DLP-blue), 0.20)', text: 'rgb(var(--DLP-blue))', icon: 'rgb(var(--DLP-blue))' }, { text: systemText[systemLanguage][106], icon: '􀱏' }, { text: '', icon: '' });
+                setButtonState(button, { button: 'linear-gradient(0deg, rgba(var(--DLP-blue), 0.10) 0%, rgba(var(--DLP-blue), 0.10) 100%), rgba(var(--color-snow), 0.80)', outline: 'rgba(var(--DLP-blue), 0.20)', text: 'rgb(var(--DLP-blue))', icon: 'rgb(var(--DLP-blue))' }, { text: system("solver.switchToLegacy"), icon: '􀱏' }, { text: '', icon: '' });
                 storageSession.legacy.page = 0;
                 saveStorageSession();
             } else {
                 toPage = document.querySelector(`#DLP_Main_Box_Divider_${toNumber}_ID`);
-                setButtonState(button, { button: 'linear-gradient(0deg, rgba(var(--DLP-blue), 0.10) 0%, rgba(var(--DLP-blue), 0.10) 100%), rgba(var(--color-snow), 0.80)', outline: 'rgba(var(--DLP-blue), 0.20)', text: 'rgb(var(--DLP-blue))', icon: 'rgb(var(--DLP-blue))' }, { text: systemText[systemLanguage][105], icon: '􀂑' }, { text: '', icon: '' });
+                setButtonState(button, { button: 'linear-gradient(0deg, rgba(var(--DLP-blue), 0.10) 0%, rgba(var(--DLP-blue), 0.10) 100%), rgba(var(--color-snow), 0.80)', outline: 'rgba(var(--DLP-blue), 0.20)', text: 'rgb(var(--DLP-blue))', icon: 'rgb(var(--DLP-blue))' }, { text: system("solver.switchToModern"), icon: '􀂑' }, { text: '', icon: '' });
                 storageSession.legacy.page = 1;
                 saveStorageSession();
             }
+            applyServerFeatureAvailability();
         } else if (buttonID === 'DLP_Terms_Accept_Button_1_ID') {
             storageLocal.terms = newTermID;
             saveStorageLocal();
@@ -3595,7 +4685,7 @@ function One() {
             const trackingSinceDateString = new Date(storageLocal.stats.tracking_since).toLocaleDateString(systemLanguage, { month: 'short', day: 'numeric', year: 'numeric' });
 
             let modernStatsBox = document.querySelector('#DLP_Main_Box_Divider_7_ID').querySelector('#DLP_Settings_Modern_Stats_Main_Box_1_ID');
-            modernStatsBox.children[0].lastElementChild.innerHTML = "since " + trackingSinceDateString;
+            modernStatsBox.children[0].lastElementChild.innerHTML = systemFormat("stats.since", { date: trackingSinceDateString });
             modernStatsBox.children[1].lastElementChild.innerHTML = storageLocal.stats.modern.xp;
             modernStatsBox.children[2].lastElementChild.innerHTML = storageLocal.stats.modern.gem;
             modernStatsBox.children[3].lastElementChild.innerHTML = storageLocal.stats.modern.streak;
@@ -3605,7 +4695,7 @@ function One() {
             modernStatsBox.children[7].lastElementChild.innerHTML = storageLocal.stats.modern.quest;
 
             let legacyStatsBox = document.querySelector('#DLP_Main_Box_Divider_7_ID').querySelector('#DLP_Settings_Legacy_Stats_Main_Box_1_ID');
-            legacyStatsBox.children[0].lastElementChild.innerHTML = "since " + trackingSinceDateString;
+            legacyStatsBox.children[0].lastElementChild.innerHTML = systemFormat("stats.since", { date: trackingSinceDateString });
             legacyStatsBox.children[1].lastElementChild.innerHTML = (storageLocal.stats.legacy.listen.lessons + storageLocal.stats.legacy.path.lessons + storageLocal.stats.legacy.practice.lessons + storageLocal.stats.legacy.lesson.lessons);
             legacyStatsBox.children[2].lastElementChild.innerHTML = (storageLocal.stats.legacy.listen.questions + storageLocal.stats.legacy.path.questions + storageLocal.stats.legacy.practice.questions + storageLocal.stats.legacy.lesson.questions);
 
@@ -3619,7 +4709,7 @@ function One() {
         if (toNumber === 11) {
             if (newReplyButtonActive) {
                 newReplyButtonActive = false;
-                updateConnetionButtonStyles(document.getElementById("DLP_Main_Feedback_1_Button_1_ID"), { button: 'linear-gradient(0deg, rgba(var(--DLP-blue), 0.10) 0%, rgba(var(--DLP-blue), 0.10) 100%), rgba(var(--color-snow), 0.80)', outline: 'rgba(var(--DLP-blue), 0.20)', text: 'rgb(var(--DLP-blue))', icon: 'rgb(var(--DLP-blue))' }, { text: systemText[systemLanguage][5], icon: '􂄺' }, { text: '', icon: '' });
+                updateConnetionButtonStyles(document.getElementById("DLP_Main_Feedback_1_Button_1_ID"), { button: 'linear-gradient(0deg, rgba(var(--DLP-blue), 0.10) 0%, rgba(var(--DLP-blue), 0.10) 100%), rgba(var(--color-snow), 0.80)', outline: 'rgba(var(--DLP-blue), 0.20)', text: 'rgb(var(--DLP-blue))', icon: 'rgb(var(--DLP-blue))' }, { text: system("nav.support"), icon: '􂄺' }, { text: '', icon: '' });
             }
         }
 
@@ -3665,8 +4755,8 @@ function One() {
         mainBox.style.height = `${mainBoxOldHeight}px`;
         mainBox.offsetHeight;
 
-        if (flag02) mainBox.style.transition = "0.8s linear(0.00, -0.130, 0.164, 0.450, 0.687, 0.861, 0.973, 1.04, 1.06, 1.07, 1.06, 1.04, 1.03, 1.02, 1.01, 1.00, 0.999, 0.997, 0.997, 0.997, 0.998, 0.998, 0.999, 0.999, 1.00)";
-        else mainBox.style.transition = "0.8s cubic-bezier(0.16, 1, 0.32, 1)";
+        if (flag02) mainBox.style.transition = "width 0.8s linear(0.00, -0.130, 0.164, 0.450, 0.687, 0.861, 0.973, 1.04, 1.06, 1.07, 1.06, 1.04, 1.03, 1.02, 1.01, 1.00, 0.999, 0.997, 0.997, 0.997, 0.998, 0.998, 0.999, 0.999, 1.00), height 0.8s linear(0.00, -0.130, 0.164, 0.450, 0.687, 0.861, 0.973, 1.04, 1.06, 1.07, 1.06, 1.04, 1.03, 1.02, 1.01, 1.00, 0.999, 0.997, 0.997, 0.997, 0.998, 0.998, 0.999, 0.999, 1.00)";
+        else mainBox.style.transition = "width 0.8s cubic-bezier(0.16, 1, 0.32, 1), height 0.8s cubic-bezier(0.16, 1, 0.32, 1)";
 
         mainBox.offsetHeight;
         mainBox.style.width = `${mainBoxNewToBeWidth}px`;
@@ -3749,16 +4839,16 @@ function One() {
 
         let mainBoxHeight = mainBox.offsetHeight;
 
-        main.style.transition = "0.8s cubic-bezier(0.16, 1, 0.32, 1)";
-        mainBox.style.transition = "0.8s cubic-bezier(0.16, 1, 0.32, 1)";
+        main.style.transition = "bottom 0.8s cubic-bezier(0.16, 1, 0.32, 1)";
+        mainBox.style.transition = "width 0.8s cubic-bezier(0.16, 1, 0.32, 1), height 0.8s cubic-bezier(0.16, 1, 0.32, 1), filter 0.8s cubic-bezier(0.16, 1, 0.32, 1), opacity 0.8s cubic-bezier(0.16, 1, 0.32, 1)";
         if (value) {
-            setButtonState(button, { button: 'linear-gradient(0deg, rgba(var(--DLP-blue), 0.10) 0%, rgba(var(--DLP-blue), 0.10) 100%), rgba(var(--color-snow), 0.80)', outline: 'rgba(var(--DLP-blue), 0.20)', text: 'rgb(var(--DLP-blue))', icon: 'rgb(var(--DLP-blue))' }, { text: systemText[systemLanguage][104], icon: '􀋮' }, { text: '', icon: '' });
+            setButtonState(button, { button: 'linear-gradient(0deg, rgba(var(--DLP-blue), 0.10) 0%, rgba(var(--DLP-blue), 0.10) 100%), rgba(var(--color-snow), 0.80)', outline: 'rgba(var(--DLP-blue), 0.20)', text: 'rgb(var(--DLP-blue))', icon: 'rgb(var(--DLP-blue))' }, { text: system("solver.show"), icon: '􀋮' }, { text: '', icon: '' });
             main.style.bottom = `-${mainBoxHeight - 8}px`;
             legacyButtonVisibility(false);
             mainBox.style.filter = "blur(8px)";
             mainBox.style.opacity = "0";
         } else {
-            setButtonState(button, { button: 'rgb(var(--DLP-blue)', outline: 'rgba(0, 0, 0, 0.20)', text: '#FFF', icon: '#FFF' }, { text: systemText[systemLanguage][103], icon: '􀋰' }, { text: '', icon: '' });
+            setButtonState(button, { button: 'rgb(var(--DLP-blue))', outline: 'rgba(0, 0, 0, 0.20)', text: '#FFF', icon: '#FFF' }, { text: system("solver.hide"), icon: '􀋰' }, { text: '', icon: '' });
             main.style.bottom = "16px";
             if ([1, 3].includes(pageHistory[pageHistory.length - 1])) legacyButtonVisibility(true);
             mainBox.style.filter = "";
@@ -3785,7 +4875,8 @@ function One() {
             legacyButton.style.display = "";
             legacyButton.offsetWidth;
             legacyButton.style.filter = "";
-            legacyButton.style.opacity = "";
+            const switchTarget = storageSession?.legacy?.page === 0 ? 'legacy' : 'modern';
+            legacyButton.style.opacity = isServerFeatureEnabled(switchTarget) ? "" : "0.5";
         } else {
             legacyButton.style.filter = "blur(8px)";
             legacyButton.style.opacity = "0";
@@ -3795,7 +4886,16 @@ function One() {
         }
     }
     function handleVisibility() {
-        if (document.querySelector('.MYehf') !== null || window.location.pathname.includes('/lesson') || window.location.pathname === '/practice') {
+        if (window.location.pathname.endsWith('/chess-match')) {
+            document.querySelectorAll('.auto-solver-btn, .solve-btn').forEach(button => button.remove());
+        }
+
+        if (
+            document.querySelector('.MYehf') !== null
+            || window.location.pathname.includes('/lesson')
+            || window.location.pathname === '/practice'
+            || window.location.pathname.endsWith('/chess-match')
+        ) {
             document.querySelector('.DLP_Main').style.display = 'none';
         } else {
             document.querySelector('.DLP_Main').style.display = '';
@@ -3804,6 +4904,63 @@ function One() {
     setInterval(handleVisibility, 200);
 
     let isGetButtonsBusy = false;
+    function ensureScrittoButtonLabel(button) {
+        const textElement = button?.querySelector('.DLP_Inset_Text_1_ID');
+        if (!textElement || typeof customElements === 'undefined' || !customElements.get('scritto-text')) return null;
+
+        let scrittoElement = textElement.querySelector('scritto-text');
+        if (!scrittoElement) {
+            const currentText = textElement.textContent;
+            scrittoElement = document.createElement('scritto-text');
+            textElement.textContent = '';
+            textElement.appendChild(scrittoElement);
+            textElement.dataset.scrittoValue = currentText;
+            scrittoElement.value = currentText;
+        }
+
+        scrittoElement.style.display = 'inline-block';
+        scrittoElement.style.verticalAlign = 'inherit';
+        scrittoElement.style.whiteSpace = 'inherit';
+        scrittoElement.style.fontFamily = '"Duolingo PRO Rounded"';
+        scrittoElement.style.fontSize = 'inherit';
+        scrittoElement.style.fontStyle = 'inherit';
+        scrittoElement.style.fontWeight = 'inherit';
+        scrittoElement.style.lineHeight = 'inherit';
+        scrittoElement.style.letterSpacing = 'inherit';
+
+        return scrittoElement;
+    }
+
+    function getScrittoButtonText(textElement) {
+        if (!textElement) return '';
+        return textElement.dataset.scrittoValue ?? textElement.textContent;
+    }
+
+    function containsAnimatableNumber(value) {
+        return /[-+]?(?:\d+(?:[.,]\d+)?|\.\d+)/.test(String(value));
+    }
+
+    function setScrittoButtonText(textElement, value, animate = false) {
+        if (!textElement) return;
+        const nextText = String(value);
+        const scrittoElement = textElement.querySelector('scritto-text');
+        if (!scrittoElement) {
+            textElement.textContent = nextText;
+            return;
+        }
+
+        const previousText = getScrittoButtonText(textElement);
+        textElement.dataset.scrittoValue = nextText;
+        const shouldAnimate = animate
+            && containsAnimatableNumber(previousText)
+            && containsAnimatableNumber(nextText);
+        if (shouldAnimate && typeof scrittoElement.update === 'function') {
+            scrittoElement.update(nextText);
+        } else {
+            scrittoElement.value = nextText;
+        }
+    }
+
     function setButtonState(button, color, content, animation, callback) {
         try {
             let textElement = button.querySelector('.DLP_Inset_Text_1_ID');
@@ -3811,19 +4968,19 @@ function One() {
 
             button.style.width = '';
 
-            let previousText = textElement.textContent;
+            let previousText = getScrittoButtonText(textElement);
             let previousIcon = undefined;
             if (iconElement.style.display !== 'none') {
                 previousIcon = iconElement.textContent;
             }
-            textElement.textContent = content.text;
+            setScrittoButtonText(textElement, content.text);
             if (content.icon !== '') {
-                if (content.icon !== undefined) iconElement.textContent = content.icon;
+                if (content.icon !== undefined) iconElement.textContent = getRTLDirectionalIcon(content.icon);
             } else {
                 iconElement.style.display = 'none';
             }
             let buttonNewWidth = button.offsetWidth;
-            textElement.textContent = previousText;
+            setScrittoButtonText(textElement, previousText);
             if (previousIcon !== undefined) {
                 iconElement.textContent = previousIcon;
                 iconElement.style.display = '';
@@ -3833,8 +4990,8 @@ function One() {
             button.style.width = `${button.offsetWidth}px`;
 
             requestAnimationFrame(() => {
-                textElement.style.transition = '0.4s';
-                if (previousIcon !== undefined) iconElement.style.transition = '0.4s';
+                textElement.style.transition = 'color 0.4s, filter 0.4s, opacity 0.4s';
+                if (previousIcon !== undefined) iconElement.style.transition = 'color 0.4s, filter 0.4s, opacity 0.4s';
 
                 textElement.style.filter = 'blur(4px)';
                 if (previousIcon !== undefined) iconElement.style.filter = 'blur(4px)';
@@ -3850,17 +5007,17 @@ function One() {
                 textElement.style.animation = '';
                 if (content.icon !== '') iconElement.style.animation = '';
 
-                textElement.style.transition = '0s';
-                if (content.icon !== '') iconElement.style.transition = '0s';
+                textElement.style.transition = 'none';
+                if (content.icon !== '') iconElement.style.transition = 'none';
                 textElement.style.color = color.text;
                 if (content.icon !== '') iconElement.style.color = color.icon;
                 void textElement.offsetWidth;
-                textElement.style.transition = '0.4s';
-                if (content.icon !== '') iconElement.style.transition = '0.4s';
+                textElement.style.transition = 'color 0.4s, filter 0.4s, opacity 0.4s';
+                if (content.icon !== '') iconElement.style.transition = 'color 0.4s, filter 0.4s, opacity 0.4s';
 
-                textElement.textContent = content.text;
+                setScrittoButtonText(textElement, content.text, true);
                 if (content.icon !== '') {
-                    if (content.icon !== undefined) iconElement.textContent = content.icon;
+                    if (content.icon !== undefined) iconElement.textContent = getRTLDirectionalIcon(content.icon);
                 } else {
                     iconElement.style.display = 'none';
                 }
@@ -3893,7 +5050,7 @@ function One() {
         ['#DLP_Main_Donate_Button_1_ID, #DLP_Secondary_Donate_Button_1_ID', 'donate']
     ].forEach(([selectors, key]) => document.querySelectorAll(selectors).forEach(btn => btn.addEventListener('click', () => {
         if (storageSession.script[key] === false) {
-            showNotification("warning", "Feature Disabled", "This feature has been temporarily disabled.", 15);
+            showNotification("warning", system("notifications.featureDisabledTitle"), system("notifications.featureDisabledBody"), 15);
             return;
         }
         window.open(`https://duolingopro.net/${key}`, '_blank');
@@ -3911,10 +5068,10 @@ function One() {
 
     function getLegacyPlaceholder(category, mode) {
         const isPracticeLike = category === 'practice' || category === 'listen';
-        if (mode === 'lesson') return isPracticeLike ? '0 practices' : '0 lessons';
-        if (mode === 'xp') return '0 XP';
-        if (mode === 'time') return '0 minutes';
-        return '0';
+        if (mode === 'lesson') return isPracticeLike ? system("legacy.placeholders.practices") : system("legacy.placeholders.lessons");
+        if (mode === 'xp') return system("legacy.placeholders.xp");
+        if (mode === 'time') return system("legacy.placeholders.minutes");
+        return system("legacy.placeholders.zero");
     }
 
     function setLegacyPlaceholder(input, category, mode) {
@@ -4091,7 +5248,7 @@ function One() {
                     const index = storageLocal.pins.legacy.indexOf(modifiedId);
                     if (isAdding && index === -1) {
                         if (storageLocal.pins.legacy.length > Math.floor(((window.innerHeight) / 200) - 1)) {
-                            showNotification("warning", "Pin Limit Reached", "You've pinned too many functions. Please unpin one to continue.", 15);
+                            showNotification("warning", system("notifications.pinLimitReachedTitle"), system("notifications.pinLimitReachedBody"), 15);
                         } else {
                             storageLocal.pins.legacy.push(modifiedId);
                         }
@@ -4118,6 +5275,11 @@ function One() {
 
         function clickHandler() {
             if (isGetButtonsBusy) return;
+            const canStop = storageSession.legacy.status === type || storageSession.legacy[type].type === "infinity";
+            if (!canStop && !isServerFeatureEnabled('legacy', type)) {
+                notifyServerFeatureDisabled();
+                return;
+            }
             isGetButtonsBusy = true;
 
             const buttonElement = document.querySelector(`#${baseId}_ID`).querySelector('#DLP_Inset_Button_1_ID');
@@ -4127,7 +5289,7 @@ function One() {
                 if (storageSession.legacy[type].type === "time") {
                     storageSession.legacy[type].amount = storageSession.legacy[type].amount * 60;
                 }
-                setButtonState(buttonElement, { button: 'linear-gradient(0deg, rgba(var(--DLP-blue), 0.10) 0%, rgba(var(--DLP-blue), 0.10) 100%), rgba(var(--color-snow), 0.80)', outline: 'rgba(var(--DLP-blue), 0.20)', text: 'rgb(var(--DLP-blue))', icon: 'rgb(var(--DLP-blue))' }, { text: systemText[systemLanguage][107], icon: '􀊆' }, { text: '', icon: '' });
+                setButtonState(buttonElement, { button: 'linear-gradient(0deg, rgba(var(--DLP-blue), 0.10) 0%, rgba(var(--DLP-blue), 0.10) 100%), rgba(var(--color-snow), 0.80)', outline: 'rgba(var(--DLP-blue), 0.20)', text: 'rgb(var(--DLP-blue))', icon: 'rgb(var(--DLP-blue))' }, { text: system("actions.stop"), icon: '􀊆' }, { text: '', icon: '' });
                 storageSession.legacy.page = page;
                 storageSession.legacy.status = type;
                 saveStorageSession();
@@ -4137,7 +5299,7 @@ function One() {
                     const remainingSeconds = storageSession.legacy[type].amount;
                     storageSession.legacy[type].amount = Math.ceil(remainingSeconds / 60);
                 }
-                setButtonState(buttonElement, { button: 'rgb(var(--DLP-blue))', outline: 'rgba(0, 0, 0, 0.20)', text: '#FFF', icon: '#FFF' }, { text: systemText[systemLanguage][18], icon: '􀰫' }, { text: '', icon: '' });
+                setButtonState(buttonElement, { button: 'rgb(var(--DLP-blue))', outline: 'rgba(0, 0, 0, 0.20)', text: '#FFF', icon: '#FFF' }, { text: system("actions.start"), icon: '􀰫' }, { text: '', icon: '' });
                 storageSession.legacy.status = false;
                 saveStorageSession();
             }
@@ -4151,6 +5313,10 @@ function One() {
         input1.onkeyup = function (event) {
             if (event.keyCode === 13) {
                 if (isGetButtonsBusy) return;
+                if (!isServerFeatureEnabled('legacy', type)) {
+                    notifyServerFeatureDisabled();
+                    return;
+                }
                 isGetButtonsBusy = true;
 
                 const buttonElement = document.querySelector(`#${baseId}_ID`).querySelector('#DLP_Inset_Button_1_ID');
@@ -4160,7 +5326,7 @@ function One() {
                     if (storageSession.legacy[type].type === "time") {
                         storageSession.legacy[type].amount = storageSession.legacy[type].amount * 60;
                     }
-                    setButtonState(buttonElement, { button: 'linear-gradient(0deg, rgba(var(--DLP-blue), 0.10) 0%, rgba(var(--DLP-blue), 0.10) 100%), rgba(var(--color-snow), 0.80)', outline: 'rgba(var(--DLP-blue), 0.20)', text: 'rgb(var(--DLP-blue))', icon: 'rgb(var(--DLP-blue))' }, { text: systemText[systemLanguage][107], icon: '􀊆' }, { text: '', icon: '' });
+                    setButtonState(buttonElement, { button: 'linear-gradient(0deg, rgba(var(--DLP-blue), 0.10) 0%, rgba(var(--DLP-blue), 0.10) 100%), rgba(var(--color-snow), 0.80)', outline: 'rgba(var(--DLP-blue), 0.20)', text: 'rgb(var(--DLP-blue))', icon: 'rgb(var(--DLP-blue))' }, { text: system("actions.stop"), icon: '􀊆' }, { text: '', icon: '' });
                     storageSession.legacy.page = page;
                     storageSession.legacy.status = type;
                     saveStorageSession();
@@ -4207,7 +5373,7 @@ function One() {
 
             if (storageSession.legacy[type].type === 'lesson') {
                 let inputTo;
-                button2.title = 'Switch to XP Mode';
+                button2.title = system("legacy.modeSwitchTooltip.xp");
 
                 if (input.style.display === 'none') inputTo = 'show';
 
@@ -4218,18 +5384,18 @@ function One() {
 
             } else if (storageSession.legacy[type].type === 'xp') {
                 let inputTo;
-                button2.title = 'Switch to Time Mode';
+                button2.title = system("legacy.modeSwitchTooltip.time");
 
                 if (input.style.display === 'none') inputTo = 'show';
 
                 syncGetButtonState('xp');
 
-                icon.textContent = 'XP';
+                icon.textContent = system("legacy.modeLabel.xp");
                 if (inputTo === 'show') setElementVisibility(input, true);
 
             } else if (storageSession.legacy[type].type === 'time') {
                 let inputTo;
-                button2.title = 'Switch to Infinity Mode';
+                button2.title = system("legacy.modeSwitchTooltip.infinity");
 
                 if (input.style.display === 'none') inputTo = 'show';
 
@@ -4240,7 +5406,7 @@ function One() {
 
             } else if (storageSession.legacy[type].type === 'infinity') {
                 let inputTo;
-                button2.title = 'Switch to Lesson Mode';
+                button2.title = system("legacy.modeSwitchTooltip.lesson");
 
                 if (input.style.display !== 'none') inputTo = 'hide';
 
@@ -4288,13 +5454,13 @@ function One() {
         )
     ) {
         if (storageSession.legacy.status === 'path') {
-            setButtonState((storageSession.legacy.page === 1 ? DLP_Get_PATH_1_ID : DLP_Get_PATH_2_ID).querySelector('#DLP_Inset_Button_1_ID'), { button: 'linear-gradient(0deg, rgba(var(--DLP-blue), 0.10) 0%, rgba(var(--DLP-blue), 0.10) 100%), rgba(var(--color-snow), 0.80)', outline: 'rgba(var(--DLP-blue), 0.20)', text: 'rgb(var(--DLP-blue))', icon: 'rgb(var(--DLP-blue))' }, { text: systemText[systemLanguage][107], icon: '􀊆' }, { text: '', icon: '' });
+            setButtonState((storageSession.legacy.page === 1 ? DLP_Get_PATH_1_ID : DLP_Get_PATH_2_ID).querySelector('#DLP_Inset_Button_1_ID'), { button: 'linear-gradient(0deg, rgba(var(--DLP-blue), 0.10) 0%, rgba(var(--DLP-blue), 0.10) 100%), rgba(var(--color-snow), 0.80)', outline: 'rgba(var(--DLP-blue), 0.20)', text: 'rgb(var(--DLP-blue))', icon: 'rgb(var(--DLP-blue))' }, { text: system("actions.stop"), icon: '􀊆' }, { text: '', icon: '' });
         } else if (storageSession.legacy.status === 'practice') {
-            setButtonState((storageSession.legacy.page === 1 ? DLP_Get_PRACTICE_1_ID : DLP_Get_PRACTICE_2_ID).querySelector('#DLP_Inset_Button_1_ID'), { button: 'linear-gradient(0deg, rgba(var(--DLP-blue), 0.10) 0%, rgba(var(--DLP-blue), 0.10) 100%), rgba(var(--color-snow), 0.80)', outline: 'rgba(var(--DLP-blue), 0.20)', text: 'rgb(var(--DLP-blue))', icon: 'rgb(var(--DLP-blue))' }, { text: systemText[systemLanguage][107], icon: '􀊆' }, { text: '', icon: '' });
+            setButtonState((storageSession.legacy.page === 1 ? DLP_Get_PRACTICE_1_ID : DLP_Get_PRACTICE_2_ID).querySelector('#DLP_Inset_Button_1_ID'), { button: 'linear-gradient(0deg, rgba(var(--DLP-blue), 0.10) 0%, rgba(var(--DLP-blue), 0.10) 100%), rgba(var(--color-snow), 0.80)', outline: 'rgba(var(--DLP-blue), 0.20)', text: 'rgb(var(--DLP-blue))', icon: 'rgb(var(--DLP-blue))' }, { text: system("actions.stop"), icon: '􀊆' }, { text: '', icon: '' });
         } else if (storageSession.legacy.status === 'listen') {
-            setButtonState((storageSession.legacy.page === 1 ? DLP_Get_LISTEN_1_ID : DLP_Get_LISTEN_2_ID).querySelector('#DLP_Inset_Button_1_ID'), { button: 'linear-gradient(0deg, rgba(var(--DLP-blue), 0.10) 0%, rgba(var(--DLP-blue), 0.10) 100%), rgba(var(--color-snow), 0.80)', outline: 'rgba(var(--DLP-blue), 0.20)', text: 'rgb(var(--DLP-blue))', icon: 'rgb(var(--DLP-blue))' }, { text: systemText[systemLanguage][107], icon: '􀊆' }, { text: '', icon: '' });
+            setButtonState((storageSession.legacy.page === 1 ? DLP_Get_LISTEN_1_ID : DLP_Get_LISTEN_2_ID).querySelector('#DLP_Inset_Button_1_ID'), { button: 'linear-gradient(0deg, rgba(var(--DLP-blue), 0.10) 0%, rgba(var(--DLP-blue), 0.10) 100%), rgba(var(--color-snow), 0.80)', outline: 'rgba(var(--DLP-blue), 0.20)', text: 'rgb(var(--DLP-blue))', icon: 'rgb(var(--DLP-blue))' }, { text: system("actions.stop"), icon: '􀊆' }, { text: '', icon: '' });
         } else if (storageSession.legacy.status === 'lesson') {
-            setButtonState((storageSession.legacy.page === 1 ? DLP_Get_LESSON_1_ID : DLP_Get_LESSON_2_ID).querySelector('#DLP_Inset_Button_1_ID'), { button: 'linear-gradient(0deg, rgba(var(--DLP-blue), 0.10) 0%, rgba(var(--DLP-blue), 0.10) 100%), rgba(var(--color-snow), 0.80)', outline: 'rgba(var(--DLP-blue), 0.20)', text: 'rgb(var(--DLP-blue))', icon: 'rgb(var(--DLP-blue))' }, { text: systemText[systemLanguage][107], icon: '􀊆' }, { text: '', icon: '' });
+            setButtonState((storageSession.legacy.page === 1 ? DLP_Get_LESSON_1_ID : DLP_Get_LESSON_2_ID).querySelector('#DLP_Inset_Button_1_ID'), { button: 'linear-gradient(0deg, rgba(var(--DLP-blue), 0.10) 0%, rgba(var(--DLP-blue), 0.10) 100%), rgba(var(--color-snow), 0.80)', outline: 'rgba(var(--DLP-blue), 0.20)', text: 'rgb(var(--DLP-blue))', icon: 'rgb(var(--DLP-blue))' }, { text: system("actions.stop"), icon: '􀊆' }, { text: '', icon: '' });
         }
     }
 
@@ -4373,13 +5539,13 @@ function One() {
         document.querySelector(`#DLP_Main_Box_Divider_3_ID`).style.display = 'block';
         pageHistory = [3];
         let button = document.querySelector('#DLP_Switch_Legacy_Button_1_ID');
-        setButtonState(button, { button: 'linear-gradient(0deg, rgba(var(--DLP-blue), 0.10) 0%, rgba(var(--DLP-blue), 0.10) 100%), rgba(var(--color-snow), 0.80)', outline: 'rgba(var(--DLP-blue), 0.20)', text: 'rgb(var(--DLP-blue))', icon: 'rgb(var(--DLP-blue))' }, { text: systemText[systemLanguage][105], icon: '􀂑' }, { text: '', icon: '' });
+        setButtonState(button, { button: 'linear-gradient(0deg, rgba(var(--DLP-blue), 0.10) 0%, rgba(var(--DLP-blue), 0.10) 100%), rgba(var(--color-snow), 0.80)', outline: 'rgba(var(--DLP-blue), 0.20)', text: 'rgb(var(--DLP-blue))', icon: 'rgb(var(--DLP-blue))' }, { text: system("solver.switchToModern"), icon: '􀂑' }, { text: '', icon: '' });
     } else if (storageSession.legacy.page === 2) {
         document.querySelector(`#DLP_Main_Box_Divider_${pageHistory[pageHistory.length - 1]}_ID`).style.display = 'none';
         document.querySelector(`#DLP_Main_Box_Divider_4_ID`).style.display = 'block';
         pageHistory = [3, 4];
         let button = document.querySelector('#DLP_Switch_Legacy_Button_1_ID');
-        setButtonState(button, { button: 'linear-gradient(0deg, rgba(var(--DLP-blue), 0.10) 0%, rgba(var(--DLP-blue), 0.10) 100%), rgba(var(--color-snow), 0.80)', outline: 'rgba(var(--DLP-blue), 0.20)', text: 'rgb(var(--DLP-blue))', icon: 'rgb(var(--DLP-blue))' }, { text: systemText[systemLanguage][105], icon: '􀂑' }, { text: '', icon: '' });
+        setButtonState(button, { button: 'linear-gradient(0deg, rgba(var(--DLP-blue), 0.10) 0%, rgba(var(--DLP-blue), 0.10) 100%), rgba(var(--color-snow), 0.80)', outline: 'rgba(var(--DLP-blue), 0.20)', text: 'rgb(var(--DLP-blue))', icon: 'rgb(var(--DLP-blue))' }, { text: system("solver.switchToModern"), icon: '􀂑' }, { text: '', icon: '' });
     }
 
 
@@ -4504,7 +5670,7 @@ function One() {
                     const index = storageLocal.pins.home.indexOf(modifiedId);
                     if (isAdding && index === -1) {
                         if (storageLocal.pins.home.length > Math.floor(((window.innerHeight) / 200) - 1)) {
-                            showNotification("warning", "Pin Limit Reached", "You've pinned too many functions. Please unpin one to continue.", 15);
+                            showNotification("warning", system("notifications.pinLimitReachedTitle"), system("notifications.pinLimitReachedBody"), 15);
                         } else {
                             storageLocal.pins.home.push(modifiedId);
                         }
@@ -4688,15 +5854,15 @@ function One() {
             textToChange.style.animation = 'none';
             iconToChange.style.animation = 'none';
             requestAnimationFrame(() => {
-                textToChange.style.transition = '0s';
-                iconToChange.style.transition = '0s';
+                textToChange.style.transition = 'none';
+                iconToChange.style.transition = 'none';
                 textToChange.textContent = content.text;
-                iconToChange.textContent = content.icon;
+                iconToChange.textContent = getRTLDirectionalIcon(content.icon);
                 textToChange.style.color = color.text;
                 iconToChange.style.color = color.icon;
                 void button.offsetWidth;
-                textToChange.style.transition = '0.4s';
-                iconToChange.style.transition = '0.4s';
+                textToChange.style.transition = 'color 0.4s, filter 0.4s, opacity 0.4s';
+                iconToChange.style.transition = 'color 0.4s, filter 0.4s, opacity 0.4s';
                 void button.offsetWidth;
                 textToChange.style.filter = 'blur(0px)';
                 iconToChange.style.filter = 'blur(0px)';
@@ -4977,6 +6143,61 @@ function One() {
         })
             .then(response => response.json())
             .then(data => {
+                const isNonEmptyObject = value => value !== null
+                    && typeof value === 'object'
+                    && !Array.isArray(value)
+                    && Object.keys(value).length > 0;
+
+                const setServerOutdated = () => {
+                    if (serverConnectedBefore === 'outdated') return;
+
+                    const previousServerStatus = serverConnectedBefore;
+                    const outdatedColors = {
+                        button: 'rgb(var(--DLP-orange))',
+                        outline: 'rgba(0, 0, 0, 0.20)',
+                        text: '#FFF',
+                        icon: '#FFF'
+                    };
+                    const outdatedLabel = { text: system("status.outdated"), icon: '􀁟' };
+                    const outdatedAnimation = {
+                        text: 'DLP_Pulse_Opacity_Animation_1 6s ease-in-out infinite',
+                        icon: 'DLP_Pulse_Opacity_Animation_1 6s ease-in-out infinite'
+                    };
+
+                    updateConnetionButtonStyles(DLP_Server_Connection_Button, outdatedColors, outdatedLabel, outdatedAnimation);
+                    updateConnetionButtonStyles(DLP_Server_Connection_Button_2, outdatedColors, outdatedLabel, outdatedAnimation);
+                    DLP_Server_Connection_Button.setAttribute("data-dlp-connection-status", "outdated");
+                    DLP_Server_Connection_Button_2.setAttribute("data-dlp-connection-status", "outdated");
+                    mainInputsDiv1.style.opacity = '0.5';
+                    mainInputsDiv1.style.pointerEvents = 'none';
+
+                    if (previousServerStatus === 'no') {
+                        showNotification("warning", system("notifications.updateRequiredTitle"), system("notifications.updateRequiredBody"), 0);
+                    } else if (previousServerStatus === 'error' || serverConnectedBeforeNotification) {
+                        serverConnectedBeforeNotification?.close?.();
+                        serverConnectedBeforeNotification = false;
+                    }
+                    serverConnectedBefore = 'outdated';
+                };
+
+                const termsVersion = data?.global?.terms?.version;
+                const hasTermsVersion = termsVersion !== null
+                    && termsVersion !== undefined
+                    && String(termsVersion).trim() !== '';
+                const hasRequiredServerData = data !== null
+                    && typeof data === 'object'
+                    && isNonEmptyObject(data.global)
+                    && isNonEmptyObject(data.global.terms)
+                    && hasTermsVersion
+                    && isNonEmptyObject(data.versions)
+                    && isNonEmptyObject(data.versions[VERSION_FULL]);
+
+                if (!hasRequiredServerData) {
+                    console.error(`Required server data for ${VERSION_FULL} is missing`);
+                    setServerOutdated();
+                    return;
+                }
+
                 if (data.global || data.versions) {
                     if (!userBioData && !fetchingUserBioData) {
                         fetchUserBioData();
@@ -5039,7 +6260,7 @@ function One() {
                                 };
 
                                 const nameItems = typingEntries.map(entry => ({
-                                    name: entry.author || 'Someone',
+                                    name: entry.author || system("support.someone"),
                                     color: entry.accent || ''
                                 }));
 
@@ -5056,15 +6277,15 @@ function One() {
 
                                 if (nameItems.length === 1) {
                                     appendText(nameItems[0].name, nameItems[0].color);
-                                    appendText('is typing', '', true);
+                                    appendText(system("support.isTyping"), '', true);
                                 } else if (nameItems.length === 2) {
                                     appendText(nameItems[0].name, nameItems[0].color);
                                     appendText('&', '');
                                     appendText(nameItems[1].name, nameItems[1].color);
-                                    appendText('are typing', '', true);
+                                    appendText(system("support.areTyping"), '', true);
                                 } else {
                                     appendText(nameItems[0].name, nameItems[0].color);
-                                    appendText(`& ${nameItems.length - 1} others are typing`, '', true);
+                                    appendText(systemFormat("support.multipleTyping", { count: nameItems.length - 1 }), '', true);
                                 }
 
                                 const dotEl = typingGroup.querySelector('[data-time-element="true"]');
@@ -5136,37 +6357,51 @@ function One() {
                                 const alreadyKnown = (messageKey && knownMessageIds.includes(messageKey)) || (sendTimeKey && knownMessageIds.includes(sendTimeKey));
                                 if (!alreadyKnown && !newReplyButtonActive) {
                                     newReplyButtonActive = true;
-                                    updateConnetionButtonStyles(document.getElementById("DLP_Main_Feedback_1_Button_1_ID"), { button: 'rgb(var(--DLP-blue))', outline: 'rgba(0, 0, 0, 0.20)', text: '#FFF', icon: '#FFF' }, { text: 'New Reply', icon: '􀝗' }, { text: 'DLP_Pulse_Opacity_Animation_1 6s ease-in-out infinite', icon: 'DLP_Pulse_Opacity_Animation_1 6s ease-in-out infinite' });
-                                    showNotification({ icon: "􂄺", color: "rgb(var(--DLP-blue))" }, "Support Team Response", "You have a new message from our support team.", 30);
+                                    updateConnetionButtonStyles(document.getElementById("DLP_Main_Feedback_1_Button_1_ID"), { button: 'rgb(var(--DLP-blue))', outline: 'rgba(0, 0, 0, 0.20)', text: '#FFF', icon: '#FFF' }, { text: system("support.newReply"), icon: '􀝗' }, { text: 'DLP_Pulse_Opacity_Animation_1 6s ease-in-out infinite', icon: 'DLP_Pulse_Opacity_Animation_1 6s ease-in-out infinite' });
+                                    showNotification({ icon: "􂄺", color: "rgb(var(--DLP-blue))" }, system("notifications.supportTeamResponseTitle"), system("notifications.supportTeamResponseBody"), 30);
                                 }
                             });
                         }
                     }
 
 
-                    const globalData = data.global;
                     const versionData = data.versions[VERSION_FULL];
-                    let warnings = versionData.warnings || [];
-                    warnings.forEach(warning => {
-                        warning.date = versionData.updated;
-                    });
-                    const scriptData = data.script;
+                    const warnings = versionData.warnings || [];
+                    const rawScriptData = data.script;
+                    const normalizeScriptFeatureGroup = group => group === false
+                        ? false
+                        : isServerObject(group) ? group : {};
+                    const scriptData = isServerObject(rawScriptData) ? {
+                        ...rawScriptData,
+                        settings: isServerObject(rawScriptData.settings) ? rawScriptData.settings : {},
+                        support: {
+                            ...(isServerObject(rawScriptData.support) ? rawScriptData.support : {}),
+                            file_upload: isServerObject(rawScriptData.support?.file_upload) ? rawScriptData.support.file_upload : {}
+                        },
+                        modern: normalizeScriptFeatureGroup(rawScriptData.modern),
+                        legacy: normalizeScriptFeatureGroup(rawScriptData.legacy)
+                    } : null;
+                    const scriptSettings = scriptData?.settings ?? {};
+                    const scriptSupport = scriptData?.support ?? {};
+                    const scriptFileUpload = scriptSupport.file_upload ?? {};
 
-                    const termsText = Object.entries(globalData.terms)[0][1];
-                    newTermID = Object.entries(globalData.terms)[0][0];
+                    const termsData = data.global?.terms;
+                    newTermID = String(termsData?.version ?? '').trim();
+                    if (!newTermID) {
+                        console.error('Terms version not found in terms info JSON');
+                        setServerOutdated();
+                        return;
+                    }
 
-                    //console.log('Global Warning:', globalData.warning);
-                    //console.log('Notifications:', globalData.notifications);
-
-                    document.querySelector(`#DLP_Terms_Main_Text_1_ID`).innerHTML = termsText;
+                    document.querySelector(`#DLP_Terms_Main_Text_1_ID`).innerHTML = termsData.content;
 
                     if (versionData.status === 'latest') {
                         if (serverConnectedBefore !== 'yes') {
                             updateReleaseNotes(warnings);
                             mainInputsDiv1.style.opacity = '1';
                             mainInputsDiv1.style.pointerEvents = 'auto';
-                            updateConnetionButtonStyles(DLP_Server_Connection_Button, { button: 'rgb(var(--DLP-green))', outline: 'rgba(0, 0, 0, 0.20)', text: '#FFF', icon: '#FFF' }, { text: systemText[systemLanguage][108], icon: '􀤆' }, { text: 'DLP_Pulse_Opacity_Animation_1 6s ease-in-out infinite', icon: 'DLP_Pulse_Opacity_Animation_1 6s ease-in-out infinite' });
-                            updateConnetionButtonStyles(DLP_Server_Connection_Button_2, { button: 'rgb(var(--DLP-green))', outline: 'rgba(0, 0, 0, 0.20)', text: '#FFF', icon: '#FFF' }, { text: systemText[systemLanguage][108], icon: '􀤆' }, { text: 'DLP_Pulse_Opacity_Animation_1 6s ease-in-out infinite', icon: 'DLP_Pulse_Opacity_Animation_1 6s ease-in-out infinite' });
+                            updateConnetionButtonStyles(DLP_Server_Connection_Button, { button: 'rgb(var(--DLP-green))', outline: 'rgba(0, 0, 0, 0.20)', text: '#FFF', icon: '#FFF' }, { text: system("status.connected"), icon: '􀤆' }, { text: 'DLP_Pulse_Opacity_Animation_1 6s ease-in-out infinite', icon: 'DLP_Pulse_Opacity_Animation_1 6s ease-in-out infinite' });
+                            updateConnetionButtonStyles(DLP_Server_Connection_Button_2, { button: 'rgb(var(--DLP-green))', outline: 'rgba(0, 0, 0, 0.20)', text: '#FFF', icon: '#FFF' }, { text: system("status.connected"), icon: '􀤆' }, { text: 'DLP_Pulse_Opacity_Animation_1 6s ease-in-out infinite', icon: 'DLP_Pulse_Opacity_Animation_1 6s ease-in-out infinite' });
                             DLP_Server_Connection_Button.setAttribute("data-dlp-connection-status", "connected");
                             DLP_Server_Connection_Button_2.setAttribute("data-dlp-connection-status", "connected");
                             if (serverConnectedBefore === 'error' || serverConnectedBeforeNotification) {
@@ -5188,22 +6423,10 @@ function One() {
                             }
                         } else {
                             if (![5, 6].includes(pageHistory[pageHistory.length - 1])) goToPage(5, null, true);
-                            document.querySelector(`#DLP_Main_Box_Divider_5_ID`).querySelector(`#DLP_Terms_1_Text_1_ID`).innerHTML = "We have updated our Terms & Conditions. Please read them carefully and accept to continue using Duolingo PRO 3.1.";
+                            document.querySelector(`#DLP_Main_Box_Divider_5_ID`).querySelector(`#DLP_Terms_1_Text_1_ID`).innerHTML = system("terms.updateNotice");
                         }
-                    } else if (serverConnectedBefore !== 'outdated') {
-                        updateConnetionButtonStyles(DLP_Server_Connection_Button, { button: 'rgb(var(--DLP-orange))', outline: 'rgba(0, 0, 0, 0.20)', text: '#FFF', icon: '#FFF' }, { text: 'Outdated', icon: '􀁟' }, { text: 'DLP_Pulse_Opacity_Animation_1 6s ease-in-out infinite', icon: 'DLP_Pulse_Opacity_Animation_1 6s ease-in-out infinite' });
-                        updateConnetionButtonStyles(DLP_Server_Connection_Button_2, { button: 'rgb(var(--DLP-orange))', outline: 'rgba(0, 0, 0, 0.20)', text: '#FFF', icon: '#FFF' }, { text: 'Outdated', icon: '􀁟' }, { text: 'DLP_Pulse_Opacity_Animation_1 6s ease-in-out infinite', icon: 'DLP_Pulse_Opacity_Animation_1 6s ease-in-out infinite' });
-                        DLP_Server_Connection_Button.setAttribute("data-dlp-connection-status", "outdated");
-                        DLP_Server_Connection_Button_2.setAttribute("data-dlp-connection-status", "outdated");
-                        if (serverConnectedBefore === 'no') {
-                            mainInputsDiv1.style.opacity = '0.5';
-                            mainInputsDiv1.style.pointerEvents = 'none';
-                            showNotification("warning", systemText[systemLanguage][233], systemText[systemLanguage][234], 0);
-                        } else if (serverConnectedBefore === 'error' || serverConnectedBeforeNotification) {
-                            serverConnectedBeforeNotification.close();
-                            serverConnectedBeforeNotification = false;
-                        }
-                        serverConnectedBefore = 'outdated';
+                    } else {
+                        setServerOutdated();
                     }
 
                     if (scriptData) {
@@ -5245,20 +6468,20 @@ function One() {
                             document.getElementById('DLP_Main_GitHub_Button_1_ID').style.opacity = '0.5';
                             document.getElementById('DLP_Secondary_GitHub_Button_1_ID').style.opacity = '0.5';
                         }
-                        if (scriptData.settings.enabled === null) {
+                        if (scriptSettings.enabled === null) {
                             document.getElementById('DLP_Main_Settings_1_Button_1_ID').style.opacity = '';
                             document.getElementById('DLP_Secondary_Settings_1_Button_1_ID').style.opacity = '';
-                        } else if (scriptData.settings.enabled === false) {
+                        } else if (scriptSettings.enabled === false) {
                             document.getElementById('DLP_Main_Settings_1_Button_1_ID').style.opacity = '0.5';
                             document.getElementById('DLP_Secondary_Settings_1_Button_1_ID').style.opacity = '0.5';
                             if (pageHistory[pageHistory.length - 1] === 7) {
                                 goToPage(1, 'DLP_Universal_Back_1_Button_1_ID', true);
                             }
                         }
-                        if (scriptData.support.enabled === null) {
+                        if (scriptSupport.enabled === null) {
                             document.getElementById('DLP_Main_Feedback_1_Button_1_ID').style.opacity = '';
                             document.getElementById('DLP_Secondary_Feedback_1_Button_1_ID').style.opacity = '';
-                        } else if (scriptData.support.enabled === false) {
+                        } else if (scriptSupport.enabled === false) {
                             document.getElementById('DLP_Main_Feedback_1_Button_1_ID').style.opacity = '0.5';
                             document.getElementById('DLP_Secondary_Feedback_1_Button_1_ID').style.opacity = '0.5';
                             if (pageHistory[pageHistory.length - 1] === 11) {
@@ -5275,83 +6498,83 @@ function One() {
                                 goToPage(1, 'DLP_Universal_Back_1_Button_1_ID', true);
                             }
                         }
-                        if (scriptData.support.file_upload.enabled === null) {
-                            if (document.getElementById("DLP_Main_Box_Divider_11_ID").querySelector('#DLP_Attachment_Preview_Parent').childElementCount - 1 < scriptData.support.file_upload.max_files) {
+                        if (scriptFileUpload.enabled === null) {
+                            if (document.getElementById("DLP_Main_Box_Divider_11_ID").querySelector('#DLP_Attachment_Preview_Parent').childElementCount - 1 < scriptFileUpload.max_files) {
                                 document.getElementById("DLP_Main_Box_Divider_11_ID").querySelector('#DLP_Inset_Button_1_ID').style.opacity = '';
                             }
-                        } else if (scriptData.support.file_upload.enabled === false) {
+                        } else if (scriptFileUpload.enabled === false) {
                             document.getElementById("DLP_Main_Box_Divider_11_ID").querySelector('#DLP_Inset_Button_1_ID').style.opacity = '0.5';
                         }
 
-                        if (scriptData.settings.show_solve === null) {
+                        if (scriptSettings.show_solve === null) {
                             document.getElementById('DLP_Settings_Show_Solve_Buttons_1_ID').style.opacity = '';
                             document.getElementById('DLP_Settings_Show_Solve_Buttons_1_ID').querySelector('#DLP_Inset_Toggle_1_ID').removeAttribute('data-dlp-server-disabled');
                             handleToggleClick(document.getElementById('DLP_Settings_Show_Solve_Buttons_1_ID').querySelector('#DLP_Inset_Toggle_1_ID'), DLP_Settings_Var.showSolveButtons ? 1 : 0);
-                        } else if (scriptData.settings.show_solve === false) {
+                        } else if (scriptSettings.show_solve === false) {
                             document.getElementById('DLP_Settings_Show_Solve_Buttons_1_ID').style.opacity = '0.5';
                             handleToggleClick(document.getElementById('DLP_Settings_Show_Solve_Buttons_1_ID').querySelector('#DLP_Inset_Toggle_1_ID'), 1);
                             document.getElementById('DLP_Settings_Show_Solve_Buttons_1_ID').querySelector('#DLP_Inset_Toggle_1_ID').setAttribute('data-dlp-server-disabled', '');
                         }
-                        if (scriptData.settings.show_autoserver === null) {
+                        if (scriptSettings.show_autoserver === null) {
                             document.getElementById('DLP_Settings_Show_AutoServer_Button_1_ID').style.opacity = '';
                             document.getElementById('DLP_Settings_Show_AutoServer_Button_1_ID').querySelector('#DLP_Inset_Toggle_1_ID').removeAttribute('data-dlp-server-disabled');
                             handleToggleClick(document.getElementById('DLP_Settings_Show_AutoServer_Button_1_ID').querySelector('#DLP_Inset_Toggle_1_ID'), DLP_Settings_Var.showAutoServerButton ? 1 : 0);
-                        } else if (scriptData.settings.show_autoserver === false) {
+                        } else if (scriptSettings.show_autoserver === false) {
                             document.getElementById('DLP_Settings_Show_AutoServer_Button_1_ID').style.opacity = '0.5';
                             handleToggleClick(document.getElementById('DLP_Settings_Show_AutoServer_Button_1_ID').querySelector('#DLP_Inset_Toggle_1_ID'), 0);
                             document.getElementById('DLP_Settings_Show_AutoServer_Button_1_ID').querySelector('#DLP_Inset_Toggle_1_ID').setAttribute('data-dlp-server-disabled', '');
                         }
-                        if (scriptData.settings.random_legacy_solve_speed === null) {
+                        if (scriptSettings.random_legacy_solve_speed === null) {
                             document.getElementById('DLP_Settings_Random_Legacy_Solve_Speed_Button_1_ID').style.opacity = '';
                             document.getElementById('DLP_Settings_Random_Legacy_Solve_Speed_Button_1_ID').querySelector('#DLP_Inset_Toggle_1_ID').removeAttribute('data-dlp-server-disabled');
                             handleToggleClick(document.getElementById('DLP_Settings_Random_Legacy_Solve_Speed_Button_1_ID').querySelector('#DLP_Inset_Toggle_1_ID'), DLP_Settings_Var.randomSolveSpeed ? 1 : 0);
-                        } else if (scriptData.settings.random_legacy_solve_speed === false) {
+                        } else if (scriptSettings.random_legacy_solve_speed === false) {
                             document.getElementById('DLP_Settings_Random_Legacy_Solve_Speed_Button_1_ID').style.opacity = '0.5';
                             handleToggleClick(document.getElementById('DLP_Settings_Random_Legacy_Solve_Speed_Button_1_ID').querySelector('#DLP_Inset_Toggle_1_ID'), 0);
                             document.getElementById('DLP_Settings_Random_Legacy_Solve_Speed_Button_1_ID').querySelector('#DLP_Inset_Toggle_1_ID').setAttribute('data-dlp-server-disabled', '');
                         }
-                        if (scriptData.settings.custom_random_legacy_solve_speed === null && scriptData.settings.random_legacy_solve_speed === null) {
+                        if (scriptSettings.custom_random_legacy_solve_speed === null && scriptSettings.random_legacy_solve_speed === null) {
                             if (DLP_Settings_Var.randomSolveSpeed) {
                                 document.getElementById('DLP_Settings_Legacy_Solve_Speed_1_ID').style.opacity = '';
                             }
-                        } else if (scriptData.settings.random_legacy_solve_speed === false) {
+                        } else if (scriptSettings.random_legacy_solve_speed === false) {
                             document.getElementById('DLP_Settings_Legacy_Solve_Speed_1_ID').style.display = 'none';
-                        } else if (scriptData.settings.custom_random_legacy_solve_speed === false) {
+                        } else if (scriptSettings.custom_random_legacy_solve_speed === false) {
                             document.getElementById('DLP_Settings_Legacy_Solve_Speed_1_ID').style.opacity = '0.5';
                             document.getElementById('DLP_Settings_Legacy_Solve_Speed_1_ID').querySelector('.DLP_Input_Style_1_Active').setAttribute('data-dlp-server-disabled', '');
                         }
-                        if (scriptData.settings.anonymous_analytics === null) {
+                        if (scriptSettings.anonymous_analytics === null) {
                             document.getElementById('DLP_Settings_Help_Us_Make_Better_Button_1_ID').style.opacity = '';
                             document.getElementById('DLP_Settings_Help_Us_Make_Better_Button_1_ID').querySelector('#DLP_Inset_Toggle_1_ID').removeAttribute('data-dlp-server-disabled');
                             handleToggleClick(document.getElementById('DLP_Settings_Help_Us_Make_Better_Button_1_ID').querySelector('#DLP_Inset_Toggle_1_ID'), DLP_Settings_Var.anonymousUsageData ? 1 : 0);
-                        } else if (scriptData.settings.anonymous_analytics === false) {
+                        } else if (scriptSettings.anonymous_analytics === false) {
                             document.getElementById('DLP_Settings_Help_Us_Make_Better_Button_1_ID').style.opacity = '0.5';
                             handleToggleClick(document.getElementById('DLP_Settings_Help_Us_Make_Better_Button_1_ID').querySelector('#DLP_Inset_Toggle_1_ID'), 0);
                             document.getElementById('DLP_Settings_Help_Us_Make_Better_Button_1_ID').querySelector('#DLP_Inset_Toggle_1_ID').setAttribute('data-dlp-server-disabled', '');
                         }
-                        if (scriptData.settings.reduce_effects === null) {
+                        if (scriptSettings.reduce_effects === null) {
                             document.getElementById('DLP_Settings_Reduce_Effects_Button_1_ID').style.opacity = '';
                             document.getElementById('DLP_Settings_Reduce_Effects_Button_1_ID').querySelector('#DLP_Inset_Toggle_1_ID').removeAttribute('data-dlp-server-disabled');
                             handleToggleClick(document.getElementById('DLP_Settings_Reduce_Effects_Button_1_ID').querySelector('#DLP_Inset_Toggle_1_ID'), DLP_Settings_Var.reduceEffects ? 1 : 0);
-                        } else if (scriptData.settings.reduce_effects === false) {
+                        } else if (scriptSettings.reduce_effects === false) {
                             document.getElementById('DLP_Settings_Reduce_Effects_Button_1_ID').style.opacity = '0.5';
                             handleToggleClick(document.getElementById('DLP_Settings_Reduce_Effects_Button_1_ID').querySelector('#DLP_Inset_Toggle_1_ID'), 0);
                             document.getElementById('DLP_Settings_Reduce_Effects_Button_1_ID').querySelector('#DLP_Inset_Toggle_1_ID').setAttribute('data-dlp-server-disabled', '');
                         }
-                        if (scriptData.settings.free_duolingo_max === null) {
+                        if (scriptSettings.free_duolingo_max === null) {
                             document.getElementById('DLP_Settings_Free_Local_Super_Button_1_ID').style.opacity = '';
                             document.getElementById('DLP_Settings_Free_Local_Super_Button_1_ID').querySelector('#DLP_Inset_Toggle_1_ID').removeAttribute('data-dlp-server-disabled');
                             handleToggleClick(document.getElementById('DLP_Settings_Free_Local_Super_Button_1_ID').querySelector('#DLP_Inset_Toggle_1_ID'), DLP_Settings_Var.localSuper ? 1 : 0);
-                        } else if (scriptData.settings.free_duolingo_max === false) {
+                        } else if (scriptSettings.free_duolingo_max === false) {
                             document.getElementById('DLP_Settings_Free_Local_Super_Button_1_ID').style.opacity = '0.5';
                             handleToggleClick(document.getElementById('DLP_Settings_Free_Local_Super_Button_1_ID').querySelector('#DLP_Inset_Toggle_1_ID'), 0);
                             document.getElementById('DLP_Settings_Free_Local_Super_Button_1_ID').querySelector('#DLP_Inset_Toggle_1_ID').setAttribute('data-dlp-server-disabled', '');
                         }
-                        if (scriptData.settings.show_super_trial === null) {
+                        if (scriptSettings.show_super_trial === null) {
                             document.getElementById('DLP_Settings_Show_Super_Trial_Button_1_ID').style.opacity = '';
                             document.getElementById('DLP_Settings_Show_Super_Trial_Button_1_ID').querySelector('#DLP_Inset_Toggle_1_ID').removeAttribute('data-dlp-server-disabled');
                             handleToggleClick(document.getElementById('DLP_Settings_Show_Super_Trial_Button_1_ID').querySelector('#DLP_Inset_Toggle_1_ID'), DLP_Settings_Var.showSuper ? 1 : 0);
-                        } else if (scriptData.settings.show_super_trial === false) {
+                        } else if (scriptSettings.show_super_trial === false) {
                             document.getElementById('DLP_Settings_Show_Super_Trial_Button_1_ID').style.opacity = '0.5';
                             handleToggleClick(document.getElementById('DLP_Settings_Show_Super_Trial_Button_1_ID').querySelector('#DLP_Inset_Toggle_1_ID'), 0);
                             document.getElementById('DLP_Settings_Show_Super_Trial_Button_1_ID').querySelector('#DLP_Inset_Toggle_1_ID').setAttribute('data-dlp-server-disabled', '');
@@ -5359,21 +6582,8 @@ function One() {
 
                         storageSession.script = scriptData;
                         saveStorageSession();
+                        applyServerFeatureAvailability();
                     }
-
-                    //if (storageLocal.languagePackVersion !== versionData.languagePackVersion) {
-                    //    fetch(serverURL + "/static/3.0/resources/language_pack.json")
-                    //        .then(response => response.json())
-                    //        .then(data => {
-                    //            if (data[VERSION_FULL]) {
-                    //                storageLocal.languagePack = data[VERSION_FULL];
-                    //                console.log(data[VERSION_FULL]);
-                    //                storageLocal.languagePackVersion = versionData.languagePackVersion;
-                    //                saveStorageLocal();
-                    //            }
-                    //        })
-                    //        .catch(error => console.error('Error fetching systemText:', error));
-                    //}
                 } else {
                     console.error(`Version ${VERSION_FULL} not found in the data`);
                 }
@@ -5383,11 +6593,11 @@ function One() {
                 if (serverConnectedBefore !== 'error') {
                     mainInputsDiv1.style.opacity = '0.5';
                     mainInputsDiv1.style.pointerEvents = 'none';
-                    updateConnetionButtonStyles(DLP_Server_Connection_Button, { button: 'rgb(var(--DLP-pink))', outline: 'rgba(0, 0, 0, 0.20)', text: '#FFF', icon: '#FFF' }, { text: systemText[systemLanguage][109], icon: '􀇿' }, { text: 'DLP_Pulse_Opacity_Animation_1 6s ease-in-out infinite', icon: 'DLP_Pulse_Opacity_Animation_1 6s ease-in-out infinite' });
-                    updateConnetionButtonStyles(DLP_Server_Connection_Button_2, { button: 'rgb(var(--DLP-pink))', outline: 'rgba(0, 0, 0, 0.20)', text: '#FFF', icon: '#FFF' }, { text: systemText[systemLanguage][109], icon: '􀇿' }, { text: 'DLP_Pulse_Opacity_Animation_1 6s ease-in-out infinite', icon: 'DLP_Pulse_Opacity_Animation_1 6s ease-in-out infinite' });
+                    updateConnetionButtonStyles(DLP_Server_Connection_Button, { button: 'rgb(var(--DLP-pink))', outline: 'rgba(0, 0, 0, 0.20)', text: '#FFF', icon: '#FFF' }, { text: system("status.error"), icon: '􀇿' }, { text: 'DLP_Pulse_Opacity_Animation_1 6s ease-in-out infinite', icon: 'DLP_Pulse_Opacity_Animation_1 6s ease-in-out infinite' });
+                    updateConnetionButtonStyles(DLP_Server_Connection_Button_2, { button: 'rgb(var(--DLP-pink))', outline: 'rgba(0, 0, 0, 0.20)', text: '#FFF', icon: '#FFF' }, { text: system("status.error"), icon: '􀇿' }, { text: 'DLP_Pulse_Opacity_Animation_1 6s ease-in-out infinite', icon: 'DLP_Pulse_Opacity_Animation_1 6s ease-in-out infinite' });
                     DLP_Server_Connection_Button.setAttribute("data-dlp-connection-status", "error");
                     DLP_Server_Connection_Button_2.setAttribute("data-dlp-connection-status", "error");
-                    serverConnectedBeforeNotification = showNotification("error", systemText[systemLanguage][231], systemText[systemLanguage][232], 0);
+                    serverConnectedBeforeNotification = showNotification("error", system("notifications.connectionErrorTitle"), system("notifications.connectionErrorBody"), 0);
                     serverConnectedBefore = 'error';
                 }
             });
@@ -5537,13 +6747,6 @@ function One() {
             profile_picture: "https:" + userData.picture + "/xlarge"
     };
         fetchingUserBioData = false;
-    }
-
-    function getCourseName() {
-        let el = document.getElementsByClassName("jNMwi")[0];
-        let f = el?.[Object.keys(el || {}).find(k=>k.startsWith("__reactFiber$"))];
-        while(f && !f.memoizedProps?.name) f = f.return;
-        return f?.memoizedProps?.name;
     }
 
     function escapeChatHtml(value) {
@@ -6040,7 +7243,6 @@ function One() {
         return null;
     }
 
-
     function buildMentionAccentStyle(accentValue, mode = 'mention') {
         const fallbackMentionStyle = 'background: rgba(var(--color-wolf), 0.2); color: rgb(var(--color-wolf));';
         const fallbackTextStyle = 'color: rgb(var(--DLP-blue));';
@@ -6228,7 +7430,7 @@ function One() {
                 const rawName = mention?.name;
                 const safeDisplayName = (typeof rawName === 'string' && rawName.trim() !== '')
                     ? escapeChatHtml(rawName.trim())
-                    : 'Private User';
+                    : system("support.privateUser");
 
                 const mentionStyle = buildMentionAccentStyle(mention?.accent);
                 return `<span class="DLP_Mention_Style_1" style="${mentionStyle}">@${safeDisplayName}</span>`;
@@ -6267,19 +7469,19 @@ function One() {
             const years = Math.floor(days / 365);
 
             if (seconds < 60) {
-                return "just now";
+                return system("support.justNow");
             } else if (minutes < 60) {
-                return `${minutes}m ago`;
+                return systemFormat("support.minutesAgo", { minutes });
             } else if (hours < 24) {
-                return `${hours}h ago`;
+                return systemFormat("support.hoursAgo", { hours });
             } else if (days < 7) {
-                return `${days}d ago`;
+                return systemFormat("support.daysAgo", { days });
             } else if (weeks < 4) {
-                return `${weeks}w ago`;
+                return systemFormat("support.weeksAgo", { weeks });
             } else if (months < 12) {
-                return `${months}m ago`;
+                return systemFormat("support.monthsAgo", { months });
             } else {
-                return `${years}y ago`;
+                return systemFormat("support.yearsAgo", { years });
             }
         }
         function toMilliseconds(ts) {
@@ -6359,7 +7561,7 @@ function One() {
             const targetSendTime = targetMessage?.send_time ?? '';
             const previewAccent = targetMessage?.accent && targetMessage.accent !== '' ? targetMessage.accent : (message?.accent || 'rgb(var(--DLP-blue))');
             const previewAccentStyle = buildMentionAccentStyle(previewAccent, 'text');
-            const previewAuthor = targetMessage?.author ?? message?.author ?? 'Unknown user';
+            const previewAuthor = targetMessage?.author ?? message?.author ?? system("support.unknownUser");
             const previewAvatar = targetMessage?.profile_picture ?? message?.profile_picture ?? '';
             const previewAvatarDeco = targetMessage?.profile_picture_deco ?? message?.profile_picture_deco ?? '';
             const safePreviewAvatar = sanitizeChatUrl(previewAvatar, { allowBlob: true });
@@ -6371,8 +7573,8 @@ function One() {
             const previewMessageRaw = (() => {
                 const rawMessage = String(targetMessage?.message ?? '').trim();
                 if (rawMessage !== '') return targetMessage.message;
-                if (Array.isArray(targetMessage?.files) && targetMessage.files.length > 0) return 'Attachment';
-                return 'Original message unavailable';
+                if (Array.isArray(targetMessage?.files) && targetMessage.files.length > 0) return system("support.attachment");
+                return system("support.originalMessageUnavailable");
             })();
             const previewMessage = formatSupportChatMessage(previewMessageRaw);
             const safePreviewAuthor = escapeChatHtml(previewAuthor);
@@ -6388,7 +7590,7 @@ function One() {
                         <path d="M17 1H11C5.47715 1 1 5.47715 1 11V17" stroke="rgb(var(--color-eel), 0.20)" stroke-width="2" stroke-linecap="round"/>
                     </svg>
                     <div class="DLP_HStack_6">
-                        <div data-dlp-deco-src="${safePreviewDecoSource}" style="width: 20px; height: 20px; border-radius: 50%; outline: rgba(0, 0, 0, 0.2) solid 2px; outline-offset: -2px; ${safeAvatarBackground}">${previewAvatarDecoHtml}</div>
+                        <div data-dlp-deco-src="${safePreviewDecoSource}" style="width: 20px; height: 20px; border-radius: var(--DLP-corner-r-l); outline: rgba(0, 0, 0, 0.2) solid 2px; outline-offset: -2px; ${safeAvatarBackground}">${previewAvatarDecoHtml}</div>
                         <p class="DLP_Text_Style_1 DLP_NoSelect" style="${safePreviewAccentStyle}">${safePreviewAuthor}</p>
                     </div>
                     <p class="DLP_Text_Style_1" data-message-id="${safeTargetKey}" data-message-sent="${safeTargetSendTime}" style="align-self: stretch; white-space: nowrap; overflow-wrap: anywhere; word-break: break-word; text-overflow: ellipsis; -webkit-line-clamp: 1; overflow: hidden; display: -webkit-box; -webkit-box-orient: vertical;">${previewMessage}</p>
@@ -6440,7 +7642,8 @@ function One() {
             const safeGroupSendTime = escapeChatAttribute(message.send_time ?? '');
             const safeAuthorAttr = escapeChatAttribute(message.author ?? '');
             const safeAuthorText = escapeChatHtml(message.author ?? '');
-            const safeRoleText = escapeChatHtml(message.role ?? '');
+            const displayRole = message.role === "You" ? system("support.you") : (message.role ?? '');
+            const safeRoleText = escapeChatHtml(displayRole);
             const safeFormattedTime = escapeChatHtml(formatTimeAgo(message.send_time));
             const safeHeaderAccentStyle = escapeChatAttribute(headerAccentStyle);
             const safeProfilePicture = sanitizeChatUrl(message.profile_picture, { allowBlob: true });
@@ -6457,7 +7660,7 @@ function One() {
                 <div class="DLP_VStack_4" data-group-id="${safeGroupId}" data-group-sent="${safeGroupSendTime}" data-author-name="${safeAuthorAttr}">
                     <div data-chat-header="true" style="display: flex; justify-content: space-between; align-items: center; align-self: stretch;">
                         <div class="DLP_HStack_6">
-                            <div style="width: 20px; height: 20px; border-radius: 50%; outline: rgba(0, 0, 0, 0.2) solid 2px; outline-offset: -2px; ${escapeChatAttribute(safeAvatarBackground)}">${avatarDecoHtml}</div>
+                            <div style="width: 20px; height: 20px; border-radius: var(--DLP-corner-r-l); corner-shape: var(--DLP-corner-s); outline: rgba(0, 0, 0, 0.2) solid 2px; outline-offset: -2px; ${escapeChatAttribute(safeAvatarBackground)}">${avatarDecoHtml}</div>
                             <p class="DLP_Text_Style_1 DLP_NoSelect" style="${safeHeaderAccentStyle}">${safeAuthorText}</p>
                         </div>
                         <div class="DLP_HStack_6"${roleMetaStackStyle}>
@@ -6558,7 +7761,7 @@ function One() {
             async function getElementDimensions(element) {
                 return new Promise((resolve, reject) => {
                     if (!(element instanceof HTMLImageElement) && !(element instanceof HTMLVideoElement)) {
-                        return reject(new Error('Element must be an image or video'));
+                        return reject(new Error(system("attachments.elementTypeError")));
                     }
 
                     if (element instanceof HTMLImageElement) {
@@ -6569,7 +7772,7 @@ function One() {
                             resolve({ width: element.naturalWidth, height: element.naturalHeight });
                         }, { once: true });
                         element.addEventListener('error', () => {
-                            reject(new Error('Failed to load image'));
+                            reject(new Error(system("attachments.imageLoadError")));
                         }, { once: true });
                     } else if (element instanceof HTMLVideoElement) {
                         if (element.readyState >= 1) {
@@ -6579,7 +7782,7 @@ function One() {
                             resolve({ width: element.videoWidth, height: element.videoHeight });
                         }, { once: true });
                         element.addEventListener('error', () => {
-                            reject(new Error('Failed to load video'));
+                            reject(new Error(system("attachments.videoLoadError")));
                         }, { once: true });
                     }
                 });
@@ -6662,7 +7865,7 @@ function One() {
                 let closeBtn = `
                     <div style="display: flex; padding: 2px; justify-content: center; align-items: center; gap: 6px; opacity: 0.5; position: absolute; bottom: 24px; pointer-events: none;">
                         <p class="DLP_Text_Style_1 DLP_NoSelect">􀆄</p>
-                        <p class="DLP_Text_Style_1 DLP_NoSelect">Close</p>
+                        <p class="DLP_Text_Style_1 DLP_NoSelect">${system("attachments.close")}</p>
                     </div>
                 `;
                 largeViewMotherBox.insertAdjacentHTML('beforeend', closeBtn);
@@ -6686,7 +7889,7 @@ function One() {
                 lastAttachment.style.transform = `translate(${translate.translateX}px, ${translate.translateY}px)`;
                 void lastAttachment.offsetHeight;
 
-                lastAttachment.style.transition = '0.4s cubic-bezier(0.16, 1, 0.32, 1)';
+                lastAttachment.style.transition = 'transform 0.4s cubic-bezier(0.16, 1, 0.32, 1), width 0.4s cubic-bezier(0.16, 1, 0.32, 1), height 0.4s cubic-bezier(0.16, 1, 0.32, 1), max-width 0.4s cubic-bezier(0.16, 1, 0.32, 1), max-height 0.4s cubic-bezier(0.16, 1, 0.32, 1)';
 
                 void lastAttachment.offsetHeight;
 
@@ -6822,7 +8025,7 @@ function One() {
                 const safeTempState = escapeChatAttribute(isTemp);
                 const temp2 = document.createElement('div');
                 temp2.innerHTML = `
-                    <div data-message-id="${safeMessageKey}" data-message-sent="${safeMessageSent}"${isTemp ? ` data-is-temp="${safeTempState}"` : ''} class="DLP_Hide_Scrollbar" style="display: flex; align-items: center; gap: 8px; align-self: stretch; width: 100%; overflow-y: scroll; opacity: 1; filter: blur(0px); margin-top: 0px; transition: 0.4s cubic-bezier(0.16, 1, 0.32, 1);${failedTemp ? ' color: rgba(var(--DLP-pink));' : ''}"></div>
+                    <div data-message-id="${safeMessageKey}" data-message-sent="${safeMessageSent}"${isTemp ? ` data-is-temp="${safeTempState}"` : ''} class="DLP_Hide_Scrollbar" style="display: flex; align-items: center; gap: 8px; align-self: stretch; width: 100%; overflow-y: scroll; opacity: 1; filter: blur(0px); margin-top: 0px; transition: width 0.4s cubic-bezier(0.16, 1, 0.32, 1), height 0.4s cubic-bezier(0.16, 1, 0.32, 1), margin-top 0.4s cubic-bezier(0.16, 1, 0.32, 1), filter 0.4s cubic-bezier(0.16, 1, 0.32, 1), opacity 0.4s cubic-bezier(0.16, 1, 0.32, 1);${failedTemp ? ' color: rgba(var(--DLP-pink));' : ''}"></div>
                 `;
                 const newElement2 = temp2.firstElementChild;
                 lastChatChild.appendChild(newElement2);
@@ -6861,7 +8064,7 @@ function One() {
                             <div class="DLP_Attachment_Box_1" data-preview-src="${safeFileUrlAttr}">
                                 <div style="display: flex; width: 100%; height: 100%; padding-top: 6px; flex-direction: column; justify-content: center; align-items: center; gap: 6px; flex-shrink: 0;">
                                     <p class="DLP_Text_Style_1 DLP_NoSelect" style="font-size: 24px;">􀈸</p>
-                                    <p class="DLP_Text_Style_1 DLP_NoSelect">File</p>
+                                    <p class="DLP_Text_Style_1 DLP_NoSelect">${system("attachments.file")}</p>
                                 </div>
                                 <div class="DLP_Attachment_Box_1_Hover" style="display: none;">
                                     <p class="DLP_Text_Style_1 DLP_Magnetic_Hover_1 DLP_NoSelect">􀄉</p>
@@ -7028,12 +8231,9 @@ function One() {
                     <div style="display: flex; flex-direction: column; align-items: flex-start; gap: 8px;">
                         ${warning.icon}
                         <p class="DLP_Text_Style_2">${warning.head}</p>
+                        <p class="DLP_Text_Style_1" style="background: url(${serverURL}/static/images/flow/secondary/512/light.png) lightgray 50% / cover no-repeat; background-clip: text; -webkit-background-clip: text; -webkit-text-fill-color: transparent; display: none;">${warning.tag}</p>
                     </div>
                     <p class="DLP_Text_Style_1">${warning.body}</p>
-                    <div class="DLP_HStack_Auto">
-                        <p class="DLP_Text_Style_1" style="color: rgb(var(--color-wolf), 0.4);">${warning.tag}</p>
-                        <p class="DLP_Text_Style_1" style="color: rgb(var(--color-wolf), 0.4);">${warning.date}</p>
-                    </div>
                 </div>
                 `;
                 releaseNotesContainer.insertAdjacentHTML('beforeend', warningHTML);
@@ -7161,14 +8361,14 @@ function One() {
         let FeedbackText = DLP_Feedback_Text_Input_1_ID.value;
         sendFeedbackServer(feedbackType, FeedbackText);
 
-        setButtonState(DLP_Feedback_Send_Button_1_ID, { button: 'linear-gradient(0deg, rgba(var(--DLP-blue), 0.10) 0%, rgba(var(--DLP-blue), 0.10) 100%), rgba(var(--color-snow), 0.80)', outline: 'rgba(var(--DLP-blue), 0.20)', text: 'rgb(var(--DLP-blue))', icon: 'rgb(var(--DLP-blue))' }, { text: systemText[systemLanguage][111], icon: '􀓞' }, { text: '', icon: 'DLP_Rotate_360_Animation_1 4s ease-in-out infinite' }, () => {
+        setButtonState(DLP_Feedback_Send_Button_1_ID, { button: 'linear-gradient(0deg, rgba(var(--DLP-blue), 0.10) 0%, rgba(var(--DLP-blue), 0.10) 100%), rgba(var(--color-snow), 0.80)', outline: 'rgba(var(--DLP-blue), 0.20)', text: 'rgb(var(--DLP-blue))', icon: 'rgb(var(--DLP-blue))' }, { text: system("status.sending"), icon: '􀓞' }, { text: '', icon: 'DLP_Rotate_360_Animation_1 4s ease-in-out infinite' }, () => {
             function f() {
                 if (sendFeedbackStatus === 'sent') {
-                    setButtonState(DLP_Feedback_Send_Button_1_ID, { button: 'linear-gradient(0deg, rgba(var(--DLP-green), 0.10) 0%, rgba(var(--DLP-green), 0.10) 100%), rgba(var(--color-snow), 0.80)', outline: 'rgba(var(--DLP-green), 0.20)', text: 'rgb(var(--DLP-green))', icon: 'rgb(var(--DLP-green))' }, { text: systemText[systemLanguage][112], icon: '􀁣' }, { text: '', icon: ' ' }, () => {
+                    setButtonState(DLP_Feedback_Send_Button_1_ID, { button: 'linear-gradient(0deg, rgba(var(--DLP-green), 0.10) 0%, rgba(var(--DLP-green), 0.10) 100%), rgba(var(--color-snow), 0.80)', outline: 'rgba(var(--DLP-green), 0.20)', text: 'rgb(var(--DLP-green))', icon: 'rgb(var(--DLP-green))' }, { text: system("status.sent"), icon: '􀁣' }, { text: '', icon: ' ' }, () => {
                         if (!storageLocal.settings.reduceEffects) confetti();
                     });
                 } else if (sendFeedbackStatus === 'error') {
-                    setButtonState(DLP_Feedback_Send_Button_1_ID, { button: 'linear-gradient(0deg, rgba(var(--DLP-pink), 0.10) 0%, rgba(var(--DLP-pink), 0.10) 100%), rgba(var(--color-snow), 0.80)', outline: 'rgba(var(--DLP-pink), 0.20)', text: 'rgb(var(--DLP-pink))', icon: 'rgb(var(--DLP-pink))' }, { text: systemText[systemLanguage][115], icon: '􀇿' }, { text: '', icon: ' ' }, () => {
+                    setButtonState(DLP_Feedback_Send_Button_1_ID, { button: 'linear-gradient(0deg, rgba(var(--DLP-pink), 0.10) 0%, rgba(var(--DLP-pink), 0.10) 100%), rgba(var(--color-snow), 0.80)', outline: 'rgba(var(--DLP-pink), 0.20)', text: 'rgb(var(--DLP-pink))', icon: 'rgb(var(--DLP-pink))' }, { text: system("status.failed"), icon: '􀇿' }, { text: '', icon: ' ' }, () => {
                     });
                 } else if (sendFeedbackStatus === 'sending') {
                     setTimeout(() => { f(); }, 800);
@@ -7269,7 +8469,7 @@ function One() {
         } catch (error) {
             console.error('Error:', error);
             sendFeedbackStatus = 'error';
-            showNotification("error", systemText[systemLanguage][206], systemText[systemLanguage][207], 30);
+            showNotification("error", system("notifications.feedbackErrorTitle"), system("notifications.feedbackErrorBody"), 30);
         }
     }
 
@@ -7279,10 +8479,11 @@ function One() {
         let status = 'loading';
 
         const loadingStart = Date.now();
+        ensureScrittoButtonLabel(button);
         setButtonState(
             button,
             { button: 'rgba(var(--DLP-blue), 0.10)', outline: 'rgba(var(--DLP-blue), 0.20)', text: 'rgb(var(--DLP-blue))', icon: 'rgb(var(--DLP-blue))' },
-            { text: systemText[systemLanguage][113], icon: '􀓞' },
+            { text: system("status.loading"), icon: '􀓞' },
             { text: '', icon: 'DLP_Rotate_360_Animation_1 4s ease-in-out infinite' }
         );
         let nextAnimationEndsAt = loadingStart + ANIM_MS;
@@ -7300,8 +8501,8 @@ function One() {
 
                     showNotification(
                         'warning',
-                        'That is a lot of XP...',
-                        `You're about to gain more XP than recommended. Click CONFIRM to continue.`,
+                        system("notifications.xpTooHighTitle"),
+                        system("notifications.xpTooHighBody"),
                         10
                     );
 
@@ -7311,7 +8512,7 @@ function One() {
                         setButtonState(
                             button,
                             { button: 'rgb(var(--DLP-blue))', outline: 'rgba(0, 0, 0, 0.20)', text: '#FFF', icon: '#FFF' },
-                            { text: 'CONFIRM', icon: '􀰫' },
+                            { text: system("actions.confirm"), icon: '􀰫' },
                             { text: '', icon: '' }
                         );
                         nextAnimationEndsAt = Date.now() + ANIM_MS;
@@ -7335,7 +8536,7 @@ function One() {
                     type: id,
                     amount: (Array.isArray(amount) && amount.length === 2 ? `${String(amount[0]).padStart(2, '0')}-${String(amount[1])}` : amount),
                     version: VERSION_FULL,
-                    lang: systemLanguage
+                    lang: 'en'
                 })
             });
 
@@ -7403,7 +8604,7 @@ function One() {
                                     done = true;
                                     showNotification(data.notification.icon, data.notification.head, data.notification.body, data.notification.duration);
                                 } else {
-                                    button.querySelector('.DLP_Inset_Text_1_ID').innerHTML = data.percentage + '%';
+                                    setScrittoButtonText(button.querySelector('.DLP_Inset_Text_1_ID'), data.percentage + '%', true);
                                 }
 
                                 // Trim processed chunk and reset counters
@@ -7438,17 +8639,17 @@ function One() {
                 setButtonState(
                     button,
                     { button: 'rgba(var(--DLP-green), 0.10)', outline: 'rgba(var(--DLP-green), 0.20)', text: 'rgb(var(--DLP-green))', icon: 'rgb(var(--DLP-green))' },
-                    { text: systemText[systemLanguage][114], icon: '􀁣' },
+                    { text: system("status.done"), icon: '􀁣' },
                     { text: '', icon: '' }
                 );
                 nextAnimationEndsAt = Date.now() + ANIM_MS;
 
                 if (!storageLocal.settings.reduceEffects) confetti();
                 setTimeout(() => {
-                    let buttonContentText = systemText[systemLanguage][9];
-                    if (id === 'super' || id === 'double_xp_boost') buttonContentText = systemText[systemLanguage][13];
-                    else if (id === 'heart_refill') buttonContentText = systemText[systemLanguage][229];
-                    else if (id === 'quest') buttonContentText = systemText[systemLanguage][60];
+                    let buttonContentText = system("actions.get");
+                    if (id === 'super' || id === 'double_xp_boost') buttonContentText = system("actions.redeem");
+                    else if (id === 'heart_refill') buttonContentText = system("actions.refill");
+                    else if (id === 'quest') buttonContentText = system("actions.complete");
                     setButtonState(
                         button,
                         { button: 'rgb(var(--DLP-blue))', outline: 'rgba(0, 0, 0, 0.20)', text: '#FFF', icon: '#FFF' },
@@ -7464,16 +8665,16 @@ function One() {
                 setButtonState(
                     button,
                     { button: 'rgb(var(--DLP-pink))', outline: 'rgba(0, 0, 0, 0.20)', text: '#FFF', icon: '#FFF' },
-                    { text: systemText[systemLanguage][115], icon: '􀇿' },
+                    { text: system("status.failed"), icon: '􀇿' },
                     { text: '', icon: '' }
                 );
                 nextAnimationEndsAt = Date.now() + ANIM_MS;
 
                 setTimeout(() => {
-                    let buttonContentText = systemText[systemLanguage][9];
-                    if (id === 'super' || id === 'double_xp_boost') buttonContentText = systemText[systemLanguage][13];
-                    else if (id === 'heart_refill') buttonContentText = systemText[systemLanguage][229];
-                    else if (id === 'quest') buttonContentText = systemText[systemLanguage][60];
+                    let buttonContentText = system("actions.get");
+                    if (id === 'super' || id === 'double_xp_boost') buttonContentText = system("actions.redeem");
+                    else if (id === 'heart_refill') buttonContentText = system("actions.refill");
+                    else if (id === 'quest') buttonContentText = system("actions.complete");
                     setButtonState(
                         button,
                         { button: 'rgb(var(--DLP-blue))', outline: 'rgba(0, 0, 0, 0.20)', text: '#FFF', icon: '#FFF' },
@@ -7486,10 +8687,10 @@ function One() {
                 }, (ANIM_MS * 2));
 
             } else if (status === 'rejected') {
-                let buttonContentText = systemText[systemLanguage][9];
-                if (id === 'super' || id === 'double_xp_boost') buttonContentText = systemText[systemLanguage][13];
-                else if (id === 'heart_refill') buttonContentText = systemText[systemLanguage][229];
-                else if (id === 'quest') buttonContentText = systemText[systemLanguage][60];
+                let buttonContentText = system("actions.get");
+                if (id === 'super' || id === 'double_xp_boost') buttonContentText = system("actions.redeem");
+                else if (id === 'heart_refill') buttonContentText = system("actions.refill");
+                else if (id === 'quest') buttonContentText = system("actions.complete");
                 setButtonState(
                     button,
                     { button: 'rgb(var(--DLP-blue))', outline: 'rgba(0, 0, 0, 0.20)', text: '#FFF', icon: '#FFF' },
@@ -7645,6 +8846,10 @@ function One() {
             const button = parent.querySelector('#DLP_Inset_Button_1_ID');
             const handler = () => {
                 if (isGetButtonsBusy) return;
+                if (!isServerFeatureEnabled('modern', type)) {
+                    notifyServerFeatureDisabled();
+                    return;
+                }
                 //if (type === 'xp' && !button.dataset.overrideXp === 'true') return;
                 if (type === 'local_max') {
                     goToPage(7, `${base}_${n}_ID`, true);
@@ -7695,13 +8900,13 @@ function One() {
         storageLocal.settings.randomSolveSpeed = DLP_Settings_Var.randomSolveSpeed;
         storageLocal.settings.randomSolveSpeedRange = settingsLegacySolveSpeedInputSanitizeValue(DLP_Settings_Legacy_Solve_Speed_1_ID.querySelector('#DLP_Inset_Input_1_ID').value, DLP_Settings_Legacy_Solve_Speed_1_ID.querySelector('#DLP_Inset_Input_2_ID').value);
         saveStorageLocal();
-        setButtonState(DLP_Settings_Save_Button_1_ID, { button: 'linear-gradient(0deg, rgba(var(--DLP-green), 0.10) 0%, rgba(var(--DLP-green), 0.10) 100%), rgba(var(--color-snow), 0.80)', outline: 'rgba(var(--DLP-green), 0.20)', text: 'rgb(var(--DLP-green))', icon: 'rgb(var(--DLP-green))' }, { text: systemText[systemLanguage][116], icon: '' }, { text: '', icon: ' ' }, () => {
+        setButtonState(DLP_Settings_Save_Button_1_ID, { button: 'linear-gradient(0deg, rgba(var(--DLP-green), 0.10) 0%, rgba(var(--DLP-green), 0.10) 100%), rgba(var(--color-snow), 0.80)', outline: 'rgba(var(--DLP-green), 0.20)', text: 'rgb(var(--DLP-green))', icon: 'rgb(var(--DLP-green))' }, { text: system("settings.savingAndApplying"), icon: '' }, { text: '', icon: ' ' }, () => {
             setTimeout(() => {
                 //goToPage(-1);
                 location.reload();
             }, 1600);
             //setTimeout(() => {
-            //    setButtonState(DLP_Settings_Save_Button_1_ID, systemText[systemLanguage][37], DLP_Settings_Save_Button_1_ID.querySelector('#DLP_Inset_Icon_1_ID'), DLP_Settings_Save_Button_1_ID.querySelector('#DLP_Inset_Icon_3_ID'), 'rgb(var(--DLP-blue))', '2px solid rgba(0, 0, 0, 0.20)', '#FFF', 400);
+            //    setButtonState(DLP_Settings_Save_Button_1_ID, system("actions.save"), DLP_Settings_Save_Button_1_ID.querySelector('#DLP_Inset_Icon_1_ID'), DLP_Settings_Save_Button_1_ID.querySelector('#DLP_Inset_Icon_3_ID'), 'rgb(var(--DLP-blue))', '2px solid rgba(0, 0, 0, 0.20)', '#FFF', 400);
             //    isBusySwitchingPages = false;
             //}, 2400);
         });
@@ -7777,11 +8982,11 @@ function One() {
 
     DLP_Settings_Legacy_Solve_Speed_1_ID.querySelector('#DLP_Inset_Input_1_ID').addEventListener('focus', e => {
         if (storageSession.script.settings.custom_random_legacy_solve_speed === false) e.target.blur();
-        showNotification("warning", "Feature Disabled", "This feature has been temporarily disabled.", 15);
+        showNotification("warning", system("notifications.featureDisabledTitle"), system("notifications.featureDisabledBody"), 15);
     });
     DLP_Settings_Legacy_Solve_Speed_1_ID.querySelector('#DLP_Inset_Input_2_ID').addEventListener('focus', e => {
         if (storageSession.script.settings.custom_random_legacy_solve_speed === false) e.target.blur();
-        showNotification("warning", "Feature Disabled", "This feature has been temporarily disabled.", 15);
+        showNotification("warning", system("notifications.featureDisabledTitle"), system("notifications.featureDisabledBody"), 15);
     });
 
     function settingsLegacySolveSpeedInputSanitizeValue(value1, value2) {
@@ -7946,7 +9151,7 @@ function One() {
                 if (!element.hasAttribute('data-dlp-server-disabled')) {
                     cfg.setState(state === 1);
                 } else {
-                    showNotification("warning", "Feature Disabled", "This feature has been temporarily disabled.", 15);
+                    showNotification("warning", system("notifications.featureDisabledTitle"), system("notifications.featureDisabledBody"), 15);
                 }
             }
 
@@ -8049,7 +9254,7 @@ function One() {
                         const sections = root.querySelectorAll('section._3f-te');
                         for (let i = 0; i < sections.length; i++) {
                             const h2 = sections[i].querySelector('h2._203-l');
-                            if (h2 && h2.textContent.trim() === 'Manage subscription') {
+                            if (h2 && h2.textContent.trim() === ${JSON.stringify(system("duolingo.manageSubscription"))}) {
                                 sections[i].remove();
                                 break;
                             }
@@ -8290,18 +9495,18 @@ function One() {
                 if (data.earn_key) {
                     return data.earn_key;
                 } else {
-                    throw new Error('Earn key not found in the response.');
+                    throw new Error(system("earn.connect.generate.earnKeyNotFound"));
                 }
             } else if (response.status === 401) {
-                throw new Error('Unauthorized: Invalid or missing authentication token.');
+                throw new Error(system("earn.connect.generate.unauthorized"));
             } else if (response.status === 429) {
-                throw new Error('Rate limit exceeded: Please try again later.');
+                throw new Error(system("earn.connect.generate.rateLimitExceeded"));
             } else if (response.status === 500) {
                 const errorData = await response.json();
-                throw new Error(`Server Error: ${errorData.detail || 'An unexpected error occurred.'}`);
+                throw new Error(systemFormat("earn.connect.generate.serverError", { detail: errorData.detail || system("earn.connect.generate.unexpectedError") }));
             } else {
                 const errorData = await response.json();
-                throw new Error(`Error ${response.status}: ${errorData.detail || 'An unexpected error occurred.'}`);
+                throw new Error(systemFormat("earn.connect.generate.genericError", { status: response.status, detail: errorData.detail || system("earn.connect.generate.unexpectedError") }));
             }
         } catch (error) {
             console.error('Error generating earn key:', error.message);
@@ -8312,7 +9517,7 @@ function One() {
     document.querySelectorAll("#DLP_Main_Earn_Button_1_ID, #DLP_Secondary_Earn_Button_1_ID").forEach(button => {
         button.addEventListener('click', () => {
             if (storageSession.script.boost === false) {
-                showNotification("warning", "Feature Disabled", "This feature has been temporarily disabled.", 15);
+                showNotification("warning", system("notifications.featureDisabledTitle"), system("notifications.featureDisabledBody"), 15);
                 return;
             }
             button.style.opacity = '0.5';
@@ -8323,7 +9528,7 @@ function One() {
                     window.open(serverURL + "/earn/connect/link/" + earnKey, "_blank");
                 })
                 .catch(error => {
-                    showNotification("error", "Failed to Open Boost", "Failed to connect and open the boost page. Please try again later.", 15);
+                    showNotification("error", system("notifications.boostOpenFailedTitle"), system("notifications.boostOpenFailedBody"), 15);
                     console.error('Failed to retrieve earn key:', error.message);
                 })
                 .finally(() => {
@@ -8397,7 +9602,7 @@ function One() {
         indicator.id = 'DLP_Inset_Group_4';
         indicator.innerHTML = `
             <p class="DLP_Text_Style_1 DLP_NoSelect" style="color: #007AFF;">􀄩</p>
-            <p class="DLP_Text_Style_1 DLP_NoSelect" style="color: #007AFF;">New Messages</p>
+            <p class="DLP_Text_Style_1 DLP_NoSelect" style="color: #007AFF;">${system("support.newMessages")}</p>
             <p class="DLP_Text_Style_1 DLP_NoSelect" data-time-element="true" style="color: #007AFF;">􀄩</p>
         `;
 
@@ -8496,7 +9701,7 @@ function One() {
                             element.style.height = `${newTextHeight[Array.from(descriptionText).indexOf(element)]}px`;
                         });
                     }
-                    card.querySelector('.DLP_HStack_6').lastElementChild.style.transition = 'all 0.4s cubic-bezier(0.16, 1, 0.32, 1)';
+                    card.querySelector('.DLP_HStack_6').lastElementChild.style.transition = 'transform 0.4s cubic-bezier(0.16, 1, 0.32, 1)';
                     card.querySelector('.DLP_HStack_6').lastElementChild.style.transform = 'rotate(90deg)';
                     setTimeout(() => {
                         card.style.height = 'auto';
@@ -8542,7 +9747,7 @@ function One() {
                             element.style.height = '0px';
                         });
                     }
-                    card.querySelector('.DLP_HStack_6').lastElementChild.style.transition = 'all 0.4s cubic-bezier(0.16, 1, 0.32, 1)';
+                    card.querySelector('.DLP_HStack_6').lastElementChild.style.transition = 'transform 0.4s cubic-bezier(0.16, 1, 0.32, 1)';
                     card.querySelector('.DLP_HStack_6').lastElementChild.style.transform = 'rotate(0deg)';
                     setTimeout(() => {
                         card.style.height = 'auto';
@@ -8586,13 +9791,10 @@ function One() {
                         let response = await fetch(apiURL + "/chats/create", {
                             method: "POST",
                             headers: {
-                                "Content-Type": "application/json",
                                 "Authorization": `Bearer ${document.cookie.split(';').find(cookie => cookie.includes('jwt_token')).split('=')[1]}`
                             },
                             body: JSON.stringify({
-                                "version": VERSION_FULL,
-                                "course": getCourseName(),
-                                "lang": systemLanguage
+                                "version": VERSION_FULL
                             })
                         });
 
@@ -8610,9 +9812,6 @@ function One() {
 
                 let formData = new FormData();
                 formData.append("message", messageInput.value);
-                formData.append("version", VERSION_FULL);
-                formData.append("course", getCourseName());
-                formData.append("lang", systemLanguage);
 
                 let fileUrls = [];
                 for (const attachment of allAttachments[currentChatId] ?? []) {
@@ -8683,7 +9882,7 @@ function One() {
                         if (responseData?.status === false && responseData?.notification) {
                             showNotification(responseData.notification.icon, responseData.notification.head, responseData.notification.body, responseData.notification.duration);
                         } else {
-                            showNotification("error", "Send Failed", "We could not verify that your message was delivered. Please try again.", 8);
+                            showNotification("error", system("notifications.sendFailedTitle"), system("notifications.sendFailedBody"), 8);
                         }
                         markTempMessageFailed(chatTempSendNumber);
                     }
@@ -8811,7 +10010,7 @@ function One() {
 
             attachmentVisualButton.addEventListener('click', () => {
                 if (storageSession.script.support.file_upload.enabled === false) {
-                    showNotification("warning", "Feature Disabled", "This feature has been temporarily disabled.", 15);
+                    showNotification("warning", system("notifications.featureDisabledTitle"), system("notifications.featureDisabledBody"), 15);
                     return;
                 }
                 attachmentInput.click();
@@ -8832,7 +10031,7 @@ function One() {
 
             selectedFiles.forEach(file => {
                 if (file.size > storageSession.script.support.file_upload.max_size) {
-                    showNotification("warning", "File Too Large", `${file.name} is over ${storageSession.script.support.file_upload.max_size / 1024 / 1024} MB, please choose a smaller file.`, 10);
+                    showNotification("warning", system("support.fileTooLargeTitle"), systemFormat("support.fileTooLargeBody", { fileName: file.name, maxSizeMb: storageSession.script.support.file_upload.max_size / 1024 / 1024 }), 10);
                 } else {
                     validFiles.push(file);
                 }
@@ -8840,7 +10039,7 @@ function One() {
 
             const remainingSlots = storageSession.script.support.file_upload.max_files - allAttachments[currentChatId]?.length;
             if (validFiles.length > remainingSlots) {
-                showNotification("warning", "Too Many Files", `You can only attach up to ${storageSession.script.support.file_upload.max_files} files at once.`, 10);
+                showNotification("warning", system("support.tooManyFilesTitle"), systemFormat("support.tooManyFilesBody", { maxFiles: storageSession.script.support.file_upload.max_files }), 10);
                 validFiles.length = remainingSlots;
             }
 
@@ -8926,7 +10125,7 @@ function One() {
                     mediaChild2 = document.createElement('p');
                     mediaChild2.className = 'DLP_Text_Style_1 DLP_NoSelect';
                     mediaChild2.style.opacity = '0.5';
-                    mediaChild2.textContent = 'File';
+                    mediaChild2.textContent = system("attachments.file");
                     //mediaChild2.textContent = file.name;
                     media.appendChild(mediaChild2);
                 }
@@ -9008,16 +10207,33 @@ function One() {
         function setupCreateNewChatButton() {
             let theButton = container.querySelector('#DLP_Inset_Group_2').querySelector('#DLP_Inset_Button_3_ID');
             theButton.addEventListener('click', async () => {
-                container.querySelector('#DLP_Inset_Group_1').style.display = "";
-                container.querySelector('#DLP_Inset_Group_2').style.display = "none";
+                theButton.style.opacity = "0.5";
+                theButton.style.pointerEvents = "none";
+                try {
+                    let response = await fetch(apiURL + "/chats/create", {
+                        method: "GET",
+                        headers: {
+                            "Authorization": `Bearer ${document.cookie.split(';').find(cookie => cookie.includes('jwt_token')).split('=')[1]}`
+                        }
+                    });
 
-                storageLocal.chatKey.shift();
-                saveStorageLocal();
+                    let data = await response.json();
+                    storageLocal.chatKey = [data.chat_key];
+                    saveStorageLocal();
 
-                chatBox.style.display = 'none';
-                chatBox.innerHTML = '';
-                ensureChatSpacer(chatBox);
-                container.querySelector('#DLP_Inset_Group_5').style.display = '';
+                    chatBox.innerHTML = '';
+                    ensureChatSpacer(chatBox);
+
+                    container.querySelector('#DLP_Inset_Group_1').style.display = "";
+                    container.querySelector('#DLP_Inset_Group_2').style.display = "none";
+
+                    theButton.style.opacity = "";
+                    theButton.style.pointerEvents = "";
+                } catch (error) {
+                    console.error("Fetch error:", error);
+                    theButton.style.opacity = "";
+                    theButton.style.pointerEvents = "";
+                }
             });
         }
         setupCreateNewChatButton();
@@ -9046,6 +10262,2396 @@ function One() {
 
 
     
+    const CHESS_MATCH_BOT_CONFIG = {
+        clickDelayMs: 200,
+        promotionDelayMs: 500,
+        postPromotionDelayMs: 4000,
+        loopDelayMs: 2000,
+        movePollDelayMs: 200,
+        buttonCheckIntervalMs: 1000,
+        toggleButtonId: 'auto-chess-toggle-btn',
+        toggleContainerSelector: 'div._3KDWp',
+        chessCanvasSelector: 'canvas._3Lbq0',
+        chessPathSuffix: '/chess-match'
+    };
+
+    let chessMatchBotPlaying = false;
+    let chessMatchBotLoopStarted = false;
+    let chessMatchBotButtonIntervalId = null;
+    let chessMatchBotLastMove = null;
+    let chessMatchBotLastObservedMoveKey = null;
+
+    function chessMatchDebugLog(...args) {
+        if (debug) {
+            console.log('[chess-match]', ...args);
+        }
+    }
+
+    function resetChessMatchBotMoveTracking() {
+        chessMatchBotLastMove = null;
+        chessMatchBotLastObservedMoveKey = null;
+    }
+
+    function isChessMatchPageActive() {
+        return window.location.pathname.endsWith(CHESS_MATCH_BOT_CONFIG.chessPathSuffix)
+            && !!document.querySelector(CHESS_MATCH_BOT_CONFIG.toggleContainerSelector);
+    }
+
+    function getChessMatchButtonText() {
+        return chessMatchBotPlaying ? system("solver.chessStopPlaying") : system("solver.chessStartPlaying");
+    }
+
+    function updateChessCanvasPointerEvents() {
+        const canvas = document.querySelector(CHESS_MATCH_BOT_CONFIG.chessCanvasSelector);
+        if (!canvas) return;
+
+        if (chessMatchBotPlaying || isChessLessonPlayBusy || (isAutoMode && isChessLessonSolveContext())) {
+            canvas.style.pointerEvents = 'none';
+        } else {
+            canvas.style.removeProperty('pointer-events');
+        }
+    }
+
+    function updateChessMatchButtonText() {
+        const button = document.getElementById(CHESS_MATCH_BOT_CONFIG.toggleButtonId);
+        if (button) {
+            const label = button.querySelector('[data-dlp-chess-toggle-label]');
+            if (label) {
+                label.innerText = getChessMatchButtonText();
+            }
+        }
+    }
+
+    function setChessMatchBotPlaying(nextValue) {
+        chessMatchBotPlaying = nextValue;
+        if (!nextValue) {
+            resetChessMatchBotMoveTracking();
+        }
+        updateChessMatchButtonText();
+        updateChessCanvasPointerEvents();
+        chessMatchDebugLog(chessMatchBotPlaying ? 'Bot started playing.' : 'Bot stopped playing.');
+    }
+
+    function removeChessMatchToggleButton() {
+        const existingButton = document.getElementById(CHESS_MATCH_BOT_CONFIG.toggleButtonId);
+        if (existingButton) {
+            existingButton.remove();
+        }
+    }
+
+    function maintainChessMatchToggleButton() {
+        if (chessMatchBotButtonIntervalId !== null) {
+            return;
+        }
+
+        chessMatchBotButtonIntervalId = setInterval(() => {
+            if (!isChessMatchPageActive()) {
+                if (chessMatchBotPlaying) {
+                    setChessMatchBotPlaying(false);
+                }
+                removeChessMatchToggleButton();
+                return;
+            }
+
+            const targetContainer = document.querySelector(CHESS_MATCH_BOT_CONFIG.toggleContainerSelector);
+            if (!targetContainer) {
+                return;
+            }
+
+            let button = document.getElementById(CHESS_MATCH_BOT_CONFIG.toggleButtonId);
+            if (!button) {
+                button = document.createElement('div');
+                button.id = CHESS_MATCH_BOT_CONFIG.toggleButtonId;
+                button.className = '_2pStc';
+                button.style.cursor = 'pointer';
+
+                const content = document.createElement('div');
+                content.className = 'DLP_HStack_6';
+                content.style.background = 'url(https://www.duolingopro.net/static/images/flow/primary/256/light.png) center / cover no-repeat';
+                content.style.webkitBackgroundClip = 'text';
+                content.style.backgroundClip = 'text';
+                content.style.color = 'transparent';
+                content.setAttribute('data-dlp-default-hover-initialized', 'true');
+
+                const icon = document.createElement('p');
+                icon.className = 'DLP_Text_Style_1';
+                icon.style.color = 'inherit';
+                icon.innerText = '􀆿';
+
+                const label = document.createElement('p');
+                label.style.color = 'inherit';
+                label.style.margin = '0';
+                label.setAttribute('data-dlp-chess-toggle-label', 'true');
+                label.innerText = getChessMatchButtonText();
+
+                content.appendChild(icon);
+                content.appendChild(label);
+                button.appendChild(content);
+
+                button.addEventListener('click', () => {
+                    setChessMatchBotPlaying(!chessMatchBotPlaying);
+                });
+                targetContainer.appendChild(button);
+            }
+            updateChessMatchButtonText();
+        }, CHESS_MATCH_BOT_CONFIG.buttonCheckIntervalMs);
+    }
+
+    function getChessMatchCanvasAndState() {
+        const canvas = document.querySelector(CHESS_MATCH_BOT_CONFIG.chessCanvasSelector);
+        if (!canvas) return { canvas: null, reactState: null };
+
+        return {
+            canvas,
+            reactState: findReact(canvas, 1, true)
+        };
+    }
+
+    function getDynamicCSSBounds(canvas) {
+        const { width, height } = canvas;
+
+        // Downsample to a small fixed-size canvas before reading pixel data.
+        // This lets the GPU do the scaling natively, dramatically reducing the amount
+        // of data copied from GPU→CPU and the number of JS loop iterations.
+        // At 128×128 on the smallest known canvas (280×280, 23px margins), the margin
+        // is still ~10 sample pixels wide — well above the detection threshold.
+        const SAMPLE_SIZE = 128;
+        const tmpCanvas = document.createElement('canvas');
+        tmpCanvas.width = SAMPLE_SIZE;
+        tmpCanvas.height = SAMPLE_SIZE;
+        const tmpCtx = tmpCanvas.getContext('2d', { willReadFrequently: true });
+        tmpCtx.drawImage(canvas, 0, 0, SAMPLE_SIZE, SAMPLE_SIZE);
+        const data = tmpCtx.getImageData(0, 0, SAMPLE_SIZE, SAMPLE_SIZE).data;
+
+        // Average all 4 corners for a noise-resistant background reference.
+        // Brave's canvas fingerprinting protection applies independent per-pixel noise
+        // to getImageData output; averaging corners makes the reference stable despite it.
+        // The drawImage downsampling step also averages many source pixels per sample,
+        // further dampening any noise carried over from the source canvas.
+        const sLast = SAMPLE_SIZE - 1;
+        const cornerOffsets = [
+            0,
+            sLast * 4,
+            sLast * SAMPLE_SIZE * 4,
+            (sLast * SAMPLE_SIZE + sLast) * 4
+        ];
+        let sumR = 0, sumG = 0, sumB = 0, sumA = 0;
+        for (const o of cornerOffsets) {
+            sumR += data[o]; sumG += data[o + 1]; sumB += data[o + 2]; sumA += data[o + 3];
+        }
+        const bgR = sumR / 4;
+        const bgG = sumG / 4;
+        const bgB = sumB / 4;
+        const bgA = sumA / 4;
+
+        // Tolerance of 10 per channel: above Brave's noise ceiling (~2) and well below
+        // the color difference between the canvas background and board squares (~15+).
+        const BG_TOLERANCE = 10;
+
+        let minX = SAMPLE_SIZE;
+        let minY = SAMPLE_SIZE;
+        let maxX = -1;
+        let maxY = -1;
+
+        for (let y = 0; y < SAMPLE_SIZE; y++) {
+            for (let x = 0; x < SAMPLE_SIZE; x++) {
+                const i = (y * SAMPLE_SIZE + x) * 4;
+                if (
+                    Math.abs(data[i]     - bgR) > BG_TOLERANCE ||
+                    Math.abs(data[i + 1] - bgG) > BG_TOLERANCE ||
+                    Math.abs(data[i + 2] - bgB) > BG_TOLERANCE ||
+                    Math.abs(data[i + 3] - bgA) > BG_TOLERANCE
+                ) {
+                    if (x < minX) minX = x;
+                    if (y < minY) minY = y;
+                    if (x > maxX) maxX = x;
+                    if (y > maxY) maxY = y;
+                }
+            }
+        }
+
+        if (maxX === -1) {
+            throw new Error(system("solver.chessBoardNotFound"));
+        }
+
+        // Scale sample-space bounds back to canvas pixel space, then to CSS pixels.
+        const pixelScaleX = width / SAMPLE_SIZE;
+        const pixelScaleY = height / SAMPLE_SIZE;
+        const rect = canvas.getBoundingClientRect();
+        const cssScaleX = rect.width / width;
+        const cssScaleY = rect.height / height;
+
+        return {
+            x: minX * pixelScaleX * cssScaleX,
+            y: minY * pixelScaleY * cssScaleY,
+            width:  (maxX - minX + 1) * pixelScaleX * cssScaleX,
+            height: (maxY - minY + 1) * pixelScaleY * cssScaleY,
+            rect
+        };
+    }
+
+    function dispatchChessMatchClickAt(canvas, clientX, clientY) {
+        const eventOptions = { bubbles: true, cancelable: true, clientX, clientY, button: 0 };
+        canvas.dispatchEvent(new MouseEvent('mousedown', eventOptions));
+        canvas.dispatchEvent(new MouseEvent('mouseup', eventOptions));
+        canvas.dispatchEvent(new MouseEvent('click', eventOptions));
+    }
+
+    function getChessMatchProps(reactState) {
+        if (!reactState || !reactState.props) return null;
+
+        if (reactState.props.challenge?.match) {
+            return reactState.props.challenge.match;
+        }
+
+        if (reactState.props.match) {
+            return reactState.props.match;
+        }
+
+        if (reactState.props.challenge?.chessPuzzleInfo) {
+            return reactState.props.challenge.chessPuzzleInfo;
+        }
+
+        return reactState.props.challenge ?? null;
+    }
+
+    function isPlayingChessMatchAsBlack(reactState) {
+        const chessProps = getChessMatchProps(reactState);
+        return chessProps?.playerColor === 'black'
+            || chessProps?.sideToMove === 'black'
+            || chessProps?.orientation === 'black';
+    }
+
+    function getChessMatchSquareData(squareName, playingAsBlack, bounds) {
+        let col = squareName.charCodeAt(0) - 97;
+        let row = 8 - parseInt(squareName[1], 10);
+
+        if (playingAsBlack) {
+            col = 7 - col;
+            row = 7 - row;
+        }
+
+        const sqWidth = bounds.width / 8;
+        const sqHeight = bounds.height / 8;
+
+        return { col, row, sqWidth, sqHeight };
+    }
+
+    function getChessMatchBoardContext() {
+        const { canvas, reactState } = getChessMatchCanvasAndState();
+        if (!canvas) {
+            throw new Error(system("solver.chessCanvasNotFound"));
+        }
+
+        const playingAsBlack = isPlayingChessMatchAsBlack(reactState);
+        const bounds = getDynamicCSSBounds(canvas);
+
+        return { canvas, reactState, playingAsBlack, bounds };
+    }
+
+    function clickChessMatchBoardPoint(boardContext, pointX, pointY) {
+        const clientX = boardContext.bounds.rect.left + pointX;
+        const clientY = boardContext.bounds.rect.top + pointY;
+
+        dispatchChessMatchClickAt(boardContext.canvas, clientX, clientY);
+
+        return { clientX, clientY };
+    }
+
+    function clickChessMatchSquare(squareName) {
+        const boardContext = getChessMatchBoardContext();
+        const sq = getChessMatchSquareData(squareName, boardContext.playingAsBlack, boardContext.bounds);
+
+        const centerX = boardContext.bounds.x + (sq.col * sq.sqWidth) + (sq.sqWidth / 2);
+        const centerY = boardContext.bounds.y + (sq.row * sq.sqHeight) + (sq.sqHeight / 2);
+        const { clientX, clientY } = clickChessMatchBoardPoint(boardContext, centerX, centerY);
+
+        chessMatchDebugLog(`Clicked ${squareName} @ X: ${Math.round(clientX)}, Y: ${Math.round(clientY)}`);
+    }
+
+    function clickChessMatchPromotionQueen(promotionSquare) {
+        const boardContext = getChessMatchBoardContext();
+        const promoCol = promotionSquare.charCodeAt(0) - 97;
+        let targetSquare;
+
+        if (!boardContext.playingAsBlack) {
+            const targetVisualCol = Math.max(0, Math.min(3, promoCol - 2));
+            const targetColChar = String.fromCharCode(97 + targetVisualCol);
+            targetSquare = `${targetColChar}6`;
+        } else {
+            const promoVisualCol = 7 - promoCol;
+            const targetVisualCol = Math.max(0, Math.min(3, promoVisualCol - 2));
+            const targetColChar = String.fromCharCode(97 + (7 - targetVisualCol));
+            targetSquare = `${targetColChar}3`;
+        }
+
+        const sq = getChessMatchSquareData(targetSquare, boardContext.playingAsBlack, boardContext.bounds);
+        const cornerX = boardContext.bounds.x + (sq.col * sq.sqWidth) + sq.sqWidth;
+        const cornerY = boardContext.bounds.y + (sq.row * sq.sqHeight) + sq.sqHeight;
+        const { clientX, clientY } = clickChessMatchBoardPoint(boardContext, cornerX, cornerY);
+
+        chessMatchDebugLog(`Promoting! Clicked Queen near ${targetSquare} @ X: ${Math.round(clientX)}, Y: ${Math.round(clientY)}`);
+    }
+
+    function getCurrentChessMatchFen(reactState) {
+        const currentFen = reactState?.hooks?.[25]?.current;
+
+        if (typeof currentFen !== 'string' || !currentFen.trim()) {
+            throw new Error(system("solver.chessCurrentFenUnavailable"));
+        }
+
+        return currentFen.trim();
+    }
+
+    function getCurrentChessMatchMoveSnapshot(reactState) {
+        const moves = reactState?.hooks?.[23]?.current;
+        if (!Array.isArray(moves)) {
+            throw new Error(system("solver.chessMovesUnavailable"));
+        }
+
+        const lastMove = moves.length > 0 ? moves[moves.length - 1] : null;
+        return {
+            moves: moves.slice(),
+            lastMove,
+            key: `${moves.length}:${lastMove ?? ''}`
+        };
+    }
+
+    const sleepChessMatchLoop = ms => new Promise(resolve => setTimeout(resolve, ms));
+
+    async function waitForChessMatchClickDelay(squareName, isStillActive) {
+        await sleepChessMatchLoop(CHESS_MATCH_BOT_CONFIG.clickDelayMs);
+        if (isStillActive()) {
+            return true;
+        }
+
+        try {
+            clickChessMatchSquare(squareName);
+        } catch (error) {
+            chessMatchDebugLog(`Failed to clear selected square ${squareName}: ${error.message}`);
+        }
+
+        return false;
+    }
+
+    function startChessMatchBotLoop() {
+        if (chessMatchBotLoopStarted) {
+            return;
+        }
+
+        chessMatchBotLoopStarted = true;
+
+        (async function runChessMatchBotLoop() {
+            chessMatchDebugLog('Bot loaded. Waiting for START PLAYING to be clicked.');
+
+            while (true) {
+                if (!isChessMatchPageActive()) {
+                    if (chessMatchBotPlaying) {
+                        setChessMatchBotPlaying(false);
+                    }
+                    await sleepChessMatchLoop(CHESS_MATCH_BOT_CONFIG.loopDelayMs);
+                    continue;
+                }
+
+                if (!chessMatchBotPlaying) {
+                    await sleepChessMatchLoop(CHESS_MATCH_BOT_CONFIG.loopDelayMs);
+                    continue;
+                }
+
+                try {
+                    const { canvas, reactState } = getChessMatchCanvasAndState();
+                    if (!canvas) {
+                        throw new Error(system("solver.chessCanvasNotFound"));
+                    }
+
+                    const challengeObj = reactState?.props?.challenge;
+                    if (challengeObj?.gradingResult) {
+                        chessMatchDebugLog('Match finished! Pausing bot.');
+                        setChessMatchBotPlaying(false);
+                        await sleepChessMatchLoop(CHESS_MATCH_BOT_CONFIG.loopDelayMs);
+                        continue;
+                    }
+
+                    const moveSnapshot = getCurrentChessMatchMoveSnapshot(reactState);
+                    const currentMoves = moveSnapshot.moves;
+                    if (chessMatchBotLastObservedMoveKey === moveSnapshot.key) {
+                        await sleepChessMatchLoop(CHESS_MATCH_BOT_CONFIG.movePollDelayMs);
+                        continue;
+                    }
+
+                    chessMatchBotLastObservedMoveKey = moveSnapshot.key;
+                    if (moveSnapshot.lastMove && moveSnapshot.lastMove === chessMatchBotLastMove) {
+                        chessMatchDebugLog('Detected our last move. Waiting for opponent...');
+                        await sleepChessMatchLoop(CHESS_MATCH_BOT_CONFIG.movePollDelayMs);
+                        continue;
+                    }
+
+                    const currentFen = getCurrentChessMatchFen(reactState);
+                    chessMatchDebugLog(`Turn: ${currentFen.split(' ')[1].toUpperCase()} | Move: ${currentFen.split(' ')[5]}`);
+                    const requestBody = {
+                        fen: "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1",
+                        moves: currentMoves,
+                        depth: 8
+                    }
+
+                    const response = await fetch(`https://api.duolingopro.net/legacy/chess/move`, {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify(requestBody)
+                    });
+
+                    if (!response.ok) {
+                        throw new Error(systemFormat("solver.chessApiErrorStatus", { status: response.status }));
+                    }
+
+                    const data = await response.json();
+                    const bestMove = data.bestmove;
+
+                    if (!bestMove) {
+                        chessMatchDebugLog('Waiting on opponent...');
+                    } else {
+                        chessMatchDebugLog(`API returned: ${bestMove}`);
+
+                        const fromSquare = bestMove.slice(0, 2);
+                        const toSquare = bestMove.slice(2, 4);
+                        const isPromotion = bestMove.length === 5;
+                        chessMatchBotLastMove = bestMove;
+
+                        clickChessMatchSquare(fromSquare);
+                        if (!await waitForChessMatchClickDelay(fromSquare, () => chessMatchBotPlaying && isChessMatchPageActive())) {
+                            await sleepChessMatchLoop(CHESS_MATCH_BOT_CONFIG.movePollDelayMs);
+                            continue;
+                        }
+                        clickChessMatchSquare(toSquare);
+
+                        if (isPromotion) {
+                            chessMatchDebugLog('Pawn promotion detected. Waiting for UI...');
+                            await sleepChessMatchLoop(CHESS_MATCH_BOT_CONFIG.promotionDelayMs);
+                            clickChessMatchPromotionQueen(toSquare);
+                            chessMatchDebugLog('Waiting for promotion to process...');
+                            await sleepChessMatchLoop(CHESS_MATCH_BOT_CONFIG.postPromotionDelayMs);
+                        }
+                    }
+                } catch (error) {
+                    chessMatchBotLastObservedMoveKey = null;
+                    chessMatchDebugLog(`Error: ${error.message}`);
+                }
+
+                await sleepChessMatchLoop(CHESS_MATCH_BOT_CONFIG.movePollDelayMs);
+            }
+        })();
+    }
+
+    maintainChessMatchToggleButton();
+    startChessMatchBotLoop();
+
+    const CHESS_LESSON_BUTTON_ROW_ID = 'dlp-chess-lesson-button-row';
+    function isChessLessonSolveContext() {
+        return !window.location.pathname.endsWith(CHESS_MATCH_BOT_CONFIG.chessPathSuffix)
+            && !!document.querySelector(CHESS_MATCH_BOT_CONFIG.chessCanvasSelector);
+    }
+
+    function getChessLessonReactState() {
+        const { reactState } = getChessMatchCanvasAndState();
+        if (!reactState?.props?.challenge?.chessPuzzleInfo) {
+            return null;
+        }
+
+        return reactState;
+    }
+
+    function getChessLessonLiveState() {
+        const reactState = getChessLessonReactState();
+        const fen = reactState?.hooks?.[19]?.current ?? null;
+        const moves = Array.isArray(reactState?.hooks?.[18]?.current) ? reactState.hooks[18].current : [];
+
+        return { reactState, fen, moves };
+    }
+
+    function getChessLessonSolutionLines(reactState) {
+        const parseSolutionLines = (lines) => (Array.isArray(lines) ? lines : [])
+            .map((line) => String(line ?? '').trim().split(/\s+/).filter(Boolean))
+            .filter((line) => line.length > 0);
+
+        // Prefer authoritative solution lines. On some star puzzles, correctMoves is
+        // stale/wrong (e.g. d3a6) while validPaths/resetDependency have the real line (e.g. d3b5).
+        const resetDependencyLines = parseSolutionLines(reactState?.props?.resetDependency);
+        if (resetDependencyLines.length > 0) {
+            return resetDependencyLines;
+        }
+
+        const validPathLines = parseSolutionLines(reactState?.props?.challenge?.chessPuzzleInfo?.validPaths);
+        if (validPathLines.length > 0) {
+            return validPathLines;
+        }
+
+        const correctMoves = reactState?.props?.challenge?.chessPuzzleInfo?.correctMoves;
+        if (!Array.isArray(correctMoves) || correctMoves.length === 0) {
+            throw new Error(system("solver.chessLessonCorrectMovesMissing"));
+        }
+
+        const primaryLine = String(correctMoves[0] ?? '').trim().split(/\s+/).filter(Boolean);
+        if (primaryLine.length === 0) {
+            throw new Error(system("solver.chessLessonCorrectMovesEmpty"));
+        }
+
+        return [primaryLine];
+    }
+
+    function getChessLessonRemainingMoveSequence() {
+        const { reactState, fen, moves: currentMoves } = getChessLessonLiveState();
+        const solutionLines = getChessLessonSolutionLines(reactState);
+
+        for (let i = 0; i < solutionLines.length; i++) {
+            const fullMoveSequence = solutionLines[i];
+            let matchedMoveCount = 0;
+            while (
+                matchedMoveCount < currentMoves.length
+                && matchedMoveCount < fullMoveSequence.length
+                && currentMoves[matchedMoveCount] === fullMoveSequence[matchedMoveCount]
+            ) {
+                matchedMoveCount++;
+            }
+
+            if (currentMoves.length > matchedMoveCount) {
+                continue;
+            }
+
+            return fullMoveSequence.slice(matchedMoveCount);
+        }
+
+        throw new Error(system("solver.chessLessonCurrentMovesDiverged"));
+    }
+
+    async function playChessLessonCorrectMoves(runContext = null) {
+        const moveSequence = getChessLessonRemainingMoveSequence();
+        chessMatchDebugLog('Chess lesson move sequence:', moveSequence.join(' '));
+
+        for (let i = 0; i < moveSequence.length; i++) {
+            if (!isChessLessonRunContextActive(runContext)) {
+                return false;
+            }
+
+            const move = moveSequence[i];
+            const fromSquare = move.slice(0, 2);
+            const toSquare = move.slice(2, 4);
+            const isPromotion = move.length === 5;
+
+            clickChessMatchSquare(fromSquare);
+            if (!await waitForChessMatchClickDelay(fromSquare, () => isChessLessonRunContextActive(runContext))) {
+                return false;
+            }
+            clickChessMatchSquare(toSquare);
+
+            if (isPromotion) {
+                await sleepChessMatchLoop(CHESS_MATCH_BOT_CONFIG.promotionDelayMs);
+                if (!isChessLessonRunContextActive(runContext)) {
+                    return false;
+                }
+                clickChessMatchPromotionQueen(toSquare);
+                await sleepChessMatchLoop(CHESS_MATCH_BOT_CONFIG.postPromotionDelayMs);
+            } else if (i < moveSequence.length - 1) {
+                await sleepChessMatchLoop(1200);
+            }
+        }
+
+        await sleepChessMatchLoop(800);
+        if (!isChessLessonRunContextActive(runContext)) {
+            return false;
+        }
+        return true;
+    }
+
+    async function clickChessLessonContinueButton(timeoutMs = 4000, runContext = null) {
+        const startedAt = Date.now();
+
+        while (Date.now() - startedAt < timeoutMs) {
+            if (!isChessLessonRunContextActive(runContext)) {
+                return false;
+            }
+
+            const nextButton = document.querySelector('[data-test="player-next"]');
+            const isEnabled = nextButton?.getAttribute('aria-disabled') === 'false';
+
+            if (nextButton && isEnabled) {
+                nextButton.click();
+                await sleepChessMatchLoop(1000);
+                return true;
+            }
+
+            await sleepChessMatchLoop(100);
+        }
+
+        return false;
+    }
+
+    function getReactFiber(dom) {
+        if (!dom) return null;
+        const key = Object.keys(dom).find((entry) => (
+            entry.startsWith('__reactFiber$') || entry.startsWith('__reactInternalInstance$')
+        ));
+        return key ? dom[key] : null;
+    }
+
+    // Prefer a fiber near the visible challenge UI — main-node props can lag one question behind.
+    function getChallengeFromDom() {
+        const anchors = [
+            document.querySelector('[data-test="challenge-choice"]'),
+            document.querySelector('[data-test$="challenge-tap-token"]'),
+            document.querySelector('[data-test~="challenge"]'),
+            document.getElementsByClassName(findReactMainElementClass)[0],
+        ].filter(Boolean);
+
+        for (const anchor of anchors) {
+            let fiber = getReactFiber(anchor);
+            for (let depth = 0; depth < 60 && fiber; depth++) {
+                const challenge = fiber.memoizedProps?.currentChallenge;
+                if (challenge) return challenge;
+                fiber = fiber.return;
+            }
+        }
+
+        return null;
+    }
+
+    function refreshWindowSolFromReact() {
+        try {
+            const fromDom = getChallengeFromDom();
+            if (fromDom) {
+                window.sol = fromDom;
+                return;
+            }
+
+            const dom = document.getElementsByClassName(findReactMainElementClass)[0];
+            // Prefer memoizedProps — class-instance .props can lag behind the on-screen challenge.
+            const details = findReact(dom, reactTraverseUp, true);
+            window.sol = details?.props?.currentChallenge
+                ?? findReact(dom)?.props?.currentChallenge
+                ?? null;
+        } catch (error) {
+            window.sol = null;
+            console.log(error);
+        }
+    }
+
+    function isMathLessonSolveContext() {
+        return window.sol?.type === 'mathChallengeBlob';
+    }
+
+    function isMathMatchMadnessSolveContext() {
+        return isMathLessonSolveContext() && window.sol?.challengeBlob?.layout === 'matchMadness';
+    }
+
+    function getMathMatchMadnessButtonHost() {
+        return document.querySelector('.MYehf')
+            || document.getElementById('session/PlayerFooter')
+            || document.querySelector('._2G9ED > ._3GuWo._1cTBC');
+    }
+
+    function isMathMatchMadnessIntroScreen() {
+        if (!isMathMatchMadnessSolveContext()) return false;
+        if (getMathMatchMadnessReadyButtons().length >= 2) return false;
+
+        const nextButton = document.querySelector('[data-test="player-next"]');
+        return !!nextButton && nextButton.getAttribute('aria-disabled') !== 'true';
+    }
+
+    function compileMathGradeFunction(challengeBlob) {
+        const gradingFunction = challengeBlob?.grading_function;
+        if (!gradingFunction) return null;
+
+        try {
+            return eval(`(${gradingFunction})`);
+        } catch (error) {
+            try {
+                return new Function(`${gradingFunction}; return grade;`)();
+            } catch (innerError) {
+                console.log(innerError);
+                return null;
+            }
+        }
+    }
+
+    function findMathChoicePantsValue(choiceElement) {
+        const propsKey = Object.keys(choiceElement).find((key) => key.startsWith('__reactProps$'));
+        if (!propsKey) return null;
+
+        const findElementValue = (value, depth = 0) => {
+            if (!value || depth > 15) return null;
+
+            if (value.element?.type === 'text' && value.element?.value) {
+                return value.element.value;
+            }
+
+            if (typeof value === 'object') {
+                for (const nestedValue of Object.values(value)) {
+                    const elementValue = findElementValue(nestedValue, depth + 1);
+                    if (elementValue) return elementValue;
+                }
+            }
+
+            return null;
+        };
+
+        return findElementValue(choiceElement[propsKey]);
+    }
+
+    // Fiber choice.value is display order, not pants[].id — web pies carry LIGHT_SVG in props.
+    function findMathLightSvgInFiberValue(value, depth = 0, seen = null) {
+        if (!value || depth > 18) return null;
+        if (typeof value === 'string') {
+            return value.includes('/fraction_pies/') || value.includes('_base_light.svg') ? value : null;
+        }
+        if (typeof value !== 'object') return null;
+
+        const seenSet = seen || new Set();
+        if (seenSet.has(value)) return null;
+        seenSet.add(value);
+
+        if (typeof value.LIGHT_SVG === 'string') return value.LIGHT_SVG;
+        if (typeof value.resources?.LIGHT_SVG === 'string') return value.resources.LIGHT_SVG;
+
+        for (const key of ['children', 'props', 'element', 'child', 'resources', 'value']) {
+            const found = findMathLightSvgInFiberValue(value[key], depth + 1, seenSet);
+            if (found) return found;
+        }
+
+        if (Array.isArray(value)) {
+            for (const entry of value) {
+                const found = findMathLightSvgInFiberValue(entry, depth + 1, seenSet);
+                if (found) return found;
+            }
+        }
+
+        return null;
+    }
+
+    function getMathChoiceFiberLightSvg(choiceElement) {
+        const fiberKey = Object.keys(choiceElement || {}).find((key) => key.startsWith('__reactFiber$'));
+        if (!fiberKey) return null;
+
+        let fiber = choiceElement[fiberKey];
+        for (let depth = 0; depth < 5 && fiber; depth++) {
+            const found = findMathLightSvgInFiberValue(fiber.memoizedProps);
+            if (found) return found;
+            fiber = fiber.return;
+        }
+
+        return null;
+    }
+
+    function getMathChoiceElementByButtonId(buttonId, challengeBlob) {
+        if (!buttonId || !Array.isArray(challengeBlob?.pants)) return null;
+
+        const pant = challengeBlob.pants.find((entry) => entry.id === buttonId);
+        if (!pant) return null;
+
+        const choices = [...document.querySelectorAll('[data-test="challenge-choice"]')];
+        if (!choices.length) return null;
+
+        const pantValue = pant.child?.value;
+        if (pantValue) {
+            for (const choice of choices) {
+                if (findMathChoicePantsValue(choice) === pantValue) return choice;
+
+                const tex = choice.querySelector('annotation[encoding="application/x-tex"]')?.textContent;
+                if (tex === pantValue) return choice;
+            }
+        }
+
+        const pantLightSvg = pant.child?.resources?.LIGHT_SVG;
+        if (pantLightSvg) {
+            for (const choice of choices) {
+                if (getMathChoiceFiberLightSvg(choice) === pantLightSvg) return choice;
+            }
+        }
+
+        // Pants order is often shuffled vs DOM — only use position as a last resort.
+        const pantIndex = challengeBlob.pants.findIndex((entry) => entry.id === buttonId);
+        return choices[pantIndex] ?? null;
+    }
+
+    function findMathCorrectButtonIds(challengeBlob) {
+        const pants = challengeBlob?.pants;
+        if (!Array.isArray(pants) || !pants.length) return null;
+
+        const grade = compileMathGradeFunction(challengeBlob);
+        if (!grade) return null;
+
+        if (challengeBlob.layout === 'selectOne') {
+            for (const pant of pants) {
+                if (tryMathGradeAnswer(grade, { [pant.id]: { selected: true } })) return [pant.id];
+            }
+            return null;
+        }
+
+        if (challengeBlob.layout === 'selectAll') {
+            for (let mask = 1; mask < (1 << pants.length); mask++) {
+                const guess = {};
+                for (let index = 0; index < pants.length; index++) {
+                    if (mask & (1 << index)) guess[pants[index].id] = { selected: true };
+                }
+                if (tryMathGradeAnswer(grade, guess)) return Object.keys(guess);
+            }
+        }
+
+        return null;
+    }
+
+    function getMathLessonInteractiveIframe() {
+        const iframes = [...document.querySelectorAll('[data-test~="challenge"] iframe')];
+
+        for (const iframe of iframes) {
+            const doc = iframe.contentDocument;
+            if (!doc) continue;
+            if (doc.querySelector('.slider1d-thumb, .slider2d-thumb, [role="slider"], .token-bank, .spinner-segment.segment-selectable, .draggable-point')) {
+                return iframe;
+            }
+        }
+
+        return iframes[0] ?? null;
+    }
+
+    function isMathGradeResultCorrect(result) {
+        if (!result) return false;
+        if (Array.isArray(result)) return result[0] === true;
+        if (typeof result === 'object' && 'isCorrect' in result) return result.isCorrect === true;
+        return false;
+    }
+
+    function tryMathGradeAnswer(grade, guess) {
+        try {
+            return isMathGradeResultCorrect(grade(guess));
+        } catch (error) {
+            return false;
+        }
+    }
+
+    function normalizeMathKeyboardCandidate(candidate) {
+        const raw = String(candidate).trim();
+        const frac = raw.match(/\\frac\{(-?\d+)\}\{(-?\d+)\}/) || raw.match(/frac\{(-?\d+)\}\{(-?\d+)\}/);
+        if (frac) return `${frac[1]}/${frac[2]}`;
+        return raw.replace(/\\%/g, '%').replace(/\s+/g, '');
+    }
+
+    function unwrapMathLatexText(value) {
+        return String(value ?? '')
+            .replace(/\\mathbf\{([^{}]*)\}/g, '$1')
+            .replace(/\\textbf\{([^{}]*)\}/g, '$1')
+            .replace(/\\text\{([^{}]*)\}/g, '$1')
+            .replace(/\\approx/g, '≈')
+            .replace(/\s+/g, ' ')
+            .trim();
+    }
+
+    function getMathAnswerCandidatesFromText(text) {
+        const unwrapped = unwrapMathLatexText(text);
+        if (!unwrapped) return [];
+
+        const candidates = [normalizeMathKeyboardCandidate(unwrapped)];
+        const approx = unwrapped.match(/≈\s*(-?\d+(?:\.\d+)?(?:\s*\/\s*-?\d+(?:\.\d+)?)?)/);
+        if (approx) candidates.push(normalizeMathKeyboardCandidate(approx[1]));
+        const equals = unwrapped.match(/=\s*(-?\d+(?:\.\d+)?(?:\s*\/\s*-?\d+(?:\.\d+)?)?)/);
+        if (equals) candidates.push(normalizeMathKeyboardCandidate(equals[1]));
+        for (const match of unwrapped.matchAll(/-?\d+(?:\.\d+)?(?:\s*\/\s*-?\d+(?:\.\d+)?)?/g)) {
+            candidates.push(normalizeMathKeyboardCandidate(match[0]));
+        }
+        return candidates.filter(Boolean);
+    }
+
+    // React: gradingFeedbackBlobOverride.correctBody
+    function getMathFeedbackCorrectBodyCandidates() {
+        refreshWindowSolFromReact();
+        const raw = window.sol?.gradingFeedbackBlobOverride;
+        if (!raw) return [];
+
+        try {
+            const parsed = typeof raw === 'string' ? JSON.parse(raw) : raw;
+            const feedbackSource = parsed?.grading_feedback;
+            if (!feedbackSource) return [];
+
+            const feedback = eval(`(${feedbackSource})`)({});
+            return getMathAnswerCandidatesFromText(feedback?.correctBody);
+        } catch (error) {
+            console.log(error);
+            return [];
+        }
+    }
+
+    function getMathGradeResultAnswerTexts(result) {
+        if (!result) return [];
+
+        const texts = [];
+        if (Array.isArray(result)) {
+            for (const part of result.slice(1)) {
+                if (part?.value != null) texts.push(String(part.value));
+                else if (typeof part === 'string') texts.push(part);
+            }
+            return texts;
+        }
+
+        if (typeof result === 'object') {
+            if (result.displayAnswer?.value != null) texts.push(String(result.displayAnswer.value));
+            if (result.feedback?.value != null) texts.push(String(result.feedback.value));
+        }
+
+        return texts;
+    }
+
+    // React: compiled grading_function — wrong guess returns displayAnswer / Correct Answer feedback
+    function getMathAnswersFromIncorrectGrade(grade, mode, challengeBlob) {
+        const probes = [];
+        if (mode === 'keyboard') {
+            probes.push({ keyboardInput: { value: '' } }, { keyboardInput: { value: '0' } });
+        } else if (mode === 'slider') {
+            for (const key of getMathSliderGradeKeys(challengeBlob)) probes.push({ [key]: 0 });
+            probes.push({});
+        } else if (mode === 'plot') {
+            probes.push(
+                {},
+                { final_x_coordinates: [] },
+                { final_x_coordinates: [0] },
+                { x: 0, y: 0 }
+            );
+        } else {
+            probes.push({ value: 0 }, { value: '' }, {});
+        }
+
+        const candidates = [];
+        for (const probe of probes) {
+            try {
+                const result = grade(probe);
+                if (!result || isMathGradeResultCorrect(result)) continue;
+
+                for (const text of getMathGradeResultAnswerTexts(result)) {
+                    candidates.push(...getMathAnswerCandidatesFromText(text));
+                    const correctAnswer = unwrapMathLatexText(text).match(/Correct Answer:\s*(.+)/i)?.[1];
+                    if (correctAnswer) candidates.push(...getMathAnswerCandidatesFromText(correctAnswer));
+                }
+            } catch (error) {
+                console.log(error);
+            }
+        }
+
+        return candidates;
+    }
+
+    function getMathReactAnswerCandidates(grade, mode, challengeBlob) {
+        const candidates = [
+            ...getMathAnswersFromIncorrectGrade(grade, mode, challengeBlob),
+            ...getMathFeedbackCorrectBodyCandidates()
+        ].filter(Boolean);
+
+        const numbers = [...new Set(candidates.flatMap((candidate) => (
+            [...String(candidate).matchAll(/-?\d+(?:\.\d+)?/g)].map((match) => match[0])
+        )))];
+        if (numbers.length > 1) {
+            candidates.push(numbers.join(','));
+            candidates.push(numbers.join(', '));
+        }
+
+        return candidates;
+    }
+
+    function getMathSliderGradeKeys(challengeBlob) {
+        const keys = new Set(['sliderValue', 'angle', 'angle2', 'value', 'finalValue', 'finalPosition']);
+        const html = challengeBlob?.pants?.html ?? '';
+        const grade = challengeBlob?.grading_function ?? '';
+
+        const outputBlock = html.match(/function getOutputVariables\(\)\s*\{[\s\S]*?return\s*\{([\s\S]*?)\}\s*;/);
+        if (outputBlock) {
+            for (const match of outputBlock[1].matchAll(/["']?(\w+)["']?\s*:/g)) {
+                keys.add(match[1]);
+            }
+        }
+
+        const outputVars = html.match(/OUTPUT_VARIABLES\s*=\s*\{([\s\S]*?)\}/);
+        if (outputVars) {
+            for (const match of outputVars[1].matchAll(/["']?(\w+)["']?\s*:/g)) {
+                keys.add(match[1]);
+            }
+        }
+
+        for (const match of grade.matchAll(/\b(?:input|variables|output)\.(\w+)/g)) {
+            keys.add(match[1]);
+        }
+        return [...keys];
+    }
+
+    function findMathGradedAnswer(challengeBlob, modes) {
+        const grade = compileMathGradeFunction(challengeBlob);
+        if (!grade) return null;
+
+        for (const mode of modes) {
+            const reactCandidates = getMathReactAnswerCandidates(grade, mode, challengeBlob);
+
+            if (mode === 'keyboard') {
+                const values = new Set();
+                for (const candidate of reactCandidates) {
+                    const normalized = normalizeMathKeyboardCandidate(candidate);
+                    if (!normalized || /correctanswer:/i.test(normalized)) continue;
+                    values.add(normalized);
+                    if (normalized.endsWith('%')) values.add(normalized.slice(0, -1));
+                }
+                for (const stringValue of [...values].sort((left, right) => left.length - right.length)) {
+                    if (tryMathGradeAnswer(grade, { keyboardInput: { value: stringValue } })) return stringValue;
+                }
+                continue;
+            }
+
+            const values = reactCandidates.flatMap((hint) => (
+                typeof hint === 'number'
+                    ? [hint]
+                    : [...String(hint).matchAll(/-?\d+(?:\.\d+)?/g)].map((match) => parseFloat(match[0]))
+            ));
+            const keys = mode === 'slider' ? getMathSliderGradeKeys(challengeBlob) : ['value'];
+
+            for (const value of new Set(values)) {
+                if (Number.isNaN(value)) continue;
+                if (keys.some((key) => tryMathGradeAnswer(grade, { [key]: value }))) return value;
+            }
+        }
+
+        return null;
+    }
+
+    function findMathKeyboardAnswer(challengeBlob) {
+        return findMathGradedAnswer(challengeBlob, ['keyboard']);
+    }
+
+    function findMathValueAnswer(challengeBlob) {
+        return findMathGradedAnswer(challengeBlob, ['value']);
+    }
+
+    function findMathSliderTargetValue(challengeBlob, doc) {
+        const fromReact = findMathGradedAnswer(challengeBlob, ['slider']);
+        if (fromReact !== null) return fromReact;
+
+        const grade = compileMathGradeFunction(challengeBlob);
+        const bounds = getMathSliderBounds(challengeBlob, doc);
+        if (!grade || !bounds || bounds.max === bounds.min) return null;
+
+        const keys = getMathSliderGradeKeys(challengeBlob);
+        const html = `${challengeBlob?.pants?.html ?? ''}\n${challengeBlob?.shirt?.html ?? ''}`;
+        const step = parseFloat(
+            html.match(/slider:\s*\{[\s\S]*?step:\s*(-?[\d.]+)/)?.[1]
+            ?? html.match(/xAxisStep:\s*(-?[\d.]+)/)?.[1]
+        ) || 1;
+        for (let value = bounds.min; value <= bounds.max + 1e-9; value += step) {
+            const rounded = Math.round(value * 1000) / 1000;
+            if (keys.some((key) => tryMathGradeAnswer(grade, { [key]: rounded }))) {
+                return rounded;
+            }
+        }
+
+        return null;
+    }
+
+    function setMathTextInputValue(input, value) {
+        if (!input) return false;
+
+        input.focus();
+
+        const prototype = input instanceof HTMLTextAreaElement
+            ? window.HTMLTextAreaElement.prototype
+            : window.HTMLInputElement.prototype;
+        const nativeInputValueSetter = Object.getOwnPropertyDescriptor(prototype, 'value')?.set;
+        if (!nativeInputValueSetter) return false;
+
+        nativeInputValueSetter.call(input, value);
+        input.dispatchEvent(new Event('input', { bubbles: true }));
+        return true;
+    }
+
+    function dispatchMathIframeMouseDrag(win, doc, startElement, endElement, startX, startY, endX, endY) {
+        const mouseEvent = (type, x, y) => new win.MouseEvent(type, {
+            bubbles: true,
+            cancelable: true,
+            clientX: x,
+            clientY: y,
+            view: win,
+            button: 0
+        });
+
+        startElement.dispatchEvent(mouseEvent('mousedown', startX, startY));
+        doc.dispatchEvent(mouseEvent('mousemove', endX, endY));
+        endElement.dispatchEvent(mouseEvent('mouseup', endX, endY));
+    }
+
+    function dispatchMathSliderDrag(win, doc, thumb, targetX, targetY) {
+        const start = thumb.getBoundingClientRect();
+        dispatchMathIframeMouseDrag(
+            win,
+            doc,
+            thumb,
+            doc,
+            start.left + start.width / 2,
+            start.top + start.height / 2,
+            targetX,
+            targetY
+        );
+    }
+
+    function getMathSliderLabelValues(doc) {
+        return [...doc.querySelectorAll('text.axis-label, text.number-line-label')]
+            .map((label) => parseFloat(label.textContent))
+            .filter((value) => !Number.isNaN(value));
+    }
+
+    function getMathSliderBounds(challengeBlob, doc) {
+        const thumb = doc?.querySelector?.('[role="slider"]');
+        const ariaMin = parseFloat(thumb?.getAttribute('aria-valuemin'));
+        const ariaMax = parseFloat(thumb?.getAttribute('aria-valuemax'));
+        if (!Number.isNaN(ariaMin) && !Number.isNaN(ariaMax) && ariaMax !== ariaMin) {
+            return { min: ariaMin, max: ariaMax };
+        }
+
+        const pantsHtml = challengeBlob?.pants?.html ?? '';
+        const sliderBlockMatch = pantsHtml.match(/slider:\s*\{[\s\S]*?min:\s*(-?[\d.]+)[\s\S]*?max:\s*(-?[\d.]+)/);
+        if (sliderBlockMatch) {
+            return {
+                min: parseFloat(sliderBlockMatch[1]),
+                max: parseFloat(sliderBlockMatch[2])
+            };
+        }
+
+        const labels = doc ? getMathSliderLabelValues(doc) : [];
+        if (labels.length >= 2) {
+            return {
+                min: Math.min(...labels),
+                max: Math.max(...labels)
+            };
+        }
+
+        const minMatch = pantsHtml.match(/(?:min|xAxisMin):\s*(-?[\d.]+)/);
+        const maxMatch = pantsHtml.match(/(?:max|xAxisMax):\s*(-?[\d.]+)/);
+        if (minMatch && maxMatch) {
+            const min = parseFloat(minMatch[1]);
+            const max = parseFloat(maxMatch[1]);
+            if (max !== min) return { min, max };
+        }
+
+        return null;
+    }
+
+    async function solveMathSliderChallenge(challengeBlob) {
+        const iframe = getMathLessonInteractiveIframe();
+        const win = iframe?.contentWindow;
+        const doc = iframe?.contentDocument;
+        if (!win || !doc) return false;
+
+        const targetValue = findMathSliderTargetValue(challengeBlob, doc);
+        if (targetValue === null) return false;
+
+        const bounds = getMathSliderBounds(challengeBlob, doc);
+        if (!bounds || bounds.max === bounds.min) return false;
+
+        const slider2dThumb = doc.querySelector('.slider2d-thumb, [role="slider"]');
+        const slider2dTrack = doc.querySelector('.slider2d-track');
+        if (slider2dThumb && slider2dTrack) {
+            const trackRect = slider2dTrack.getBoundingClientRect();
+            const proportion = (targetValue - bounds.min) / (bounds.max - bounds.min);
+            const clampedProportion = Math.max(0, Math.min(1, proportion));
+            const thumbRect = slider2dThumb.getBoundingClientRect();
+            dispatchMathSliderDrag(
+                win,
+                doc,
+                slider2dThumb,
+                trackRect.left + clampedProportion * trackRect.width,
+                thumbRect.top + thumbRect.height / 2
+            );
+            notifyMathIframeInteraction(win);
+            return true;
+        }
+
+        const thumb = doc.querySelector('.slider1d-thumb');
+        const axis = doc.querySelector('.axis-line.x-axis.main-axis');
+        if (!thumb || !axis) return false;
+
+        const labels = getMathSliderLabelValues(doc);
+        const exactLabel = labels.find((label) => Math.abs(label - targetValue) < 0.001);
+        if (exactLabel !== undefined) {
+            const labelElements = [...doc.querySelectorAll('text.axis-label, text.number-line-label')];
+            const labelIndex = labelElements.findIndex((label) => parseFloat(label.textContent) === exactLabel);
+            const ticks = [...doc.querySelectorAll('line.number-line-tick')];
+            const tick = ticks[labelIndex];
+            if (tick) {
+                const tickRect = tick.getBoundingClientRect();
+                const thumbRect = thumb.getBoundingClientRect();
+                dispatchMathSliderDrag(
+                    win,
+                    doc,
+                    thumb,
+                    tickRect.left + tickRect.width / 2,
+                    thumbRect.top + thumbRect.height / 2
+                );
+                notifyMathIframeInteraction(win);
+                return true;
+            }
+        }
+
+        const axisRect = axis.getBoundingClientRect();
+        const proportion = (targetValue - bounds.min) / (bounds.max - bounds.min);
+        const clampedProportion = Math.max(0, Math.min(1, proportion));
+        const thumbRect = thumb.getBoundingClientRect();
+        dispatchMathSliderDrag(
+            win,
+            doc,
+            thumb,
+            axisRect.left + clampedProportion * axisRect.width,
+            thumbRect.top + thumbRect.height / 2
+        );
+
+        notifyMathIframeInteraction(win);
+        return true;
+    }
+
+    function solveMathSelectChoices(challengeBlob) {
+        refreshWindowSolFromReact();
+        const activeBlob = Array.isArray(challengeBlob?.pants) && challengeBlob.pants.length
+            ? challengeBlob
+            : (window.sol?.challengeBlob ?? challengeBlob);
+        const correctIds = findMathCorrectButtonIds(activeBlob);
+        if (!correctIds?.length || !Array.isArray(activeBlob?.pants)) return false;
+
+        correctIds.forEach((correctId) => {
+            getMathChoiceElementByButtonId(correctId, activeBlob)?.click();
+        });
+
+        return true;
+    }
+
+    function solveMathTypeFillChallenge(challengeBlob) {
+        refreshWindowSolFromReact();
+        const activeBlob = challengeBlob?.grading_function
+            ? challengeBlob
+            : (window.sol?.challengeBlob ?? challengeBlob);
+        const answer = findMathKeyboardAnswer(activeBlob);
+        if (answer === null) return false;
+
+        const input = document.querySelector('[data-test="challenge-text-input"]')
+            || document.querySelector('input, textarea');
+        return setMathTextInputValue(input, answer);
+    }
+
+    function getMathMatchTapTokens() {
+        return [...document.querySelectorAll('[data-test="-challenge-tap-token"]')];
+    }
+
+    function getMathMatchTokenMeta(button) {
+        if (!button) return null;
+
+        const fiberKey = Object.keys(button).find((key) => key.startsWith('__reactFiber$'));
+        if (!fiberKey) return null;
+
+        let fiber = button[fiberKey];
+        for (let depth = 0; depth < 16 && fiber; depth++) {
+            const props = fiber.memoizedProps;
+            const token = props?.children?.props?.token;
+            if (token?.id && /^(left|right)_\d+$/.test(token.id)) {
+                return {
+                    id: token.id,
+                    animation: props.animation ?? null,
+                    selected: !!props.selected,
+                    disabled: !!props.disabled,
+                };
+            }
+            fiber = fiber.return;
+        }
+
+        return null;
+    }
+
+    function buildMathMatchIdMap(buttons = null) {
+        const idToButton = new Map();
+        for (const button of buttons ?? getMathMatchTapTokens()) {
+            const onesieId = getMathMatchTokenMeta(button)?.id;
+            if (!onesieId) continue;
+
+            const existing = idToButton.get(onesieId);
+            if (!existing || isMathMatchMadnessButtonReady(button)) {
+                idToButton.set(onesieId, button);
+            }
+        }
+        return idToButton;
+    }
+
+    function getMathMatchOnesiePairs(challengeBlob) {
+        const rows = challengeBlob?.onesie;
+        if (!Array.isArray(rows) || !rows.length) return [];
+        return rows.map(([left, right]) => [left.id, right.id]);
+    }
+
+    async function clickMathMatchPair(leftButton, rightButton, delayMs = 50) {
+        if (!leftButton || !rightButton || leftButton === rightButton) return false;
+
+        const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
+        leftButton.click();
+        await sleep(delayMs);
+        rightButton.click();
+        await sleep(delayMs);
+        return true;
+    }
+
+    async function solveMathMatchChallenge(challengeBlob) {
+        const pairs = getMathMatchOnesiePairs(challengeBlob);
+        if (!pairs.length) return false;
+
+        const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
+
+        for (const [leftId, rightId] of pairs) {
+            let leftButton = null;
+            let rightButton = null;
+
+            // Rebuild each pair — Match remounts tokens after a correct pair (web/grid iframes especially).
+            for (let attempt = 0; attempt < 30; attempt++) {
+                const idToButton = buildMathMatchIdMap();
+                leftButton = idToButton.get(leftId);
+                rightButton = idToButton.get(rightId);
+                if (
+                    leftButton
+                    && rightButton
+                    && !leftButton.disabled
+                    && !rightButton.disabled
+                ) break;
+                await sleep(40);
+            }
+            if (!leftButton || !rightButton) return false;
+
+            await clickMathMatchPair(leftButton, rightButton);
+
+            for (let attempt = 0; attempt < 40; attempt++) {
+                const liveLeft = buildMathMatchIdMap().get(leftId);
+                if (
+                    !liveLeft
+                    || liveLeft.disabled
+                    || getMathMatchTokenMeta(liveLeft)?.animation?.name === 'CORRECT_MATCH'
+                ) break;
+                await sleep(25);
+            }
+        }
+
+        return true;
+    }
+
+    function isMathMatchMadnessButtonReady(button) {
+        if (!button || button.disabled) return false;
+
+        const meta = getMathMatchTokenMeta(button);
+        if (meta?.disabled || meta?.animation?.name === 'CORRECT_MATCH_MADNESS') return false;
+
+        const style = getComputedStyle(button);
+        if (style.pointerEvents === 'none' || style.visibility === 'hidden') return false;
+        return parseFloat(style.opacity) >= 0.99;
+    }
+
+    function getMathMatchMadnessReadyButtons() {
+        return getMathMatchTapTokens().filter(isMathMatchMadnessButtonReady);
+    }
+
+    function getMathMatchMadnessCandidatePairs(challengeBlob) {
+        const pairs = [];
+        const seen = new Set();
+        for (const [left, right] of challengeBlob?.onesie || []) {
+            const key = `${left.id}|${right.id}`;
+            if (!left?.id || !right?.id || seen.has(key)) continue;
+            seen.add(key);
+            pairs.push([left.id, right.id]);
+        }
+        return pairs;
+    }
+
+    function findReadyMathMatchMadnessPairs(challengeBlob, idToButton, excludedIds = null) {
+        const excluded = excludedIds ?? new Set();
+        const readySet = new Set();
+        for (const [onesieId, button] of idToButton) {
+            if (!excluded.has(onesieId) && isMathMatchMadnessButtonReady(button)) {
+                readySet.add(onesieId);
+            }
+        }
+
+        const used = new Set();
+        const pairs = [];
+        for (const [leftId, rightId] of getMathMatchMadnessCandidatePairs(challengeBlob)) {
+            if (used.has(leftId) || used.has(rightId)) continue;
+            if (!readySet.has(leftId) || !readySet.has(rightId)) continue;
+
+            const leftButton = idToButton.get(leftId);
+            const rightButton = idToButton.get(rightId);
+            if (!leftButton || !rightButton || leftButton === rightButton) continue;
+
+            pairs.push({ leftId, rightId, leftButton, rightButton });
+            used.add(leftId);
+            used.add(rightId);
+        }
+        return pairs;
+    }
+
+    function deselectMathMatchMadnessButtons() {
+        for (const button of getMathMatchTapTokens()) {
+            if (getMathMatchTokenMeta(button)?.selected) button.click();
+        }
+    }
+
+    async function waitForMathMatchMadnessPairConfirm(leftId, rightId, runContext = null, timeoutMs = 400) {
+        const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
+        const isConfirmed = () => {
+            const idToButton = buildMathMatchIdMap();
+            const leftButton = idToButton.get(leftId);
+            const rightButton = idToButton.get(rightId);
+            if (!leftButton && !rightButton) return true;
+
+            const leftMeta = getMathMatchTokenMeta(leftButton);
+            const rightMeta = getMathMatchTokenMeta(rightButton);
+            if (leftMeta?.animation?.name === 'CORRECT_MATCH_MADNESS') return true;
+            if (rightMeta?.animation?.name === 'CORRECT_MATCH_MADNESS') return true;
+            if (leftButton && parseFloat(getComputedStyle(leftButton).opacity) < 0.99) return true;
+            if (rightButton && parseFloat(getComputedStyle(rightButton).opacity) < 0.99) return true;
+            return false;
+        };
+
+        const startedAt = Date.now();
+        while (Date.now() - startedAt < timeoutMs) {
+            if (!isChessLessonRunContextActive(runContext)) return false;
+            if (isConfirmed()) return true;
+            await sleep(10);
+        }
+        return isConfirmed();
+    }
+
+    async function solveMathMatchMadnessChallenge(challengeBlob, runContext = null) {
+        const rows = challengeBlob?.onesie;
+        if (!Array.isArray(rows) || !rows.length) return false;
+
+        const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
+
+        if (isMathMatchMadnessIntroScreen()) {
+            document.querySelector('[data-test="player-next"]')?.click();
+            await sleep(300);
+            return true;
+        }
+
+        const totalPairs = rows.length;
+        const matchedIds = new Set();
+        let solvedCount = 0;
+        let idlePolls = 0;
+
+        while (isChessLessonRunContextActive(runContext)) {
+            refreshWindowSolFromReact();
+            const activeBlob = window.sol?.challengeBlob ?? challengeBlob;
+            const targetPairs = activeBlob?.onesie?.length || totalPairs;
+            if (solvedCount >= targetPairs) return true;
+
+            if (isMathMatchMadnessIntroScreen()) {
+                document.querySelector('[data-test="player-next"]')?.click();
+                await sleep(250);
+                continue;
+            }
+
+            const tokens = getMathMatchTapTokens();
+            if (!tokens.length) {
+                if (solvedCount > 0 && idlePolls > 40) return true;
+                idlePolls++;
+                await sleep(25);
+                continue;
+            }
+
+            const readyPairs = findReadyMathMatchMadnessPairs(activeBlob, buildMathMatchIdMap(tokens), matchedIds);
+            if (!readyPairs.length) {
+                const selected = tokens.filter((button) => getMathMatchTokenMeta(button)?.selected);
+                if (selected.length === 1) selected[0].click();
+
+                idlePolls++;
+                if (idlePolls > 240 && solvedCount > 0 && getMathMatchMadnessReadyButtons().length === 0) {
+                    return true;
+                }
+                await sleep(20);
+                continue;
+            }
+
+            idlePolls = 0;
+            for (const pair of readyPairs) {
+                if (!isChessLessonRunContextActive(runContext)) return solvedCount > 0;
+                if (matchedIds.has(pair.leftId) || matchedIds.has(pair.rightId)) continue;
+
+                const liveMap = buildMathMatchIdMap();
+                const leftButton = liveMap.get(pair.leftId);
+                const rightButton = liveMap.get(pair.rightId);
+                if (!leftButton || !rightButton || !isMathMatchMadnessButtonReady(leftButton) || !isMathMatchMadnessButtonReady(rightButton)) {
+                    continue;
+                }
+
+                await clickMathMatchPair(leftButton, rightButton);
+                if (!await waitForMathMatchMadnessPairConfirm(pair.leftId, pair.rightId, runContext)) {
+                    deselectMathMatchMadnessButtons();
+                    await sleep(20);
+                    continue;
+                }
+
+                matchedIds.add(pair.leftId);
+                matchedIds.add(pair.rightId);
+                solvedCount++;
+                if (solvedCount >= targetPairs) return true;
+            }
+
+            await sleep(10);
+        }
+
+        return solvedCount > 0;
+    }
+
+    function solveMathKeypadInput(challengeBlob) {
+        const keyboardAnswer = findMathKeyboardAnswer(challengeBlob);
+        if (keyboardAnswer !== null) {
+            const input = document.querySelector('[data-test="challenge-text-input"]')
+                || document.querySelector('input, textarea')
+                || document.querySelector('.duo-blank-box');
+            if (input && setMathTextInputValue(input, keyboardAnswer)) {
+                return true;
+            }
+        }
+
+        const answer = findMathValueAnswer(challengeBlob);
+        if (answer === null) return false;
+
+        document.querySelector('.duo-blank-box')?.click();
+
+        String(answer).split('').forEach((digit) => {
+            const keypadButton = [...document.querySelectorAll('button')].find((button) => button.textContent?.trim() === digit);
+            keypadButton?.click();
+        });
+
+        return true;
+    }
+
+    function isMathShirtPantsInteractiveLayout(challengeBlob) {
+        return challengeBlob?.layout === 'shirtPantsInteractive'
+            || challengeBlob?.layout === 'dynamicShirtPantsInteractive';
+    }
+
+    function isMathExpressionBuildChallenge(challengeBlob) {
+        return challengeBlob?.pants?.metadata?.interactionType === 'expressionBuild'
+            || challengeBlob?.pants?.html?.includes('ExpressionBuild');
+    }
+
+    function isMathDraggablePlotChallenge(challengeBlob) {
+        const src = `${challengeBlob?.pants?.html ?? ''}\n${challengeBlob?.grading_function ?? ''}`;
+        return /final_x_coordinates|finalPositions|final_position|point_positions|correctZeros\s*=|addDraggablePoint|draggablePoint|correctX\s*=/.test(src);
+    }
+
+    function isMathSliderChallenge(challengeBlob) {
+        if (isMathDraggablePlotChallenge(challengeBlob)) return false;
+        return /NumberLine|StandaloneSlider|slider2d|Grid2D|slider:/.test(challengeBlob?.pants?.html || '');
+    }
+
+    function tryMathDraggablePlotGuess(grade, points) {
+        if (!grade || !points?.length) return false;
+
+        const payloads = [
+            { finalPositions: points },
+            { point_positions: points }
+        ];
+        if (points.length === 1) {
+            const point = points[0];
+            payloads.push(
+                { final_position: point, is_within_bounds: true },
+                { final_position: point },
+                { draggablePoint: point },
+                { x: point.x, y: point.y },
+                { correctX: point.x, correctY: point.y }
+            );
+        }
+
+        return payloads.some((payload) => tryMathGradeAnswer(grade, payload));
+    }
+
+    function getMathDraggablePlotReactText(grade, challengeBlob) {
+        const texts = [...getMathFeedbackCorrectBodyCandidates()];
+        if (challengeBlob?.shirt?.value) texts.push(String(challengeBlob.shirt.value));
+        if (grade) {
+            for (const probe of [{}, { final_position: { x: 0, y: 0 }, is_within_bounds: true }]) {
+                try {
+                    const result = grade(probe);
+                    if (result && !isMathGradeResultCorrect(result)) {
+                        texts.push(...getMathGradeResultAnswerTexts(result));
+                        break;
+                    }
+                } catch (error) {
+                    console.log(error);
+                }
+            }
+        }
+        return unwrapMathLatexText(texts.join(' ').replace(/\\,/g, ' '));
+    }
+
+    function findMathDraggablePlotAnswer(challengeBlob, pointCount) {
+        const grade = compileMathGradeFunction(challengeBlob);
+        if (!pointCount) return null;
+
+        const text = getMathDraggablePlotReactText(grade, challengeBlob);
+        const seen = new Set();
+        const pairs = [];
+        for (const match of text.matchAll(/\(\s*(-?\d+(?:\.\d+)?)\s*,\s*(-?\d+(?:\.\d+)?)\s*\)/g)) {
+            const point = { x: parseFloat(match[1]), y: parseFloat(match[2]) };
+            const key = `${point.x},${point.y}`;
+            if (seen.has(key)) continue;
+            seen.add(key);
+            pairs.push(point);
+        }
+
+        if (pairs.length >= pointCount) {
+            const candidate = pairs.slice(0, pointCount);
+            if (!grade || tryMathDraggablePlotGuess(grade, candidate)) {
+                return { points: candidate };
+            }
+        }
+
+        if (pointCount === 1) {
+            const namedY = text.match(/(?:^|[,;\s])y\s*=\s*(-?\d+(?:\.\d+)?)/i);
+            const namedX = text.match(/(?:^|[,;\s])x\s*=\s*(-?\d+(?:\.\d+)?)/i);
+            const single = namedX && namedY
+                ? { x: parseFloat(namedX[1]), y: parseFloat(namedY[1]) }
+                : pairs[0];
+            if (single && (!grade || tryMathDraggablePlotGuess(grade, [single]))) {
+                return { points: [single] };
+            }
+
+            const html = challengeBlob?.pants?.html ?? '';
+            const bounds = html.match(/xMin:\s*(-?[\d.]+)[\s\S]*?xMax:\s*(-?[\d.]+)[\s\S]*?yMin:\s*(-?[\d.]+)[\s\S]*?yMax:\s*(-?[\d.]+)/);
+            const minX = bounds ? parseFloat(bounds[1]) : 0;
+            const maxX = bounds ? parseFloat(bounds[2]) : 10;
+            const minY = bounds ? parseFloat(bounds[3]) : 0;
+            const maxY = bounds ? parseFloat(bounds[4]) : 10;
+            if (grade && maxX - minX <= 20 && maxY - minY <= 20) {
+                for (let x = minX; x <= maxX + 1e-9; x++) {
+                    for (let y = minY; y <= maxY + 1e-9; y++) {
+                        if (tryMathDraggablePlotGuess(grade, [{ x, y }])) return { points: [{ x, y }] };
+                    }
+                }
+            }
+        }
+
+        const numbers = [...text.matchAll(/-?\d+(?:\.\d+)?/g)].map((match) => parseFloat(match[0]));
+        const tryZeros = (zeros) => grade && [
+            { final_x_coordinates: zeros },
+            { final_x_coordinates: [...zeros].sort((a, b) => a - b) }
+        ].some((payload) => tryMathGradeAnswer(grade, payload));
+
+        if (numbers.length === pointCount && tryZeros(numbers)) return { zeros: numbers };
+
+        if (numbers.length > pointCount && pointCount <= 6) {
+            const chosen = [];
+            const search = (start) => {
+                if (chosen.length === pointCount) return tryZeros(chosen) ? chosen.slice() : null;
+                for (let index = start; index < numbers.length; index++) {
+                    chosen.push(numbers[index]);
+                    const found = search(index + 1);
+                    if (found) return found;
+                    chosen.pop();
+                }
+                return null;
+            };
+            const zeros = search(0);
+            if (zeros) return { zeros };
+        }
+
+        return null;
+    }
+
+    function setMathDraggablePoint(point, targetX, targetY) {
+        if (typeof point.updatePosition === 'function') {
+            try {
+                point.updatePosition(targetX, targetY);
+                return;
+            } catch (error) {
+                console.log(error);
+            }
+        }
+
+        point.x = targetX;
+        point.y = targetY;
+        if (Array.isArray(point.updateSubscribers)) {
+            for (const subscriber of point.updateSubscribers) {
+                try { subscriber(); } catch (error) { console.log(error); }
+            }
+        }
+    }
+
+    function dragMathPointToGrid(win, doc, point, targetX, targetY) {
+        const hit = point?.element?.querySelector?.('.draggable-point__hitbox') || point?.element;
+        const xLabel = [...(doc?.querySelectorAll('text.x-axis-label') || [])]
+            .find((label) => Math.abs(parseFloat(label.textContent) - targetX) < 0.001);
+        const yLabel = [...(doc?.querySelectorAll('text.y-axis-label') || [])]
+            .find((label) => Math.abs(parseFloat(label.textContent) - targetY) < 0.001);
+
+        if (doc && hit && xLabel && yLabel) {
+            const start = hit.getBoundingClientRect();
+            const xRect = xLabel.getBoundingClientRect();
+            const yRect = yLabel.getBoundingClientRect();
+            dispatchMathIframeMouseDrag(
+                win,
+                doc,
+                hit,
+                doc,
+                start.left + start.width / 2,
+                start.top + start.height / 2,
+                xRect.left + xRect.width / 2,
+                yRect.top + yRect.height / 2
+            );
+        }
+
+        setMathDraggablePoint(point, targetX, targetY);
+        notifyMathIframeInteraction(win);
+    }
+
+    function findMathNumberLineFinalPositions(challengeBlob, pointCount) {
+        const grade = compileMathGradeFunction(challengeBlob);
+        if (!grade || pointCount !== 2) return null;
+        if (!/finalPositions/.test(challengeBlob?.grading_function ?? '')) return null;
+
+        const html = challengeBlob?.pants?.html ?? '';
+        const min = parseFloat(html.match(/xAxisMin:\s*(-?[\d.]+)/)?.[1] ?? '-10');
+        const max = parseFloat(html.match(/xAxisMax:\s*(-?[\d.]+)/)?.[1] ?? '10');
+        const step = parseFloat(html.match(/xAxisStep:\s*(-?[\d.]+)/)?.[1] ?? '1') || 1;
+        if (max - min > 40) return null;
+
+        for (let x = min; x <= max + 1e-9; x += step) {
+            const value = Math.round(x * 1000) / 1000;
+            const positions = [value, -value];
+            if (tryMathGradeAnswer(grade, { finalPositions: positions })) return positions;
+        }
+
+        return null;
+    }
+
+    function dragMathNumberLineThumbToValue(win, doc, thumb, targetValue) {
+        if (!win || !doc || !thumb) return;
+
+        const label = [...doc.querySelectorAll('text.x-axis-label, text.number-line-label, text.axis-label')]
+            .find((element) => Math.abs(parseFloat(element.textContent) - targetValue) < 0.001);
+        if (!label) return;
+
+        const thumbRect = thumb.getBoundingClientRect();
+        const labelRect = label.getBoundingClientRect();
+        dispatchMathSliderDrag(
+            win,
+            doc,
+            thumb,
+            labelRect.left + labelRect.width / 2,
+            thumbRect.top + thumbRect.height / 2
+        );
+    }
+
+    async function solveMathDraggablePlotChallenge(challengeBlob) {
+        const iframe = getMathLessonInteractiveIframe();
+        const win = iframe?.contentWindow;
+        const doc = iframe?.contentDocument;
+        const components = win?.mathDiagram?.getAllComponents?.() ?? [];
+
+        const linePoint = components.find((component) => component?.parentNumberLine?.sliderInstance?.thumbs?.length);
+        const thumbs = linePoint?.parentNumberLine?.sliderInstance?.thumbs;
+        if (thumbs?.length) {
+            const positions = findMathNumberLineFinalPositions(challengeBlob, thumbs.length);
+            if (!positions) return false;
+
+            for (let index = 0; index < thumbs.length; index++) {
+                thumbs[index].onUpdate?.(positions[index]);
+                dragMathNumberLineThumbToValue(win, doc, thumbs[index].element, positions[index]);
+            }
+            notifyMathIframeInteraction(win);
+            return true;
+        }
+
+        let points = components.filter((component) => (
+            typeof component?.updatePosition === 'function'
+            && typeof component?.x === 'number'
+            && component?.element?.classList?.contains('draggable-point')
+        ));
+        if (!points.length) {
+            points = components.filter((component) => (
+                typeof component?.updatePosition === 'function' && typeof component?.x === 'number'
+            ));
+        }
+        if (!points.length) return false;
+
+        const answer = findMathDraggablePlotAnswer(challengeBlob, points.length);
+        if (!answer) return false;
+
+        const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
+
+        if (answer.zeros) {
+            if (points.length < answer.zeros.length) return false;
+            answer.zeros.forEach((x, index) => { points[index].x = x; });
+            notifyMathIframeInteraction(win);
+            return true;
+        }
+
+        if (!answer.points || points.length < answer.points.length) return false;
+        for (let index = 0; index < answer.points.length; index++) {
+            dragMathPointToGrid(win, doc, points[index], answer.points[index].x, answer.points[index].y);
+            await sleep(40);
+        }
+
+        notifyMathIframeInteraction(win);
+        await sleep(40);
+        return true;
+    }
+
+    function isMathSpinnerChallenge(challengeBlob) {
+        return /new Spinner|Spinner\(/.test(challengeBlob?.pants?.html || '');
+    }
+
+    function isMathTableChallenge(challengeBlob) {
+        return /new Table\s*\(|outputRows/.test(challengeBlob?.pants?.html || '');
+    }
+
+    function parseMathTableInputVariables(html) {
+        const match = html?.match(/INPUT_VARIABLES\s*=\s*(\{[\s\S]*?\});/);
+        if (!match) return null;
+        try {
+            return JSON.parse(match[1]);
+        } catch (error) {
+            return null;
+        }
+    }
+
+    function findMathTableOutputRows(challengeBlob, rows, tokens) {
+        const grade = compileMathGradeFunction(challengeBlob);
+        if (!grade || !rows?.length || !tokens?.length) return null;
+
+        const blanks = [];
+        rows.forEach((row, rowIndex) => {
+            row.forEach((cell, colIndex) => {
+                if (cell === null) blanks.push([rowIndex, colIndex]);
+            });
+        });
+        if (!blanks.length) return rows.map((row) => row.slice());
+
+        const tokenValues = tokens.map(Number);
+        const guess = rows.map((row) => row.slice());
+        const gradeGuess = () => {
+            const valueCol = guess.map((row) => (row[1] == null ? null : Number(row[1])));
+            return [
+                { outputRows: guess },
+                { rowData: guess },
+                { finalTableValues: guess },
+                { final_values: valueCol }
+            ].some((payload) => tryMathGradeAnswer(grade, payload));
+        };
+
+        const search = (usedMask, blankIndex) => {
+            if (blankIndex === blanks.length) {
+                return gradeGuess() ? guess.map((row) => row.slice()) : null;
+            }
+
+            for (let tokenIndex = 0; tokenIndex < tokenValues.length; tokenIndex++) {
+                if (usedMask & (1 << tokenIndex)) continue;
+
+                const [rowIndex, colIndex] = blanks[blankIndex];
+                guess[rowIndex][colIndex] = tokenValues[tokenIndex];
+                const found = search(usedMask | (1 << tokenIndex), blankIndex + 1);
+                if (found) return found;
+            }
+
+            return null;
+        };
+
+        return search(0, 0);
+    }
+
+    function solveMathTableChallenge(challengeBlob) {
+        const inputVars = parseMathTableInputVariables(challengeBlob?.pants?.html ?? '');
+        const rows = inputVars?.rows || inputVars?.data;
+        if (!rows?.length || !inputVars?.tokens?.length) return false;
+
+        const filledRows = findMathTableOutputRows(challengeBlob, rows, inputVars.tokens);
+        if (!filledRows) return false;
+
+        const iframe = getMathLessonInteractiveIframe();
+        const win = iframe?.contentWindow;
+        const doc = iframe?.contentDocument;
+        const table = win?.mathDiagram;
+        if (!table?.setCellValue || !doc) return false;
+
+        const bank = [...doc.querySelectorAll('.token-bank .token')];
+        const placements = [];
+        for (let row = 0; row < rows.length; row++) {
+            for (let col = 0; col < rows[row].length; col++) {
+                if (rows[row][col] !== null) continue;
+
+                const tokenIndex = bank.findIndex((token) => (
+                    mathExpressionTokensEqual(token.getAttribute('data-token'), filledRows[row][col])
+                ));
+                if (tokenIndex < 0) return false;
+
+                const [tokenEl] = bank.splice(tokenIndex, 1);
+                placements.push({
+                    row,
+                    col,
+                    value: tokenEl.getAttribute('data-token'),
+                    tokenEl
+                });
+            }
+        }
+
+        const previousOnInteraction = win.duoDynamic?.onInteraction;
+        if (win.duoDynamic) win.duoDynamic.onInteraction = () => {};
+
+        try {
+            for (const { row, col, value, tokenEl } of placements) {
+                table.setCellValue(row, col, value, tokenEl);
+            }
+        } finally {
+            if (win.duoDynamic) win.duoDynamic.onInteraction = previousOnInteraction;
+        }
+
+        notifyMathIframeInteraction(win);
+        return true;
+    }
+
+    function findMathSpinnerSelectedCount(challengeBlob, segmentCount) {
+        const grade = compileMathGradeFunction(challengeBlob);
+        if (grade) {
+            for (let count = 0; count <= segmentCount; count++) {
+                if (tryMathGradeAnswer(grade, { selected: Array.from({ length: count }, (_, index) => index) })) {
+                    return count;
+                }
+            }
+        }
+        return null;
+    }
+
+    function clickMathSpinnerSegment(win, doc, segment) {
+        let clientX;
+        let clientY;
+        try {
+            const point = segment.getPointAtLength(segment.getTotalLength() * 0.35);
+            const screenPoint = doc.querySelector('svg').createSVGPoint();
+            screenPoint.x = point.x;
+            screenPoint.y = point.y;
+            const mapped = screenPoint.matrixTransform(segment.getScreenCTM());
+            clientX = mapped.x;
+            clientY = mapped.y;
+        } catch (error) {
+            const rect = segment.getBoundingClientRect();
+            clientX = rect.left + rect.width / 2;
+            clientY = rect.top + rect.height / 2;
+        }
+
+        const eventInit = { bubbles: true, cancelable: true, view: win, clientX, clientY };
+        for (const type of ['pointerdown', 'mousedown', 'pointerup', 'mouseup', 'click']) {
+            segment.dispatchEvent(new MouseEvent(type, eventInit));
+        }
+    }
+
+    async function solveMathSpinnerChallenge(challengeBlob) {
+        const iframe = getMathLessonInteractiveIframe();
+        const win = iframe?.contentWindow;
+        const doc = iframe?.contentDocument;
+        const segments = [...(doc?.querySelectorAll('.spinner-segment.segment-selectable') || [])];
+        if (!win || !doc || !segments.length) return false;
+
+        const targetCount = findMathSpinnerSelectedCount(challengeBlob, segments.length);
+        if (targetCount === null) return false;
+
+        const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
+
+        for (let guard = 0; guard < segments.length + 2; guard++) {
+            const selected = doc.querySelector('.spinner-segment.segment-selectable.selected');
+            if (!selected) break;
+            clickMathSpinnerSegment(win, doc, selected);
+            await sleep(30);
+        }
+
+        const available = [...doc.querySelectorAll('.spinner-segment.segment-selectable:not(.selected)')];
+        for (let index = 0; index < targetCount && index < available.length; index++) {
+            clickMathSpinnerSegment(win, doc, available[index]);
+            await sleep(30);
+        }
+
+        notifyMathIframeInteraction(win);
+        return true;
+    }
+
+    function parseMathExpressionTokens(pantsHtml) {
+        if (!pantsHtml) return null;
+
+        const tokenValuesMatch = pantsHtml.match(/"token_values"\s*:\s*(\[[\s\S]*?\])/);
+        if (tokenValuesMatch) {
+            try {
+                return JSON.parse(tokenValuesMatch[1]).map((token) => (
+                    token?.is_colon ? ':' : String(token?.value ?? '')
+                ));
+            } catch (error) {
+                console.log(error);
+            }
+        }
+
+        const tokensMatch = pantsHtml.match(/const tokens = (\[[\s\S]*?\]);/);
+        if (!tokensMatch) return null;
+
+        const raw = tokensMatch[1];
+        if (/INPUT_VARIABLES\./.test(raw)) {
+            const inputs = parseMathTableInputVariables(pantsHtml);
+            return inputs
+                ? [...raw.matchAll(/INPUT_VARIABLES\.(\w+)/g)].map(([, key]) => String(inputs[key]))
+                : null;
+        }
+
+        return [...raw.matchAll(/renderNumber\((-?\d+(?:\.\d+)?)\)|"([^"]*)"/g)]
+            .map((match) => (match[1] != null ? String(parseFloat(match[1])) : match[2]));
+    }
+
+    function getMathExpressionSlotCount(pantsHtml) {
+        const entries = pantsHtml?.match(/entries\s*[:=]\s*\[([^\]]*)\]/)?.[1]?.trim();
+        if (entries != null) return entries ? entries.split(',').length : 0;
+        return Number(pantsHtml?.match(/"num_blanks"\s*:\s*(\d+)/)?.[1] || 3);
+    }
+
+    function getMathExpressionOrderings(challengeBlob, tokens) {
+        const grade = compileMathGradeFunction(challengeBlob);
+        if (!grade || !tokens?.length) return [];
+
+        const tokenCount = tokens.length;
+        const slotCounts = [...new Set([
+            getMathExpressionSlotCount(challengeBlob?.pants?.html ?? ''),
+            tokenCount
+        ].filter(Boolean))];
+
+        const tryOrdering = (ordering) => {
+            const parts = ordering.map((index) => tokens[index]);
+            const guesses = [
+                { filled_entry_indices: ordering },
+                { tokenTreeIndices: ordering },
+                { tokenIndices: ordering },
+                { final_expression: parts.join('') },
+                { final_expression: parts.join(' ') }
+            ];
+            if (parts.length === 3 && (parts[1] === '/' || parts[1] === '÷')) {
+                const numerator = Number(parts[0]);
+                const denominator = Number(parts[2]);
+                if (Number.isFinite(numerator) && Number.isFinite(denominator)) {
+                    guesses.push({ finalFraction: { numerator, denominator } });
+                }
+            }
+            return guesses.some((guess) => tryMathGradeAnswer(grade, guess));
+        };
+
+        const found = [];
+        for (const slotCount of slotCounts) {
+            if (tokenCount ** slotCount > 20000) continue;
+
+            const partial = [];
+            const search = () => {
+                if (partial.length === slotCount) {
+                    if (tryOrdering(partial)) {
+                        found.push(partial.slice());
+                        return true;
+                    }
+                    return false;
+                }
+
+                for (let index = 0; index < tokenCount; index++) {
+                    partial.push(index);
+                    if (search()) return true;
+                    partial.pop();
+                }
+                return false;
+            };
+
+            if (search()) break;
+        }
+
+        return found.sort((left, right) => {
+            const score = (ordering) => (ordering.some((index) => tokens[index] === '+') ? 0 : 1);
+            return score(left) - score(right);
+        });
+    }
+
+    function mathExpressionTokensEqual(left, right) {
+        if (left === right) return true;
+
+        const leftNorm = String(left ?? '').replace(/−/g, '-');
+        const rightNorm = String(right ?? '').replace(/−/g, '-');
+        if (leftNorm === rightNorm) return true;
+
+        const leftNumber = parseFloat(leftNorm);
+        const rightNumber = parseFloat(rightNorm);
+        return Number.isFinite(leftNumber) && Number.isFinite(rightNumber) && leftNumber === rightNumber;
+    }
+
+    async function solveMathExpressionBuildChallenge(challengeBlob) {
+        const tokens = parseMathExpressionTokens(challengeBlob?.pants?.html ?? '');
+        const ordering = getMathExpressionOrderings(challengeBlob, tokens)[0];
+        const iframe = getMathLessonInteractiveIframe();
+        const win = iframe?.contentWindow;
+        const doc = iframe?.contentDocument;
+        if (!tokens?.length || !ordering?.length || !win?.mathDiagram?.setCellValue || !doc) return false;
+
+        const bank = [...doc.querySelectorAll('.token-bank .token')];
+        for (let slotIndex = 0; slotIndex < ordering.length; slotIndex++) {
+            const value = tokens[ordering[slotIndex]];
+            const tokenIndex = bank.findIndex((token) => (
+                mathExpressionTokensEqual(token.getAttribute('data-token'), value)
+            ));
+            if (tokenIndex < 0) return false;
+
+            const [tokenEl] = bank.splice(tokenIndex, 1);
+            win.mathDiagram.setCellValue(slotIndex, value, tokenEl);
+        }
+
+        notifyMathIframeInteraction(win);
+        return true;
+    }
+
+    function parseMathFactorTreeTokens(onesieHtml) {
+        const match = onesieHtml?.match(/const originalTokens = (\[[\s\S]*?\]);/);
+        if (!match) return null;
+
+        return [...match[1].matchAll(/renderNumber\(([^)]+)\)|"([^"]*)"/g)]
+            .map((entry) => String(entry[1] ?? entry[2]));
+    }
+
+    function solveMathFactorTreeChallenge(challengeBlob) {
+        const onesieHtml = challengeBlob?.onesie?.html ?? '';
+        const tokens = parseMathFactorTreeTokens(onesieHtml);
+        const ordering = getMathExpressionOrderings(challengeBlob, tokens || [])[0];
+        if (!tokens?.length || !ordering?.length) return false;
+
+        const factorTree = getMathLessonInteractiveIframe()?.contentWindow?.mathDiagram;
+        if (!factorTree?.setCellValue) return false;
+
+        for (let tokenIndex = 0; tokenIndex < ordering.length; tokenIndex++) {
+            const treeIndex = ordering[tokenIndex];
+            if (!treeIndex) continue;
+            factorTree.setCellValue(treeIndex - 1, tokens[tokenIndex]);
+        }
+
+        notifyMathIframeInteraction(getMathLessonInteractiveIframe()?.contentWindow);
+        return true;
+    }
+
+    function notifyMathIframeInteraction(win) {
+        win?.duoDynamic?.onInteraction?.();
+        win?.duo?.onFirstInteraction?.();
+        win?.AndroidChallenge?.firstInteraction?.();
+    }
+
+    const mathMultiStepProgress = {
+        challengeId: null,
+        completedStepIds: new Set(),
+        lastSolvedStepId: null
+    };
+
+    function isMathMultiStepChallenge(challengeBlob) {
+        return challengeBlob?.layout === 'multiStep' && Array.isArray(challengeBlob.steps);
+    }
+
+    function getMathMultiStepInstructionNeedles(step) {
+        const instruction = step?.blob?.instruction?.value || '';
+        const parts = [...instruction.matchAll(/\\(?:text|textbf)\{([^}]+)\}/g)].map((match) => match[1]);
+        const needles = [];
+        const joined = parts.join('').trim();
+        if (joined) needles.push(joined);
+        for (const part of parts) {
+            const trimmed = part.trim();
+            if (trimmed.length >= 3) needles.push(trimmed);
+        }
+        if (!needles.length && instruction) needles.push(instruction);
+        return [...new Set(needles.filter(Boolean))];
+    }
+
+    function getMathMultiStepShirtNeedles(step) {
+        const shirt = step?.blob?.shirt?.value || '';
+        if (!shirt) return [];
+
+        const needles = [];
+        for (const match of shirt.matchAll(/(\d+)\\%/g)) needles.push(`${match[1]}%`);
+        for (const match of shirt.matchAll(/\\frac\{(-?\d+)\}\{(-?\d+)\}/g)) {
+            needles.push(`${match[1]}/${match[2]}`);
+        }
+        const blank = shirt.match(/\\duoblank\{([^}]+)\}/);
+        if (blank) {
+            const value = blank[1]
+                .replace(/\\frac\{(-?\d+)\}\{(-?\d+)\}/g, '$1/$2')
+                .replace(/\\mathbf\{([^{}]*)\}/g, '$1')
+                .trim();
+            if (value) needles.push(value);
+        }
+        return needles;
+    }
+
+    function getMathMultiStepStepRank(step, body) {
+        let rank = -1;
+        for (const needle of [
+            ...getMathMultiStepInstructionNeedles(step),
+            ...getMathMultiStepShirtNeedles(step)
+        ]) {
+            rank = Math.max(rank, body.lastIndexOf(needle));
+        }
+        return rank;
+    }
+
+    function resetMathMultiStepProgressIfNeeded(challengeId) {
+        if (mathMultiStepProgress.challengeId === challengeId) return;
+        mathMultiStepProgress.challengeId = challengeId;
+        mathMultiStepProgress.completedStepIds = new Set();
+        mathMultiStepProgress.lastSolvedStepId = null;
+    }
+
+    function getMathMultiStepCurrentPrompt(steps) {
+        const body = document.body?.innerText || '';
+        let bestNeedle = null;
+        let bestPos = -1;
+
+        for (const step of steps) {
+            for (const needle of getMathMultiStepInstructionNeedles(step)) {
+                const pos = body.lastIndexOf(needle);
+                if (pos > bestPos) {
+                    bestPos = pos;
+                    bestNeedle = needle;
+                }
+            }
+        }
+
+        return bestNeedle;
+    }
+
+    function getMathMultiStepActiveStep(challengeBlob) {
+        const steps = challengeBlob?.steps;
+        if (!Array.isArray(steps) || !steps.length) return null;
+
+        resetMathMultiStepProgressIfNeeded(window.sol?.id ?? challengeBlob.instruction?.value ?? 'multiStep');
+
+        const body = document.body?.innerText || '';
+        const currentPrompt = getMathMultiStepCurrentPrompt(steps);
+        const lastSolved = steps.find((step) => step.step_id === mathMultiStepProgress.lastSolvedStepId);
+        if (lastSolved && currentPrompt && !getMathMultiStepInstructionNeedles(lastSolved).includes(currentPrompt)) {
+            mathMultiStepProgress.completedStepIds.add(lastSolved.step_id);
+            mathMultiStepProgress.lastSolvedStepId = null;
+        }
+
+        const hasChoices = !!document.querySelector('[data-test="challenge-choice"]');
+        const hasInput = !!document.querySelector('[data-test="challenge-text-input"]');
+        const layoutHints = hasChoices
+            ? ['selectOne', 'selectAll']
+            : hasInput
+                ? ['typeFill']
+                : ['dialogue'];
+
+        const isVisible = (step) => getMathMultiStepInstructionNeedles(step).some((needle) => body.includes(needle));
+        const matchesPrompt = (step) => getMathMultiStepInstructionNeedles(step).includes(currentPrompt);
+
+        const pickBest = (candidates) => {
+            if (!candidates.length) return null;
+            return candidates.sort((left, right) => (
+                getMathMultiStepStepRank(right, body) - getMathMultiStepStepRank(left, body)
+            ))[0];
+        };
+
+        const matched = [];
+        const visible = [];
+        for (const step of steps) {
+            if (mathMultiStepProgress.completedStepIds.has(step.step_id)) continue;
+            if (!layoutHints.includes(step?.blob?.layout)) continue;
+            if (currentPrompt ? matchesPrompt(step) : isVisible(step)) matched.push(step);
+            else if (isVisible(step)) visible.push(step);
+        }
+
+        return pickBest(matched) || pickBest(visible) || steps.find((step) => (
+            !mathMultiStepProgress.completedStepIds.has(step.step_id)
+            && layoutHints.includes(step?.blob?.layout)
+        )) || null;
+    }
+
+    async function handleMathLessonChallenge(challengeBlob, runContext = null) {
+        if (!challengeBlob) return true;
+
+        if (isMathMultiStepChallenge(challengeBlob)) {
+            const step = getMathMultiStepActiveStep(challengeBlob);
+            if (!step?.blob) return true;
+
+            if (step.blob.layout === 'dialogue') {
+                mathMultiStepProgress.completedStepIds.add(step.step_id);
+                mathMultiStepProgress.lastSolvedStepId = step.step_id;
+                return true;
+            }
+
+            const solved = await handleMathLessonChallenge(step.blob, runContext);
+            if (solved !== false) {
+                mathMultiStepProgress.completedStepIds.add(step.step_id);
+                mathMultiStepProgress.lastSolvedStepId = step.step_id;
+            }
+            return solved;
+        }
+
+        if (challengeBlob.layout === 'selectOne' || challengeBlob.layout === 'selectAll') {
+            return solveMathSelectChoices(challengeBlob);
+        }
+
+        if (challengeBlob.layout === 'typeFill') {
+            return solveMathTypeFillChallenge(challengeBlob);
+        }
+
+        if (challengeBlob.layout === 'match') {
+            return await solveMathMatchChallenge(challengeBlob);
+        }
+
+        if (challengeBlob.layout === 'matchMadness') {
+            return await solveMathMatchMadnessChallenge(challengeBlob, runContext);
+        }
+
+        if (challengeBlob.layout === 'onesie') {
+            return solveMathFactorTreeChallenge(challengeBlob);
+        }
+
+        if (isMathShirtPantsInteractiveLayout(challengeBlob)) {
+            if (challengeBlob.pants?.type === 'web') {
+                if (isMathExpressionBuildChallenge(challengeBlob)) {
+                    return await solveMathExpressionBuildChallenge(challengeBlob);
+                }
+
+                if (isMathTableChallenge(challengeBlob)) {
+                    return solveMathTableChallenge(challengeBlob);
+                }
+
+                if (isMathSpinnerChallenge(challengeBlob)) {
+                    return await solveMathSpinnerChallenge(challengeBlob);
+                }
+
+                if (isMathDraggablePlotChallenge(challengeBlob)) {
+                    return await solveMathDraggablePlotChallenge(challengeBlob);
+                }
+
+                if (isMathSliderChallenge(challengeBlob)) {
+                    await solveMathSliderChallenge(challengeBlob);
+                }
+            } else {
+                solveMathKeypadInput(challengeBlob);
+            }
+
+            return true;
+        }
+
+        if (Array.isArray(challengeBlob.pants) && challengeBlob.pants.length) {
+            solveMathSelectChoices(challengeBlob);
+            return true;
+        }
+
+        solveMathKeypadInput(challengeBlob);
+        return true;
+    }
+
+
+
+
+
+
+
+
+
+
+    const originalPlay = HTMLAudioElement.prototype.play;
     function muteTab(value) {
         HTMLAudioElement.prototype.play = function () {
             if (value) {
@@ -9060,10 +12666,56 @@ function One() {
     let isSolveBusy = false;
     let isSolveAllBusy = false;
     let solveAllRunToken = 0;
+    let isChessLessonPlayBusy = false;
 
     function bumpSolveAllRunToken() {
         solveAllRunToken += 1;
         return solveAllRunToken;
+    }
+
+    function isChessLessonRunContextActive(runContext) {
+        if (!runContext) return true;
+        if (runContext.solveAllRunToken !== solveAllRunToken) return false;
+        if (runContext.requiresAutoMode && !isAutoMode) return false;
+        if (runContext.questionKey !== undefined && runContext.questionKey !== currentQuestionId) return false;
+        return true;
+    }
+
+    function updateChessLessonPlayButtonText(isPlaying) {
+        const playButton = document.querySelector('.auto-solver-btn.play-btn');
+        if (playButton) {
+            playButton.innerText = isPlaying ? system("solver.playing") : system("solver.play");
+        }
+    }
+
+    async function playChessLesson() {
+        if (!isChessLessonSolveContext()) {
+            await solve();
+            return;
+        }
+
+        if (isChessLessonPlayBusy) {
+            bumpSolveAllRunToken();
+            isChessLessonPlayBusy = false;
+            updateChessLessonPlayButtonText(false);
+            updateChessCanvasPointerEvents();
+            return;
+        }
+
+        if (isSolveBusy) return;
+
+        const activeSolveRunToken = bumpSolveAllRunToken();
+        isChessLessonPlayBusy = true;
+        updateChessLessonPlayButtonText(true);
+        updateChessCanvasPointerEvents();
+
+        try {
+            await solve(true, false, activeSolveRunToken);
+        } finally {
+            isChessLessonPlayBusy = false;
+            updateChessLessonPlayButtonText(false);
+            updateChessCanvasPointerEvents();
+        }
     }
     document.addEventListener('keydown', function (event) {
         if ((event.ctrlKey || event.metaKey) && event.key === 'Enter') {
@@ -9089,9 +12741,9 @@ function One() {
             }
             hasLoggedForCurrent++;
 
-            if (storageLocal.settings.anonymousUsageData && storageSession.script.anonymous_analytics !== false) {
-                if (flag === 2) showNotification("error", "Legacy Solved Incorrectly", "Legacy has detected that it solved a question incorrectly. A report has been made under ID: " + sol.challengeGeneratorIdentifier.generatorId, 10);
-                else if (flag === 3) showNotification("error", "Legacy is Stuck", "Legacy has detected that it is stuck on a question. A report has been made under ID: " + sol.challengeGeneratorIdentifier.generatorId, 10);
+            if (storageLocal.settings.anonymousUsageData && storageSession.script.settings.anonymous_analytics !== false) {
+                if (flag === 2) showNotification("error", system("notifications.legacySolvedIncorrectlyTitle"), systemFormat("notifications.legacySolvedIncorrectlyBody", { id: sol.challengeGeneratorIdentifier.generatorId }), 10);
+                else if (flag === 3) showNotification("error", system("notifications.legacyStuckTitle"), systemFormat("notifications.legacyStuckBody", { id: sol.challengeGeneratorIdentifier.generatorId }), 10);
 
                 const payload = {
                     version: VERSION_FULL,
@@ -9111,8 +12763,8 @@ function One() {
                     body: JSON.stringify(payload)
                 });
             } else {
-                if (flag === 2) showNotification("error", "Legacy Solved Incorrectly", "Legacy has detected that it solved a question incorrectly. Turn on share anonymous usage data in settings to help us fix this bug.", 10);
-                else if (flag === 3) showNotification("error", "Legacy is Stuck", "Legacy has detected that it is stuck on a question. Turn on share anonymous usage data in settings to help us fix this bug.", 10);
+                if (flag === 2) showNotification("error", system("notifications.legacySolvedIncorrectlyTitle"), system("notifications.legacySolvedIncorrectlyNoAnalyticsBody"), 10);
+                else if (flag === 3) showNotification("error", system("notifications.legacyStuckTitle"), system("notifications.legacyStuckNoAnalyticsBody"), 10);
             }
         }
     }
@@ -9125,6 +12777,14 @@ function One() {
         }
     }
 
+    function getSolveAllButtonTextForCurrentContext(isPaused = false) {
+        if (isChessLessonSolveContext()) {
+            return isPaused ? system("solver.pausePlay") : system("solver.playAll");
+        }
+
+        return isPaused ? system("solver.pauseSolve") : system("solver.solveAll");
+    }
+
     async function solving(value) {
         if (value === "start") isAutoMode = true;
         else if (value === "stop") isAutoMode = false;
@@ -9132,7 +12792,8 @@ function One() {
 
         const activeSolveAllRunToken = bumpSolveAllRunToken();
 
-        updateSolveButtonText(isAutoMode ? systemText[systemLanguage][102] : systemText[systemLanguage][101]);
+        updateSolveButtonText(getSolveAllButtonTextForCurrentContext(isAutoMode));
+        updateChessCanvasPointerEvents();
 
         function startSolvingLoop(runToken) {
             if (solvingLoopRunning || !isAutoMode || runToken !== solveAllRunToken) return;
@@ -9146,7 +12807,8 @@ function One() {
                     // Safety: Stop if URL changes
                     if (window.location.href !== initialUrl) {
                         isAutoMode = false;
-                        updateSolveButtonText(isAutoMode ? systemText[systemLanguage][102] : systemText[systemLanguage][101]);
+                        updateSolveButtonText(getSolveAllButtonTextForCurrentContext(isAutoMode));
+                        updateChessCanvasPointerEvents();
                         break;
                     }
 
@@ -9178,6 +12840,7 @@ function One() {
 
                 // Cleanup when loop breaks
                 solvingLoopRunning = false;
+                updateChessCanvasPointerEvents();
 
                 if (isAutoMode && runToken !== solveAllRunToken) {
                     startSolvingLoop(solveAllRunToken);
@@ -9295,24 +12958,16 @@ function One() {
             }
         }
 
+        const chessLessonReactState = getChessLessonReactState();
+        const chessLessonInfo = chessLessonReactState?.props?.challenge?.chessPuzzleInfo ?? null;
+
         window.sol = null;
-        try {
-            window.sol = findReact(document.getElementsByClassName(findReactMainElementClass)[0])?.props?.currentChallenge ?? null;
-        } catch (error) {
-            window.sol = null;
-            console.log(error);
-            //let next = document.querySelector('[data-test="player-next"]');
-            //if (next) {
-            //    next.click();
-            //}
-            //return;
+        if (!chessLessonInfo) {
+            refreshWindowSolFromReact();
         }
-        //if (!window.sol) {
-        //    return;
-        //}
 
         let challengeType;
-        if (window.sol) {
+        if (window.sol || chessLessonInfo) {
             challengeType = determineChallengeType();
         } else {
             challengeType = 'error';
@@ -9321,6 +12976,17 @@ function One() {
         let questionKey;
         if (window.sol && window.sol.id) {
             questionKey = window.sol.id;
+        } else if (chessLessonInfo?.correctMoves) {
+            questionKey = JSON.stringify({
+                type: 'chessPuzzle',
+                correctMoves: chessLessonInfo.correctMoves
+            });
+        } else if (isMathLessonSolveContext()) {
+            questionKey = window.sol.id ?? JSON.stringify({
+                type: 'mathChallengeBlob',
+                layout: window.sol.challengeBlob.layout,
+                instruction: window.sol.challengeBlob.instruction?.value || ''
+            });
         } else if (window.sol) {
             // Fallback if no 'id' property: use type + prompt
             questionKey = JSON.stringify({
@@ -9336,6 +13002,21 @@ function One() {
             hasLoggedForCurrent = 0;
         }
 
+        const chessLessonRunContext = challengeType === 'Chess Lesson'
+            ? {
+                solveAllRunToken: runToken,
+                questionKey,
+                requiresAutoMode: skip
+            }
+            : null;
+        const mathMatchMadnessRunContext = challengeType === 'Math Match Madness'
+            ? {
+                solveAllRunToken: runToken,
+                questionKey,
+                requiresAutoMode: skip
+            }
+            : null;
+
         if (challengeType === 'error') {
             await Promise.race([
                 clickCheck(),
@@ -9346,28 +13027,59 @@ function One() {
 
             let playerFooter1 = document.getElementById("session/PlayerFooter");
 
-            if ((playerFooter1 && playerFooter1.matches("._3rB4d._1VTif._2HXQ9")) || (!playerFooter1 && document.querySelector('._2i9lj'))) { // id="session/PlayerFooter", "._3rB4d._1VTif._2HXQ9" - Neutral
-                await Promise.race([
-                    handleChallenge(challengeType),
-                    new Promise(resolve => setTimeout(resolve, 2000))
+            if (challengeType === 'Chess Lesson') {
+                await handleChallenge(challengeType, chessLessonRunContext);
+                if (skip) {
+                    await clickChessLessonContinueButton(4000, chessLessonRunContext);
+                }
+                await new Promise(resolve => setTimeout(resolve, 50));
+            } else if (challengeType === 'Math Match Madness') {
+                await handleChallenge(challengeType, mathMatchMadnessRunContext);
+            } else if ((playerFooter1 && playerFooter1.matches("._3rB4d._1VTif._2HXQ9")) || (!playerFooter1 && document.querySelector('._2i9lj'))) { // id="session/PlayerFooter", "._3rB4d._1VTif._2HXQ9" - Neutral
+                const challengeReady = await Promise.race([
+                    handleChallenge(challengeType, chessLessonRunContext),
+                    new Promise(resolve => setTimeout(() => resolve(true), 2000))
                 ]);
                 // await new Promise(r => requestAnimationFrame(r));
                 await new Promise(r => setTimeout(r, 50));
+
+                if (challengeReady === false) {
+                    return;
+                }
             }
 
             let skipInsteadOfCheck = false;
-            if (check && (playerFooter1 && playerFooter1.matches('._3rB4d._1VTif._2HXQ9')) || (!playerFooter1 && document.querySelector('._2i9lj'))) { // id="session/PlayerFooter" - Neutral
+            if (
+                challengeType !== 'Chess Lesson'
+                && challengeType !== 'Math Match Madness'
+                && check
+                && (
+                    (playerFooter1 && playerFooter1.matches('._3rB4d._1VTif._2HXQ9'))
+                    || (!playerFooter1 && document.querySelector('._2i9lj'))
+                )
+            ) { // id="session/PlayerFooter" - Neutral
                 await Promise.race([
                     clickCheck(),
                     new Promise(resolve => setTimeout(resolve, 500))
                 ]);
                 // await new Promise(r => requestAnimationFrame(r));
                 await new Promise(r => setTimeout(r, 50));
-            } else if (check && (playerFooter1 && !playerFooter1.matches('._3rB4d._1VTif._2HXQ9')) || ((!playerFooter1 && document.querySelector('._2i9lj')) && !document.querySelector('[data-test="stories-player-continue"]').disabled)) { // id="session/PlayerFooter" - NOT Neutral
+            } else if (
+                challengeType !== 'Chess Lesson'
+                && check
+                && (
+                    (playerFooter1 && !playerFooter1.matches('._3rB4d._1VTif._2HXQ9'))
+                    || (((!playerFooter1 && document.querySelector('._2i9lj')) && !document.querySelector('[data-test="stories-player-continue"]').disabled))
+                )
+            ) { // id="session/PlayerFooter" - NOT Neutral
                 skipInsteadOfCheck = true;
             }
 
-            if (skip || skipInsteadOfCheck) {
+            if (
+                challengeType !== 'Chess Lesson'
+                && challengeType !== 'Math Match Madness'
+                && (skip || skipInsteadOfCheck)
+            ) {
                 await Promise.race([
                     clickNext(),
                     new Promise(resolve => setTimeout(resolve, 500))
@@ -9511,7 +13223,30 @@ function One() {
                 }
             } else {
                 // Lesson
-                if (document.querySelectorAll('[data-test*="challenge-speak"]').length > 0) {
+                if (isChessLessonSolveContext()) {
+                    return 'Chess Lesson';
+                } else if (isMathLessonSolveContext()) {
+                    const mathBlob = window.sol.challengeBlob;
+                    if (mathBlob?.layout === 'multiStep') {
+                        return 'Math Multi Step';
+                    } else if (mathBlob?.layout === 'selectOne' || mathBlob?.layout === 'selectAll') {
+                        return 'Math Select One';
+                    } else if (mathBlob?.layout === 'typeFill') {
+                        return 'Math Type Fill';
+                    } else if (mathBlob?.layout === 'match') {
+                        return 'Math Match';
+                    } else if (mathBlob?.layout === 'matchMadness') {
+                        return 'Math Match Madness';
+                    } else if (mathBlob?.layout === 'onesie') {
+                        return 'Math Factor Tree';
+                    } else if (isMathShirtPantsInteractiveLayout(mathBlob)) {
+                        if (isMathExpressionBuildChallenge(mathBlob)) {
+                            return 'Math Expression Build';
+                        }
+                        return 'Math Interactive';
+                    }
+                    return 'Math Lesson';
+                } else if (document.querySelectorAll('[data-test*="challenge-speak"]').length > 0) {
                     return 'Challenge Speak';
                 } else if (window.sol.type === 'syllableTap') {
                     return 'Syllable Tap';
@@ -9585,10 +13320,16 @@ function One() {
         }
     }
 
-    async function handleChallenge(challengeType) {
+    async function handleChallenge(challengeType, runContext = null) {
         const sleep = (ms) => new Promise(r => setTimeout(r, ms)); // Helper for awaiting UI updates/animations
 
-        if (challengeType === 'Challenge Speak' || challengeType === 'Listen Match' || challengeType === 'Listen Speak') {
+        if (challengeType === 'Chess Lesson') {
+            await playChessLessonCorrectMoves(runContext);
+
+        } else if (challengeType === 'Math Select One' || challengeType === 'Math Type Fill' || challengeType === 'Math Match' || challengeType === 'Math Match Madness' || challengeType === 'Math Factor Tree' || challengeType === 'Math Interactive' || challengeType === 'Math Expression Build' || challengeType === 'Math Multi Step' || challengeType === 'Math Lesson') {
+            return await handleMathLessonChallenge(window.sol.challengeBlob, runContext);
+
+        } else if (challengeType === 'Challenge Speak' || challengeType === 'Listen Match' || challengeType === 'Listen Speak') {
             const buttonSkip = document.querySelector('button[data-test="player-skip"]');
             buttonSkip?.click();
 
@@ -10071,6 +13812,8 @@ function One() {
                 }
             }
         }
+
+        return true;
     }
 
     function findSubReact(dom, traverseUp = reactTraverseUp) {
@@ -10079,7 +13822,7 @@ function One() {
         return dom?.[key]?.children?.props?.slide;
     }
 
-    function findReact(dom, traverseUp = reactTraverseUp) {
+    function findReact(dom, traverseUp = reactTraverseUp, includeDetails = false) {
         if (!dom) return null;
         const key = Object.keys(dom).find(key => {
             return key.startsWith("__reactFiber$") // react 17+
@@ -10093,20 +13836,38 @@ function One() {
             for (let i = 0; i < traverseUp; i++) {
                 compFiber = compFiber._currentElement._owner;
             }
+            if (includeDetails) {
+                return { instance: compFiber._instance, props: null, hooks: [] };
+            }
             return compFiber._instance;
         }
         // react 16+
         const GetCompFiber = fiber => {
             //return fiber._debugOwner; // this also works, but is __DEV__ only
             let parentFiber = fiber.return;
-            while (typeof parentFiber.type == "string") {
+            while (parentFiber && typeof parentFiber.type == "string") {
                 parentFiber = parentFiber.return;
             }
             return parentFiber;
         };
         let compFiber = GetCompFiber(domFiber);
-        for (let i = 0; i < traverseUp; i++) {
+        for (let i = 0; i < traverseUp && compFiber; i++) {
             compFiber = GetCompFiber(compFiber);
+        }
+        if (!compFiber) return null;
+
+        if (includeDetails) {
+            const hooks = [];
+            let hookNode = compFiber.memoizedState;
+            while (hookNode) {
+                hooks.push(hookNode.memoizedState);
+                hookNode = hookNode.next;
+            }
+            return {
+                instance: compFiber.stateNode,
+                props: compFiber.memoizedProps,
+                hooks
+            };
         }
         return compFiber.stateNode;
     }
@@ -10117,19 +13878,8 @@ function One() {
 }
 
 try {
-    if (false) {
-        if (storageLocal.languagePackVersion !== "00") {
-            if (!storageLocal.languagePack.hasOwnProperty(systemLanguage)) systemLanguage = "en";
-            systemText = storageLocal.languagePack;
-            setTimeout(() => { if (!duplicateCheck()) One(); }, 10);
-        } else {
-            systemLanguage = "en";
-            setTimeout(() => { if (!duplicateCheck()) One(); }, 10);
-        }
-    } else {
-        systemLanguage = "en";
-        setTimeout(() => { if (!duplicateCheck()) One(); }, 10);
-    }
+    systemLanguage = getSystemLanguage();
+    setTimeout(() => { if (!duplicateCheck()) One(); }, 10);
 } catch (error) {
     console.log(error);
     One();
