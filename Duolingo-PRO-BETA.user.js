@@ -12,10 +12,35 @@
 // @require      https://unpkg.com/stockfish@18.0.8/bin/stockfish-18-asm.js
 // @require      https://unpkg.com/@intrastellar/kairos@1.0.1/model.js
 // @grant        GM_log
+// @run-at       document-end
 // ==/UserScript==
 
 // USAGE OR MODIFICATION OF THIS SCRIPT IMPLIES YOU AGREE TO THE TERMS AND CONDITIONS PRESENTED IN THE SCRIPT. IF YOU DO NOT AGREE, DO NOT USE OR MODIFY THIS SCRIPT.
 // YOU CAN ALSO REVIEW THE TERMS AND CONDITIONS AT https://www.duolingopro.net/terms ALONG WITH THE PRIVACY POLICY AT https://www.duolingopro.net/privacy
+
+const DLP_LM_DEBUG = false; // true = log to the console
+const dlpLog = (...a) => { if (DLP_LM_DEBUG) console.log(...a); };
+dlpLog("[ListenMatch] patch loaded");
+const DLP_AUDIO_LOG = [];
+(function installDlpAudioHook() {
+    try {
+        const W = (typeof unsafeWindow !== 'undefined' && unsafeWindow) ? unsafeWindow : window;
+        const rec = (u) => { try { if (u) DLP_AUDIO_LOG.push({ t: Date.now(), u: String(u) }); } catch (e) {} };
+        const mp = W.HTMLMediaElement && W.HTMLMediaElement.prototype;
+        if (mp && mp.play) {
+            const op = mp.play;
+            mp.play = function (...a) { rec(this.currentSrc || this.src); return op.apply(this, a); };
+        }
+        if (W.fetch) {
+            const of = W.fetch;
+            W.fetch = function (...a) { try { rec(typeof a[0] === 'string' ? a[0] : (a[0] && a[0].url)); } catch (e) {} return of.apply(this, a); };
+        }
+        if (W.XMLHttpRequest) {
+            const oo = W.XMLHttpRequest.prototype.open;
+            W.XMLHttpRequest.prototype.open = function (m, u, ...r) { rec(u); return oo.call(this, m, u, ...r); };
+        }
+    } catch (e) { dlpLog('[ListenMatch] audio hook error', e); }
+})();
 
 const VERSION_NUMBER = "13";
 const STORAGE_LOCAL_VERSION = "13";
@@ -4227,7 +4252,9 @@ function One() {
         const isMatchMadnessContext = isMathMatchMadnessSolveContext();
         const isMathLessonContext = isMathLessonSolveContext();
         const chessLessonTarget = isChessLessonContext ? document.querySelector('div._8dMUn._3neHb._1cwlN, div._8dMUn._1cwlN') : null; // The HINT button
-        const matchMadnessButtonHost = isMatchMadnessContext ? getMathMatchMadnessButtonHost() : null;
+        const isNotRealStory = !document.querySelector('.FmlUF') && !document.querySelector('._3TJzR');
+        const needFloatHost = (!target || !nextButton) && !isMatchMadnessContext && !isMathLessonContext && !chessLessonTarget && (isListenMatchContext() || !!target || !!dlpFindContinueButton());
+        const matchMadnessButtonHost = needFloatHost ? getListenMatchFloatingHost() : (isMatchMadnessContext ? getMathMatchMadnessButtonHost() : null);
         const mathLessonButtonHost = isMathLessonContext && !isMatchMadnessContext
             ? (document.querySelector('.MYehf') || document.getElementById('session/PlayerFooter'))
             : null;
@@ -4343,7 +4370,7 @@ function One() {
         syncReactLookupByContext();
         refreshWindowSolFromReact();
         if (document.querySelector(SOLVE_BUTTON_TRIGGER_SELECTOR)) return true;
-        return isMathMatchMadnessSolveContext();
+        return isMathMatchMadnessSolveContext() || isListenMatchContext() || (!!document.querySelector('[data-test="quit-button"]') && !!dlpFindContinueButton());
     }
 
     let duolingoPROSolveButtonsObserver = null;
@@ -5174,7 +5201,7 @@ function One() {
             const button = element.querySelector('#DLP_Inset_Button_1_ID');
             if (!input || !button) return;
             const category = ids[id][0];
-            
+
             const isLesson = ids[id].includes("lesson");
             let input3 = null;
             let input4 = null;
@@ -10029,7 +10056,7 @@ function One() {
                 messageSendInProgress = true;
                 checkSendButton();
                 lastTypingSent = true;
-                
+
                 if (!storageLocal.chatKey || storageLocal.chatKey.length === 0) {
                     if (container?.querySelector('#DLP_Inset_Group_5')?.style.display !== 'none') container.querySelector('#DLP_Inset_Group_5').style.display = 'none';
                     if (chatBox?.style.display === 'none') chatBox.style.display = 'flex';
@@ -11570,9 +11597,73 @@ function One() {
         return isMathLessonSolveContext() && window.sol?.challengeBlob?.layout === 'matchMadness';
     }
 
+    function dlpFindContinueButton() {
+        const enabled = (b) => b && !b.closest('.DLP_Main') && !b.closest('#DLP_ListenMatch_Host') && !b.classList.contains('auto-solver-btn')
+            && !b.disabled && b.getAttribute('aria-disabled') !== 'true' && getComputedStyle(b).visibility !== 'hidden';
+        for (const sel of ['[data-test="player-next"]', '[data-test="player-continue"]', '[data-test*="continue"]', '[data-test*="-next"]']) {
+            const el = document.querySelector(sel);
+            if (enabled(el)) return el;
+        }
+        if (!document.querySelector('[data-test="quit-button"]')) return null;
+        const vh = window.innerHeight;
+        const cands = Array.from(document.querySelectorAll('button, [role="button"]')).filter(b => {
+            if (!enabled(b)) return false;
+            if (/skip|quit|close|tap-token|choice/i.test(b.getAttribute('data-test') || '')) return false;
+            const r = b.getBoundingClientRect();
+            return r.width > 80 && r.height > 30 && r.top > vh * 0.7;
+        });
+        cands.sort((a, b) => b.getBoundingClientRect().right - a.getBoundingClientRect().right);
+        return cands[0] || null;
+    }
+
+    function isListenMatchContext() {
+        const toks = Array.from(document.querySelectorAll('[data-test*="challenge-tap-token"]:not(span)'));
+        const noText = toks.filter(b => !b.querySelector('[data-test="challenge-tap-token-text"]')).length;
+        return !document.querySelector('[data-test="word-bank"]') && noText >= 2 && (toks.length - noText) >= 2;
+    }
+
+    function getListenMatchFloatingHost() {
+        let h = document.getElementById('DLP_ListenMatch_Host');
+        if (!h) {
+            h = document.createElement('div');
+            h.id = 'DLP_ListenMatch_Host';
+            h.style.cssText = 'position:fixed;left:0;right:0;bottom:16px;display:flex;justify-content:center;align-items:center;gap:20px;z-index:99999;';
+            document.body.appendChild(h);
+        }
+        return h;
+    }
+
+    // Safety net: retry creating the buttons if they were not created
+    let dlpLastAddButtonsErr = '';
+    setInterval(() => {
+        try {
+            if (!storageLocal.settings.showSolveButtons) return;
+            if (document.getElementById('solveAllButton')) return;
+            if (!shouldInitSolveButtons()) return;
+            addButtons();
+        } catch (e) {
+            if (String(e && e.message) !== dlpLastAddButtonsErr) {
+                dlpLastAddButtonsErr = String(e && e.message);
+                console.warn('[ListenMatch] addButtons error:', e);
+            }
+        }
+    }, 1000);
+
+    // Keep the floating SOLVE buttons on the page only while in a lesson
+    setInterval(() => {
+        const h = document.getElementById('DLP_ListenMatch_Host');
+        if (!h) return;
+        const inLesson = document.querySelector('[data-test="quit-button"]') || document.querySelector('[data-test*="challenge"]') || document.querySelector('[data-test*="player-continue"], [data-test*="player-next"], [data-test*="player-done"]');
+        if (!inLesson) h.remove();
+    }, 500);
+
     function getMathMatchMadnessButtonHost() {
+        if (isListenMatchContext() && !isMathMatchMadnessSolveContext()) {
+            return getListenMatchFloatingHost();
+        }
         return document.querySelector('.MYehf')
             || document.getElementById('session/PlayerFooter')
+            || document.querySelector('[data-test="player-skip"]')?.parentElement
             || document.querySelector('._2G9ED > ._3GuWo._1cTBC');
     }
 
@@ -13424,8 +13515,10 @@ function One() {
         updateChessCanvasPointerEvents();
 
         function startSolvingLoop(runToken) {
-            if (solvingLoopRunning || !isAutoMode || runToken !== solveAllRunToken) return;
+            if (!isAutoMode || runToken !== solveAllRunToken) return; // (the old loop stops by itself at its next check)
 
+            if (window.__dlpLoopToken === runToken) return; // a loop is already running for this run
+            window.__dlpLoopToken = runToken;
             solvingLoopRunning = true;
             let initialUrl = window.location.href;
 
@@ -13450,7 +13543,12 @@ function One() {
                         : 400;
 
                     // B. Run Logic (Wait for it to fully finish)
-                    await solve(true, true, runToken);
+                    try {
+                        await solve(true, true, runToken);
+                    } catch (loopError) {
+                        console.warn('[ListenMatch] solve() error, the loop continues:', loopError);
+                        await new Promise(resolve => setTimeout(resolve, 500));
+                    }
                     await new Promise(resolve => setTimeout(resolve, 100));
 
                     // Check if stopped while solve() was running
@@ -13467,7 +13565,7 @@ function One() {
                 }
 
                 // Cleanup when loop breaks
-                solvingLoopRunning = false;
+                if (runToken === solveAllRunToken || !isAutoMode) solvingLoopRunning = false;
                 updateChessCanvasPointerEvents();
 
                 if (isAutoMode && runToken !== solveAllRunToken) {
@@ -13483,8 +13581,12 @@ function One() {
     }
 
     async function solve(check = true, skip = false, runToken = solveAllRunToken) {
-        if (isSolveBusy) return;
+        if (isSolveBusy) {
+            if (Date.now() - (window.__dlpBusySince || 0) > 15000 && !isChessLessonSolveContext()) { isSolveBusy = false; } // release a stuck run
+            else return;
+        }
         isSolveBusy = true;
+        window.__dlpBusySince = Date.now();
         syncReactLookupByContext();
 
         try {
@@ -13600,6 +13702,9 @@ function One() {
         } else {
             challengeType = 'error';
         }
+        if (window.sol && window.sol.type === 'gap-fill') {
+            challengeType = 'Story Gap Fill';
+        }
 
         let questionKey;
         if (window.sol && window.sol.id) {
@@ -13645,12 +13750,44 @@ function One() {
             }
             : null;
 
-        if (challengeType === 'error') {
-            await Promise.race([
-                clickCheck(),
-                new Promise(resolve => setTimeout(resolve, 500))
-            ]);
+        if (challengeType === 'Story Gap Fill') {
+            const gapSleep = (ms) => new Promise(r => setTimeout(r, ms));
+            const clickGapContinue = async (timeout) => {
+                const t0 = Date.now();
+                while (Date.now() - t0 < timeout) {
+                    const btn = document.querySelector('[data-test="stories-player-continue"]')
+                        || document.querySelector('[data-test="stories-player-done"]')
+                        || document.querySelector('[data-test="player-next"]');
+                    if (btn && !btn.disabled && btn.getAttribute('aria-disabled') !== 'true') {
+                        btn.click();
+                        return true;
+                    }
+                    await gapSleep(100);
+                }
+                return false;
+            };
+            await handleChallenge(challengeType);
+            if (check) {
+                const ok = await clickGapContinue(2000);
+                dlpLog('[GapFill] continue clicked:', ok);
+                if (ok && skip) {
+                    await gapSleep(700);
+                    await clickGapContinue(1500);
+                }
+            }
+        } else if (challengeType === 'error') {
+            const contBtnE = dlpFindContinueButton();
+            if (contBtnE) {
+                contBtnE.click();
+                await new Promise(resolve => setTimeout(resolve, 300));
+            } else {
+                await Promise.race([
+                    clickCheck(),
+                    new Promise(resolve => setTimeout(resolve, 500))
+                ]);
+            }
         } else if (challengeType) {
+            dlpLog("[ListenMatch] solve() type:", challengeType, "| sol.type:", window.sol && window.sol.type);
             if (debug) console.log("Challenge Type: " + challengeType);
 
             let playerFooter1 = document.getElementById("session/PlayerFooter");
@@ -13663,6 +13800,11 @@ function One() {
                 await new Promise(resolve => setTimeout(resolve, 50));
             } else if (challengeType === 'Math Match Madness') {
                 await handleChallenge(challengeType, mathMatchMadnessRunContext);
+            } else if (challengeType === 'Listen Match') {
+                await handleChallenge(challengeType);
+            } else if (window.sol && typeof window.sol.type === 'string' && window.sol.type.startsWith('radio') && challengeType === 'Challenge Choice') {
+                await handleChallenge(challengeType);
+                await new Promise(r => setTimeout(r, 300));
             } else if ((playerFooter1 && playerFooter1.matches("._3rB4d._1VTif._2HXQ9")) || (!playerFooter1 && document.querySelector('._2i9lj'))) { // id="session/PlayerFooter", "._3rB4d._1VTif._2HXQ9" - Neutral
                 const challengeReady = await Promise.race([
                     handleChallenge(challengeType, chessLessonRunContext),
@@ -13714,10 +13856,18 @@ function One() {
                 ]);
             }
         } else {
-            await Promise.race([
-                clickCheck(),
-                new Promise(resolve => setTimeout(resolve, 500))
-            ]);
+            // Unknown screen (e.g. a radio story intro): press the Continue button if there is one
+            const contBtn = dlpFindContinueButton();
+            if (contBtn) {
+                dlpLog('[ListenMatch] unknown screen, Continue button:', contBtn.outerHTML.slice(0, 250));
+                contBtn.click();
+                await new Promise(resolve => setTimeout(resolve, 300));
+            } else {
+                await Promise.race([
+                    clickCheck(),
+                    new Promise(resolve => setTimeout(resolve, 500))
+                ]);
+            }
         }
         } finally {
             isSolveBusy = false;
@@ -13848,6 +13998,8 @@ function One() {
                     return "Story Point to Phrase"
                 } else if (window.sol.type === "match") {
                     return "Story Pairs"
+                } else if (window.sol.type === "gap-fill") {
+                    return "Story Gap Fill"
                 }
             } else {
                 // Lesson
@@ -13914,6 +14066,15 @@ function One() {
                     } else {
                         return 'Challenge Choice'
                     }
+                } else if ((() => {
+                    const toks = Array.from(document.querySelectorAll('[data-test*="challenge-tap-token"]:not(span)'));
+                    const noText = toks.filter(b => !b.querySelector('[data-test="challenge-tap-token-text"]'));
+                    const withText = toks.length - noText.length;
+                    const isLM = !document.querySelector('[data-test="word-bank"]') && noText.length >= 2 && withText >= 2;
+                    if (isLM) dlpLog('[ListenMatch] detected, sol.type =', window.sol && window.sol.type);
+                    return isLM;
+                })()) {
+                    return 'Listen Match';
                 } else if (document.querySelectorAll('[data-test$="challenge-tap-token"]').length > 0) {
                     if (window.sol.pairs !== undefined) {
                         return 'Pairs';
@@ -13948,6 +14109,116 @@ function One() {
         }
     }
 
+    function dlpDumpSol() {
+        try {
+            return JSON.stringify(window.sol, (k, v) => typeof v === 'function' ? undefined : (typeof v === 'string' && v.length > 120 ? v.slice(0, 120) + '…' : v), 1).slice(0, 3500);
+        } catch (e) { return 'dump error: ' + e; }
+    }
+
+    async function solveListenMatch(runContext = null) {
+        const sleep = (ms) => new Promise(r => setTimeout(r, ms));
+        const tag = '[ListenMatch]';
+        const getTokens = () => Array.from(document.querySelectorAll('[data-test*="challenge-tap-token"]:not(span)'))
+            .filter(b => b.tagName === 'BUTTON' || b.getAttribute('role') === 'button' || b.tagName === 'DIV');
+        const textOf = (b) => {
+            const t = b.querySelector('[data-test="challenge-tap-token-text"]');
+            return (t ? t.textContent : '').replace(/\s+/g, ' ').trim();
+        };
+        const isWord = (b) => { const t = textOf(b); return t !== '' && !/^\d+$/.test(t); };
+        const isDone = (b) => !b || !document.contains(b) || b.disabled || b.getAttribute('aria-disabled') === 'true' || getComputedStyle(b).visibility === 'hidden';
+        const live = (arr) => arr.filter(b => !isDone(b));
+        const audio = () => live(getTokens().filter(b => !isWord(b)));
+        const words = () => live(getTokens().filter(isWord));
+
+        dlpLog(tag, 'sol:', dlpDumpSol());
+        // Deterministic matching: find out which audio belongs to which word (from React data, or from the played audio URL)
+        const norm = (x) => String(x == null ? '' : x).replace(/\s+/g, ' ').trim().toLowerCase();
+        const pairs = Array.isArray(window.sol && window.sol.pairs) ? window.sol.pairs : [];
+        const fiberOf = (el) => { const k = Object.keys(el).find(k => k.startsWith('__reactFiber$')); return k ? el[k] : null; };
+        const pairFromValue = (v) => {
+            if (typeof v === 'string') return pairs.find(p => p.tts === v || norm(p.learningWord) === norm(v)) || null;
+            if (v && typeof v === 'object' && !Array.isArray(v)) {
+                for (const key of ['tts', 'learningWord', 'translation']) {
+                    if (typeof v[key] === 'string') { const p = pairs.find(q => q[key] === v[key]); if (p) return p; }
+                }
+            }
+            return null;
+        };
+        const pairFromFiber = (el) => {
+            let f = fiberOf(el);
+            for (let d = 0; f && d < 12; d++, f = f.return) {
+                const p = f.memoizedProps;
+                if (!p || typeof p !== 'object') continue;
+                for (const k of Object.keys(p)) { const hit = pairFromValue(p[k]); if (hit) return hit; }
+            }
+            return null;
+        };
+        const pairFromAudio = async (audioBtn) => {
+            const t0 = Date.now();
+            audioBtn.click();
+            await sleep(900);
+            const hits = DLP_AUDIO_LOG.filter(x => x.t >= t0 - 20);
+            for (let i = hits.length - 1; i >= 0; i--) {
+                const p = pairs.find(q => q.tts && (hits[i].u === q.tts || hits[i].u.includes(q.tts.split('/').pop())));
+                if (p) return p;
+            }
+            return null;
+        };
+        const audioAll = getTokens().filter(b => !isWord(b));
+        if (audioAll[0]) {
+            const f0 = fiberOf(audioAll[0]);
+            let dbg = [];
+            for (let f = f0, d = 0; f && d < 8; d++, f = f.return) {
+                if (f.memoizedProps && typeof f.memoizedProps === 'object') dbg.push(d + ':' + Object.keys(f.memoizedProps).join(','));
+            }
+            dlpLog(tag, 'audio tile React props:', dbg.join(' | '));
+        }
+        let deterministicOk = 0;
+        for (let i = 0; i < audioAll.length; i++) {
+            if (!isChessLessonRunContextActive(runContext)) return false;
+            const audioBtn = audioAll[i];
+            if (isDone(audioBtn)) continue;
+            let pair = pairFromFiber(audioBtn);
+            let how = 'react';
+            if (!pair) { pair = await pairFromAudio(audioBtn); how = 'audio-url'; }
+            if (!pair) { dlpLog(tag, i + '. audio: cannot identify', 'audio log:', JSON.stringify(DLP_AUDIO_LOG.slice(-3))); continue; }
+            const wordBtn = words().find(w => norm(textOf(w)) === norm(pair.translation));
+            if (!wordBtn) { dlpLog(tag, i + '. audio: no tile for:', pair.translation); continue; }
+            audioBtn.click();
+            await sleep(250);
+            wordBtn.click();
+            await sleep(700);
+            if (isDone(audioBtn)) deterministicOk++;
+            dlpLog(tag, i + '. audio →', pair.translation, '(' + how + ') done:', isDone(audioBtn));
+        }
+        dlpLog(tag, 'deterministic matches:', deterministicOk, '/', audioAll.length);
+        dlpLog(tag, 'start; audio:', audio().length, 'words:', words().length, 'all tokens:', getTokens().length);
+        if (audio().length === 0 || words().length === 0) {
+            dlpLog(tag, 'could not find audio/word tiles', getTokens().map(b => b.outerHTML.slice(0, 200)));
+            return false;
+        }
+
+        let guard = 0;
+        while (audio().length > 0 && guard++ < 40) {
+            if (!isChessLessonRunContextActive(runContext)) return false;
+            const audioBtn = audio()[0];
+            let matched = false;
+            const candidates = words();
+            for (const wordBtn of candidates) {
+                if (isDone(audioBtn)) { matched = true; break; }
+                if (isDone(wordBtn)) continue;
+                audioBtn.click();
+                await sleep(250);
+                wordBtn.click();
+                await sleep(700);
+                if (isDone(audioBtn)) { matched = true; break; }
+            }
+            dlpLog(tag, 'round finished, matched:', matched, 'remaining:', audio().length);
+            if (!matched) break;
+        }
+        return true;
+    }
+
     async function handleChallenge(challengeType, runContext = null) {
         const sleep = (ms) => new Promise(r => setTimeout(r, ms)); // Helper for awaiting UI updates/animations
 
@@ -13957,7 +14228,10 @@ function One() {
         } else if (challengeType === 'Math Select One' || challengeType === 'Math Type Fill' || challengeType === 'Math Match' || challengeType === 'Math Match Madness' || challengeType === 'Math Factor Tree' || challengeType === 'Math Interactive' || challengeType === 'Math Expression Build' || challengeType === 'Math Multi Step' || challengeType === 'Math Lesson') {
             return await handleMathLessonChallenge(window.sol.challengeBlob, runContext);
 
-        } else if (challengeType === 'Challenge Speak' || challengeType === 'Listen Match' || challengeType === 'Listen Speak') {
+        } else if (challengeType === 'Listen Match') {
+            await solveListenMatch(runContext);
+
+        } else if (challengeType === 'Challenge Speak' || challengeType === 'Listen Speak') {
             const buttonSkip = document.querySelector('button[data-test="player-skip"]');
             buttonSkip?.click();
 
@@ -13972,7 +14246,36 @@ function One() {
 
                 elm.dispatchEvent(inputEvent);
             } else if (challengeType === 'Challenge Choice') {
-                document.querySelectorAll("[data-test='challenge-choice']")[window.sol.correctIndex].click();
+                const sol = window.sol || {};
+                const choices = document.querySelectorAll("[data-test='challenge-choice']");
+                const isRadio = typeof sol.type === 'string' && sol.type.startsWith('radio');
+                if (!isRadio) {
+                    choices[sol.correctIndex]?.click();
+                } else {
+                    let idxs = [];
+                    if (Array.isArray(sol.correctIndices) && sol.correctIndices.length) idxs = sol.correctIndices;
+                    else if (typeof sol.isTrue === 'boolean') idxs = [sol.isTrue ? 0 : 1]; // 0 = ✓, 1 = ✗
+                    else if (typeof sol.correctIndex === 'number') idxs = [sol.correctIndex];
+                    else if (typeof sol.correct === 'boolean') idxs = [sol.correct ? 0 : 1];
+                    const key = sol.type + '|' + (sol.startTime || '');
+                    const clickNext = async () => {
+                        const nb = document.querySelector('[data-test="player-next"]');
+                        if (nb && nb.getAttribute('aria-disabled') !== 'true') { nb.click(); return true; }
+                        return false;
+                    };
+                    if (!idxs.length || idxs.some(i => !choices[i])) {
+                        dlpLog('[ListenMatch] radio: no known correct answer, sol:', dlpDumpSol());
+                    } else if (window.__dlpRadioKey === key) {
+                        await clickNext(); // already answered this question, just continue
+                    } else {
+                        window.__dlpRadioKey = key;
+                        dlpLog('[ListenMatch] radio click, idxs:', idxs, 'sol.type:', sol.type, 'sol:', dlpDumpSol());
+                        for (const i of idxs) { choices[i].click(); await sleep(300); }
+                        await sleep(300);
+                        const ok = await clickNext();
+                        dlpLog('[ListenMatch] player-next clicked:', ok);
+                    }
+                }
             }
 
         } else if (challengeType === 'Pairs') {
@@ -14419,6 +14722,27 @@ function One() {
             });
 
 
+        } else if (challengeType === 'Story Gap Fill') {
+            const gapChoices = window.sol.choices || [];
+            const gapIndices = window.sol.correctIndices || [];
+            const wordOf = (c) => (typeof c === 'string' ? c : (c && c.text) || '').trim();
+            const findGapButton = (word) => {
+                let list = Array.from(document.querySelectorAll('[data-test*="challenge-tap-token"]:not(span)'));
+                let hit = list.find(b => !b.disabled && b.getAttribute('aria-disabled') !== 'true' && getCleanButtonText(b) === word);
+                if (hit) return hit;
+                list = Array.from(document.querySelectorAll('button')).filter(b =>
+                    !/player-|stories-player|quit|skip/.test(b.getAttribute('data-test') || '')
+                );
+                return list.find(b => !b.disabled && b.getAttribute('aria-disabled') !== 'true' && (b.innerText || '').trim() === word);
+            };
+            dlpLog('[GapFill] words to click:', gapIndices.map(i => wordOf(gapChoices[i])));
+            for (const index of gapIndices) {
+                const word = wordOf(gapChoices[index]);
+                const button = findGapButton(word);
+                dlpLog('[GapFill] click', word, button ? 'found' : 'NOT FOUND');
+                if (button) button.click();
+                await sleep(250);
+            }
         } else if (challengeType === 'Session Complete') {
         } else if (challengeType === 'Story Arrange') {
             let choices = document.querySelectorAll('[data-test*="challenge-tap-token"]:not(span)');
