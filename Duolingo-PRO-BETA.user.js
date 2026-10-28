@@ -12,14 +12,39 @@
 // @require      https://unpkg.com/stockfish@18.0.8/bin/stockfish-18-asm.js
 // @require      https://unpkg.com/@intrastellar/kairos@1.0.1/model.js
 // @grant        GM_log
+// @run-at       document-end
 // ==/UserScript==
 
 // USAGE OR MODIFICATION OF THIS SCRIPT IMPLIES YOU AGREE TO THE TERMS AND CONDITIONS PRESENTED IN THE SCRIPT. IF YOU DO NOT AGREE, DO NOT USE OR MODIFY THIS SCRIPT.
 // YOU CAN ALSO REVIEW THE TERMS AND CONDITIONS AT https://www.duolingopro.net/terms ALONG WITH THE PRIVACY POLICY AT https://www.duolingopro.net/privacy
 
-const VERSION_NUMBER = "13";
-const STORAGE_LOCAL_VERSION = "13";
-const STORAGE_SESSION_VERSION = "13";
+const DLP_LM_DEBUG = false; // true = log to the console
+const dlpLog = (...a) => { if (DLP_LM_DEBUG) console.log(...a); };
+dlpLog("[ListenMatch] patch loaded");
+const DLP_AUDIO_LOG = [];
+(function installDlpAudioHook() {
+    try {
+        const W = (typeof unsafeWindow !== 'undefined' && unsafeWindow) ? unsafeWindow : window;
+        const rec = (u) => { try { if (u) DLP_AUDIO_LOG.push({ t: Date.now(), u: String(u) }); } catch (e) {} };
+        const mp = W.HTMLMediaElement && W.HTMLMediaElement.prototype;
+        if (mp && mp.play) {
+            const op = mp.play;
+            mp.play = function (...a) { rec(this.currentSrc || this.src); return op.apply(this, a); };
+        }
+        if (W.fetch) {
+            const of = W.fetch;
+            W.fetch = function (...a) { try { rec(typeof a[0] === 'string' ? a[0] : (a[0] && a[0].url)); } catch (e) {} return of.apply(this, a); };
+        }
+        if (W.XMLHttpRequest) {
+            const oo = W.XMLHttpRequest.prototype.open;
+            W.XMLHttpRequest.prototype.open = function (m, u, ...r) { rec(u); return oo.call(this, m, u, ...r); };
+        }
+    } catch (e) { dlpLog('[ListenMatch] audio hook error', e); }
+})();
+
+const VERSION_NUMBER = "06";
+const STORAGE_LOCAL_VERSION = "06";
+const STORAGE_SESSION_VERSION = "06";
 const VERSION_NAME = "BETA.05.2";
 const VERSION_FULL = "3.1BETA.05.2";
 const VERSION_FORMAL = "3.1 BETA.05.2";
@@ -235,6 +260,7 @@ const systemText = {
             pathLessonsPrompt: "How many lessons would you like to solve on the path?",
             practicesPrompt: "How many practices would you like to solve?",
             listeningPracticesPrompt: "How many listening practices would you like to solve? (Requires Super Duolingo)",
+            chessMatchesPrompt: "How many chess matches against Oscar would you like to play?",
             repeatLessonsPrompt: "Which and how many lessons would you like to repeat?",
             xpBoostPrompt: "Would you like to redeem an XP Boost?",
             streakFreezesPrompt: "How many Streak Freezes would you like to get?",
@@ -1206,6 +1232,21 @@ function Two() {
                             </div>
                         </div>
                     </div>
+                    <div class="DLP_VStack_8" id="DLP_Get_CHESS_1_ID" style="display: none;">
+                        <p class="DLP_Text_Style_1 DLP_NoSelect" style="align-self: stretch;">${system("requests.chessMatchesPrompt")}</p>
+                        <div class="DLP_HStack_8">
+                            <div class="DLP_Input_Button_Style_1_Active DLP_Magnetic_Hover_1" id="DLP_Inset_Button_2_ID" style="width: 48px; padding: 0;">
+                                <p class="DLP_Text_Style_1 DLP_NoSelect DLP_Inset_Icon_1_ID" style="color: #FFF;">􀆃</p>
+                            </div>
+                            <div class="DLP_Input_Style_1_Active">
+                                <input type="text" placeholder="0" id="DLP_Inset_Input_1_ID" class="DLP_Input_Input_Style_1">
+                            </div>
+                            <div class="DLP_Input_Button_Style_1_Active DLP_Magnetic_Hover_1" id="DLP_Inset_Button_1_ID">
+                                <p class="DLP_Text_Style_1 DLP_NoSelect DLP_Inset_Text_1_ID" style="color: #FFF;">${system("actions.start")}</p>
+                                <p class="DLP_Text_Style_1 DLP_NoSelect DLP_Inset_Icon_1_ID" style="color: #FFF;">􀰫</p>
+                            </div>
+                        </div>
+                    </div>
                     <div class="DLP_VStack_8" id="DLP_Get_LESSON_1_ID" style="display: none;">
                         <p class="DLP_Text_Style_1 DLP_NoSelect" style="align-self: stretch;">${system("requests.repeatLessonsPrompt")}</p>
                         <div class="DLP_HStack_8">
@@ -1300,6 +1341,24 @@ function Two() {
                         <div class="DLP_HStack_8" style="align-items: center;">
                             <p class="DLP_Text_Style_1 DLP_Magnetic_Hover_1 DLP_NoSelect DLP_Inset_Icon_1_ID" style="color: rgba(var(--color-eel), 0.50);">􀎦</p>
                             <p class="DLP_Text_Style_1 DLP_NoSelect" style="align-self: stretch;">${system("requests.listeningPracticesPrompt")}</p>
+                        </div>
+                        <div class="DLP_HStack_8">
+                            <div class="DLP_Input_Button_Style_1_Active DLP_Magnetic_Hover_1" id="DLP_Inset_Button_2_ID" style="width: 48px; padding: 0;">
+                                <p class="DLP_Text_Style_1 DLP_NoSelect DLP_Inset_Icon_1_ID" style="color: #FFF;">􀆃</p>
+                            </div>
+                            <div class="DLP_Input_Style_1_Active">
+                                <input type="text" placeholder="0" id="DLP_Inset_Input_1_ID" class="DLP_Input_Input_Style_1">
+                            </div>
+                            <div class="DLP_Input_Button_Style_1_Active DLP_Magnetic_Hover_1" id="DLP_Inset_Button_1_ID">
+                                <p class="DLP_Text_Style_1 DLP_NoSelect DLP_Inset_Text_1_ID" style="color: #FFF;">${system("actions.start")}</p>
+                                <p class="DLP_Text_Style_1 DLP_NoSelect DLP_Inset_Icon_1_ID" style="color: #FFF;">􀰫</p>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="DLP_VStack_8" id="DLP_Get_CHESS_2_ID">
+                        <div class="DLP_HStack_8" style="align-items: center;">
+                            <p class="DLP_Text_Style_1 DLP_Magnetic_Hover_1 DLP_NoSelect DLP_Inset_Icon_1_ID" style="color: rgba(var(--color-eel), 0.50);">􀎦</p>
+                            <p class="DLP_Text_Style_1 DLP_NoSelect" style="align-self: stretch;">${system("requests.chessMatchesPrompt")}</p>
                         </div>
                         <div class="DLP_HStack_8">
                             <div class="DLP_Input_Button_Style_1_Active DLP_Magnetic_Hover_1" id="DLP_Inset_Button_2_ID" style="width: 48px; padding: 0;">
@@ -3241,6 +3300,7 @@ function One() {
     } else {
         storageSession = JSON.parse(sessionStorage.getItem("DLP_Session_Storage"));
     }
+    storageSession.legacy.chess ??= { type: "lesson", amount: 0 };
     function saveStorageSession() {
         sessionStorage.setItem("DLP_Session_Storage", JSON.stringify(storageSession));
     }
@@ -3273,6 +3333,7 @@ function One() {
         path: ['DLP_Get_PATH_1_ID', 'DLP_Get_PATH_2_ID'],
         practice: ['DLP_Get_PRACTICE_1_ID', 'DLP_Get_PRACTICE_2_ID'],
         listen: ['DLP_Get_LISTEN_1_ID', 'DLP_Get_LISTEN_2_ID'],
+        chess: ['DLP_Get_CHESS_1_ID', 'DLP_Get_CHESS_2_ID'],
         lesson: ['DLP_Get_LESSON_1_ID', 'DLP_Get_LESSON_2_ID']
     };
 
@@ -4227,7 +4288,9 @@ function One() {
         const isMatchMadnessContext = isMathMatchMadnessSolveContext();
         const isMathLessonContext = isMathLessonSolveContext();
         const chessLessonTarget = isChessLessonContext ? document.querySelector('div._8dMUn._3neHb._1cwlN, div._8dMUn._1cwlN') : null; // The HINT button
-        const matchMadnessButtonHost = isMatchMadnessContext ? getMathMatchMadnessButtonHost() : null;
+        const isNotRealStory = !document.querySelector('.FmlUF') && !document.querySelector('._3TJzR');
+        const needFloatHost = (!target || !nextButton) && !isMatchMadnessContext && !isMathLessonContext && !chessLessonTarget && (isListenMatchContext() || !!target || !!dlpFindContinueButton());
+        const matchMadnessButtonHost = needFloatHost ? getListenMatchFloatingHost() : (isMatchMadnessContext ? getMathMatchMadnessButtonHost() : null);
         const mathLessonButtonHost = isMathLessonContext && !isMatchMadnessContext
             ? (document.querySelector('.MYehf') || document.getElementById('session/PlayerFooter'))
             : null;
@@ -4343,7 +4406,7 @@ function One() {
         syncReactLookupByContext();
         refreshWindowSolFromReact();
         if (document.querySelector(SOLVE_BUTTON_TRIGGER_SELECTOR)) return true;
-        return isMathMatchMadnessSolveContext();
+        return isMathMatchMadnessSolveContext() || isListenMatchContext() || (!!document.querySelector('[data-test="quit-button"]') && !!dlpFindContinueButton());
     }
 
     let duolingoPROSolveButtonsObserver = null;
@@ -5116,11 +5179,14 @@ function One() {
     const DLP_Get_PRACTICE_2_ID = document.getElementById("DLP_Get_PRACTICE_2_ID");
     const DLP_Get_LISTEN_1_ID = document.getElementById("DLP_Get_LISTEN_1_ID");
     const DLP_Get_LISTEN_2_ID = document.getElementById("DLP_Get_LISTEN_2_ID");
+    const DLP_Get_CHESS_1_ID = document.getElementById("DLP_Get_CHESS_1_ID");
+    const DLP_Get_CHESS_2_ID = document.getElementById("DLP_Get_CHESS_2_ID");
     const DLP_Get_LESSON_1_ID = document.getElementById("DLP_Get_LESSON_1_ID");
     const DLP_Get_LESSON_2_ID = document.getElementById("DLP_Get_LESSON_2_ID");
 
     function getLegacyPlaceholder(category, mode) {
-        const isPracticeLike = category === 'practice' || category === 'listen';
+        const isPracticeLike = category === 'practice' || category === 'listen' || category === 'chess';
+        if (mode === 'lesson' && category === 'chess') return '0 chess-match';
         if (mode === 'lesson') return isPracticeLike ? system("legacy.placeholders.practices") : system("legacy.placeholders.lessons");
         if (mode === 'xp') return system("legacy.placeholders.xp");
         if (mode === 'time') return system("legacy.placeholders.minutes");
@@ -5140,6 +5206,8 @@ function One() {
             "DLP_Get_PRACTICE_2_ID": ["practice"],
             "DLP_Get_LISTEN_1_ID": ["listen"],
             "DLP_Get_LISTEN_2_ID": ["listen"],
+            "DLP_Get_CHESS_1_ID": ["chess"],
+            "DLP_Get_CHESS_2_ID": ["chess"],
             "DLP_Get_LESSON_1_ID": ["lesson"],
             "DLP_Get_LESSON_2_ID": ["lesson"]
         };
@@ -5174,7 +5242,7 @@ function One() {
             const button = element.querySelector('#DLP_Inset_Button_1_ID');
             if (!input || !button) return;
             const category = ids[id][0];
-            
+
             const isLesson = ids[id].includes("lesson");
             let input3 = null;
             let input4 = null;
@@ -5492,7 +5560,7 @@ function One() {
         });
     }
 
-    for (const type of ['PATH', 'PRACTICE', 'LISTEN', 'LESSON']) {
+    for (const type of ['PATH', 'PRACTICE', 'LISTEN', 'CHESS', 'LESSON']) {
         for (let i = 1; i <= 2; i++) {
             const baseId = `DLP_Get_${type}_${i}`;
             setupButton1Events(baseId, i, type.toLowerCase());
@@ -5512,6 +5580,8 @@ function One() {
             setButtonState((storageSession.legacy.page === 1 ? DLP_Get_PRACTICE_1_ID : DLP_Get_PRACTICE_2_ID).querySelector('#DLP_Inset_Button_1_ID'), { button: 'linear-gradient(0deg, rgba(var(--DLP-blue), 0.10) 0%, rgba(var(--DLP-blue), 0.10) 100%), rgba(var(--color-snow), 0.80)', outline: 'rgba(var(--DLP-blue), 0.20)', text: 'rgb(var(--DLP-blue))', icon: 'rgb(var(--DLP-blue))' }, { text: system("actions.stop"), icon: '􀊆' }, { text: '', icon: '' });
         } else if (storageSession.legacy.status === 'listen') {
             setButtonState((storageSession.legacy.page === 1 ? DLP_Get_LISTEN_1_ID : DLP_Get_LISTEN_2_ID).querySelector('#DLP_Inset_Button_1_ID'), { button: 'linear-gradient(0deg, rgba(var(--DLP-blue), 0.10) 0%, rgba(var(--DLP-blue), 0.10) 100%), rgba(var(--color-snow), 0.80)', outline: 'rgba(var(--DLP-blue), 0.20)', text: 'rgb(var(--DLP-blue))', icon: 'rgb(var(--DLP-blue))' }, { text: system("actions.stop"), icon: '􀊆' }, { text: '', icon: '' });
+        } else if (storageSession.legacy.status === 'chess') {
+            setButtonState((storageSession.legacy.page === 1 ? DLP_Get_CHESS_1_ID : DLP_Get_CHESS_2_ID).querySelector('#DLP_Inset_Button_1_ID'), { button: 'linear-gradient(0deg, rgba(var(--DLP-blue), 0.10) 0%, rgba(var(--DLP-blue), 0.10) 100%), rgba(var(--color-snow), 0.80)', outline: 'rgba(var(--DLP-blue), 0.20)', text: 'rgb(var(--DLP-blue))', icon: 'rgb(var(--DLP-blue))' }, { text: system("actions.stop"), icon: '􀊆' }, { text: '', icon: '' });
         } else if (storageSession.legacy.status === 'lesson') {
             setButtonState((storageSession.legacy.page === 1 ? DLP_Get_LESSON_1_ID : DLP_Get_LESSON_2_ID).querySelector('#DLP_Inset_Button_1_ID'), { button: 'linear-gradient(0deg, rgba(var(--DLP-blue), 0.10) 0%, rgba(var(--DLP-blue), 0.10) 100%), rgba(var(--color-snow), 0.80)', outline: 'rgba(var(--DLP-blue), 0.20)', text: 'rgb(var(--DLP-blue))', icon: 'rgb(var(--DLP-blue))' }, { text: system("actions.stop"), icon: '􀊆' }, { text: '', icon: '' });
         }
@@ -5520,6 +5590,7 @@ function One() {
     let pageSwitching = false;
     function process1() {
         if (window.location.href.includes('/lesson') || window.location.href.includes('/practice') || window.location.href.includes('/practice-hub/listening-practice')) return;
+        if (storageSession.legacy.status === 'chess') return;
         if (storageSession.legacy.status && (storageSession.legacy[storageSession.legacy.status].amount > 0 || storageSession.legacy[storageSession.legacy.status].type === 'infinity')) {
             if (pageSwitching) return;
             pageSwitching = true;
@@ -5532,6 +5603,7 @@ function One() {
     }
     setInterval(process1, 500);
     function process2() {
+        if (storageSession.legacy.status === 'chess') return;
         if (storageSession.legacy.status && (storageSession.legacy[storageSession.legacy.status].amount > 0 || storageSession.legacy[storageSession.legacy.status].type === 'infinity')) {
             if (storageSession.legacy.status === 'path') {
                 window.location.href = "https://duolingo.com/lesson";
@@ -10029,7 +10101,7 @@ function One() {
                 messageSendInProgress = true;
                 checkSendButton();
                 lastTypingSent = true;
-                
+
                 if (!storageLocal.chatKey || storageLocal.chatKey.length === 0) {
                     if (container?.querySelector('#DLP_Inset_Group_5')?.style.display !== 'none') container.querySelector('#DLP_Inset_Group_5').style.display = 'none';
                     if (chatBox?.style.display === 'none') chatBox.style.display = 'flex';
@@ -11274,6 +11346,189 @@ function One() {
     maintainChessMatchToggleButton();
     startChessMatchBotLoop();
 
+    // ===== Legacy mode: chess matches against Oscar (practice matches only, never PvP) =====
+    // Driven by the "chess" legacy card: storageSession.legacy.chess = { type, amount }, status === 'chess'.
+    (function initOscarChessMatches() {
+        const OSCAR_PATH = '/chess-match';
+        const HUB_PATH = '/chess-matches';
+        const pathNow = () => window.location.pathname.replace(/\/+$/, '');
+        const isOscarPage = () => pathNow().endsWith(OSCAR_PATH);
+        const isHubPage = () => pathNow().endsWith(HUB_PATH);
+        const isPvpPage = () => pathNow().endsWith('/chess-pvp-session');
+        const cfg = () => (storageSession.legacy.chess ??= { type: 'lesson', amount: 0 });
+        const isRunning = () => storageSession.legacy.status === 'chess';
+        let startedOnThisPage = false;
+        let countedThisPage = false;
+        let nextAt = 0;
+        let leaving = false;
+        let lastTick = Date.now();
+        let fraction = 0;
+        const pageLoadedAt = Date.now();
+        const FLAG = 'dlp_oscar_in_match';
+        const flagGet = () => { try { return sessionStorage.getItem(FLAG) === '1'; } catch (e) { return false; } };
+        const flagSet = (v) => { try { if (v) sessionStorage.setItem(FLAG, '1'); else sessionStorage.removeItem(FLAG); } catch (e) {} };
+        const leftMatchManually = flagGet();
+
+        let resumeNow = false;
+        let prevOnOscar = isOscarPage();
+        let offSince = Date.now();
+        let cameFromMatch = leftMatchManually;
+        function removeResumePrompt() {
+            const el = document.getElementById('DLP_Oscar_Resume_Prompt');
+            if (el) el.remove();
+        }
+        function showResumePrompt(deadline, now) {
+            let el = document.getElementById('DLP_Oscar_Resume_Prompt');
+            if (!el) {
+                el = document.createElement('div');
+                el.id = 'DLP_Oscar_Resume_Prompt';
+                el.style.cssText = 'position:fixed;left:50%;bottom:24px;transform:translateX(-50%);z-index:2147483647;background:#fff;color:#3c3c3c;border:2px solid #e5e5e5;border-radius:16px;padding:14px 18px;font:700 15px sans-serif;display:flex;gap:12px;align-items:center;box-shadow:0 4px 16px rgba(0,0,0,.2)';
+                el.innerHTML = '<span id="DLP_Oscar_Resume_Text"></span><button id="DLP_Oscar_Resume_Yes" style="background:#1cb0f6;color:#fff;border:0;border-radius:12px;padding:8px 14px;font:inherit;cursor:pointer">Continue</button><button id="DLP_Oscar_Resume_No" style="background:#eee;color:#3c3c3c;border:0;border-radius:12px;padding:8px 14px;font:inherit;cursor:pointer">Stop</button>';
+                document.body.appendChild(el);
+                document.getElementById('DLP_Oscar_Resume_Yes').addEventListener('click', () => { resumeNow = true; });
+                document.getElementById('DLP_Oscar_Resume_No').addEventListener('click', () => { removeResumePrompt(); stopRun(null); });
+            }
+            const left = Math.max(0, Math.ceil((deadline - now) / 1000));
+            const t = document.getElementById('DLP_Oscar_Resume_Text');
+            if (t) t.textContent = 'Continue chess matches? Resuming in ' + left + 's';
+        }
+
+        function go(path) {
+            if (leaving) return;
+            leaving = true;
+            window.location.href = window.location.origin + path;
+        }
+
+        function isRunDone() {
+            const c = cfg();
+            return c.type !== 'infinity' && !(c.amount > 0);
+        }
+
+        function stopRun(destination) {
+            const c = cfg();
+            if (c.type !== 'infinity' && !(c.amount > 0)) c.amount = 0;
+            else if (c.type === 'time') c.amount = Math.ceil(c.amount / 60);
+            storageSession.legacy.status = false;
+            for (const id of ['DLP_Get_CHESS_1_ID', 'DLP_Get_CHESS_2_ID']) {
+                const btn = document.getElementById(id)?.querySelector('#DLP_Inset_Button_1_ID');
+                if (btn) setButtonState(btn, { button: 'rgb(var(--DLP-blue))', outline: 'rgba(0, 0, 0, 0.20)', text: '#FFF', icon: '#FFF' }, { text: system("actions.start"), icon: '􀰫' }, { text: '', icon: '' });
+            }
+            saveStorageSession();
+            flagSet(false);
+            setChessMatchBotPlaying(false);
+            if (destination) go(destination);
+        }
+
+        function readMatchXp() {
+            const text = document.body ? document.body.innerText : '';
+            const m = /\+\s*(\d+)\s*XP/i.exec(text);
+            return m ? parseInt(m[1], 10) : 10;
+        }
+
+        function countMatch() {
+            const c = cfg();
+            if (c.type === 'lesson') c.amount = Math.max(0, c.amount - 1);
+            else if (c.type === 'xp') c.amount = Math.max(0, c.amount - readMatchXp());
+            (((storageLocal.stats ??= {}).legacy ??= {}).chess ??= { lessons: 0 }).lessons++;
+            saveStorageLocal();
+            saveStorageSession();
+        }
+
+        setInterval(() => {
+            try {
+                const now = Date.now();
+                const elapsed = (now - lastTick) / 1000;
+                lastTick = now;
+
+                if (!isRunning()) {
+                    if (startedOnThisPage) {
+                        startedOnThisPage = false;
+                        setChessMatchBotPlaying(false);
+                    }
+                    return;
+                }
+
+                if (isPvpPage()) { // never automate matches against real players
+                    stopRun(null);
+                    return;
+                }
+
+                const c = cfg();
+                if (c.type === 'time' && c.amount > 0) {
+                    fraction += elapsed;
+                    const whole = Math.floor(fraction);
+                    if (whole > 0) {
+                        fraction -= whole;
+                        c.amount = Math.max(0, c.amount - whole);
+                        saveStorageSession();
+                    }
+                }
+
+                const onOscar = isOscarPage();
+                if (prevOnOscar && !onOscar) { offSince = now; cameFromMatch = true; resumeNow = false; }
+                if (!prevOnOscar && onOscar) {
+                    startedOnThisPage = false;
+                    countedThisPage = false;
+                    nextAt = 0;
+                    cameFromMatch = false;
+                    removeResumePrompt();
+                }
+                prevOnOscar = onOscar;
+
+                if (!onOscar) {
+                    // After the user leaves a match, ask whether to continue (auto-continues after 5 seconds).
+                    if (cameFromMatch) {
+                        showResumePrompt(offSince + 5000, now);
+                        if (now < offSince + 5000 && !resumeNow) return;
+                    } else if (now - offSince < 2000) return;
+                    removeResumePrompt();
+                    if (isRunDone()) stopRun(HUB_PATH);
+                    else { flagSet(false); go(OSCAR_PATH); }
+                    return;
+                }
+                flagSet(true);
+
+                if (!isChessMatchPageActive()) return;
+                const { canvas, reactState } = getChessCanvasAndState();
+                if (!canvas) return;
+                const finished = !!reactState?.props?.challenge?.gradingResult;
+
+                if (!finished) {
+                    if (!startedOnThisPage && !chessMatchBotPlaying && !isRunDone()) {
+                        setChessMatchBotPlaying(true);
+                        startedOnThisPage = true;
+                    } else if (!startedOnThisPage && isRunDone()) {
+                        stopRun(HUB_PATH);
+                    }
+                    return;
+                }
+
+                if (!startedOnThisPage) { // a finished match we did not play: move on
+                    if (now - pageLoadedAt > 10000) {
+                        if (isRunDone()) { stopRun(HUB_PATH); return; }
+                        const btn = dlpFindContinueButton();
+                        if (btn) btn.click();
+                        else go(OSCAR_PATH);
+                    }
+                    return;
+                }
+
+                if (!countedThisPage) {
+                    countedThisPage = true;
+                    countMatch();
+                    setChessMatchBotPlaying(false);
+                    nextAt = now + 3000;
+                }
+                if (now >= nextAt) {
+                    if (isRunDone()) stopRun(HUB_PATH);
+                    else go(OSCAR_PATH);
+                }
+            } catch (error) {
+                // keep the loop alive silently
+            }
+        }, 1000);
+    })();
+
     const CHESS_LESSON_BUTTON_ROW_ID = 'dlp-chess-lesson-button-row';
     function isChessLessonSolveContext() {
         return !CHESS_MATCH_BOT_CONFIG.chessPathSuffixes.some(
@@ -11570,9 +11825,73 @@ function One() {
         return isMathLessonSolveContext() && window.sol?.challengeBlob?.layout === 'matchMadness';
     }
 
+    function dlpFindContinueButton() {
+        const enabled = (b) => b && !b.closest('.DLP_Main') && !b.closest('#DLP_ListenMatch_Host') && !b.classList.contains('auto-solver-btn')
+            && !b.disabled && b.getAttribute('aria-disabled') !== 'true' && getComputedStyle(b).visibility !== 'hidden';
+        for (const sel of ['[data-test="player-next"]', '[data-test="player-continue"]', '[data-test*="continue"]', '[data-test*="-next"]']) {
+            const el = document.querySelector(sel);
+            if (enabled(el)) return el;
+        }
+        if (!document.querySelector('[data-test="quit-button"]')) return null;
+        const vh = window.innerHeight;
+        const cands = Array.from(document.querySelectorAll('button, [role="button"]')).filter(b => {
+            if (!enabled(b)) return false;
+            if (/skip|quit|close|tap-token|choice/i.test(b.getAttribute('data-test') || '')) return false;
+            const r = b.getBoundingClientRect();
+            return r.width > 80 && r.height > 30 && r.top > vh * 0.7;
+        });
+        cands.sort((a, b) => b.getBoundingClientRect().right - a.getBoundingClientRect().right);
+        return cands[0] || null;
+    }
+
+    function isListenMatchContext() {
+        const toks = Array.from(document.querySelectorAll('[data-test*="challenge-tap-token"]:not(span)'));
+        const noText = toks.filter(b => !b.querySelector('[data-test="challenge-tap-token-text"]')).length;
+        return !document.querySelector('[data-test="word-bank"]') && noText >= 2 && (toks.length - noText) >= 2;
+    }
+
+    function getListenMatchFloatingHost() {
+        let h = document.getElementById('DLP_ListenMatch_Host');
+        if (!h) {
+            h = document.createElement('div');
+            h.id = 'DLP_ListenMatch_Host';
+            h.style.cssText = 'position:fixed;left:0;right:0;bottom:16px;display:flex;justify-content:center;align-items:center;gap:20px;z-index:99999;';
+            document.body.appendChild(h);
+        }
+        return h;
+    }
+
+    // Safety net: retry creating the buttons if they were not created
+    let dlpLastAddButtonsErr = '';
+    setInterval(() => {
+        try {
+            if (!storageLocal.settings.showSolveButtons) return;
+            if (document.getElementById('solveAllButton')) return;
+            if (!shouldInitSolveButtons()) return;
+            addButtons();
+        } catch (e) {
+            if (String(e && e.message) !== dlpLastAddButtonsErr) {
+                dlpLastAddButtonsErr = String(e && e.message);
+                console.warn('[ListenMatch] addButtons error:', e);
+            }
+        }
+    }, 1000);
+
+    // Keep the floating SOLVE buttons on the page only while in a lesson
+    setInterval(() => {
+        const h = document.getElementById('DLP_ListenMatch_Host');
+        if (!h) return;
+        const inLesson = document.querySelector('[data-test="quit-button"]') || document.querySelector('[data-test*="challenge"]') || document.querySelector('[data-test*="player-continue"], [data-test*="player-next"], [data-test*="player-done"]');
+        if (!inLesson) h.remove();
+    }, 500);
+
     function getMathMatchMadnessButtonHost() {
+        if (isListenMatchContext() && !isMathMatchMadnessSolveContext()) {
+            return getListenMatchFloatingHost();
+        }
         return document.querySelector('.MYehf')
             || document.getElementById('session/PlayerFooter')
+            || document.querySelector('[data-test="player-skip"]')?.parentElement
             || document.querySelector('._2G9ED > ._3GuWo._1cTBC');
     }
 
@@ -13424,8 +13743,10 @@ function One() {
         updateChessCanvasPointerEvents();
 
         function startSolvingLoop(runToken) {
-            if (solvingLoopRunning || !isAutoMode || runToken !== solveAllRunToken) return;
+            if (!isAutoMode || runToken !== solveAllRunToken) return; // (the old loop stops by itself at its next check)
 
+            if (window.__dlpLoopToken === runToken) return; // a loop is already running for this run
+            window.__dlpLoopToken = runToken;
             solvingLoopRunning = true;
             let initialUrl = window.location.href;
 
@@ -13450,7 +13771,12 @@ function One() {
                         : 400;
 
                     // B. Run Logic (Wait for it to fully finish)
-                    await solve(true, true, runToken);
+                    try {
+                        await solve(true, true, runToken);
+                    } catch (loopError) {
+                        console.warn('[ListenMatch] solve() error, the loop continues:', loopError);
+                        await new Promise(resolve => setTimeout(resolve, 500));
+                    }
                     await new Promise(resolve => setTimeout(resolve, 100));
 
                     // Check if stopped while solve() was running
@@ -13467,7 +13793,7 @@ function One() {
                 }
 
                 // Cleanup when loop breaks
-                solvingLoopRunning = false;
+                if (runToken === solveAllRunToken || !isAutoMode) solvingLoopRunning = false;
                 updateChessCanvasPointerEvents();
 
                 if (isAutoMode && runToken !== solveAllRunToken) {
@@ -13483,8 +13809,12 @@ function One() {
     }
 
     async function solve(check = true, skip = false, runToken = solveAllRunToken) {
-        if (isSolveBusy) return;
+        if (isSolveBusy) {
+            if (Date.now() - (window.__dlpBusySince || 0) > 15000 && !isChessLessonSolveContext()) { isSolveBusy = false; } // release a stuck run
+            else return;
+        }
         isSolveBusy = true;
+        window.__dlpBusySince = Date.now();
         syncReactLookupByContext();
 
         try {
@@ -13600,6 +13930,9 @@ function One() {
         } else {
             challengeType = 'error';
         }
+        if (window.sol && window.sol.type === 'gap-fill') {
+            challengeType = 'Story Gap Fill';
+        }
 
         let questionKey;
         if (window.sol && window.sol.id) {
@@ -13645,12 +13978,44 @@ function One() {
             }
             : null;
 
-        if (challengeType === 'error') {
-            await Promise.race([
-                clickCheck(),
-                new Promise(resolve => setTimeout(resolve, 500))
-            ]);
+        if (challengeType === 'Story Gap Fill') {
+            const gapSleep = (ms) => new Promise(r => setTimeout(r, ms));
+            const clickGapContinue = async (timeout) => {
+                const t0 = Date.now();
+                while (Date.now() - t0 < timeout) {
+                    const btn = document.querySelector('[data-test="stories-player-continue"]')
+                        || document.querySelector('[data-test="stories-player-done"]')
+                        || document.querySelector('[data-test="player-next"]');
+                    if (btn && !btn.disabled && btn.getAttribute('aria-disabled') !== 'true') {
+                        btn.click();
+                        return true;
+                    }
+                    await gapSleep(100);
+                }
+                return false;
+            };
+            await handleChallenge(challengeType);
+            if (check) {
+                const ok = await clickGapContinue(2000);
+                dlpLog('[GapFill] continue clicked:', ok);
+                if (ok && skip) {
+                    await gapSleep(700);
+                    await clickGapContinue(1500);
+                }
+            }
+        } else if (challengeType === 'error') {
+            const contBtnE = dlpFindContinueButton();
+            if (contBtnE) {
+                contBtnE.click();
+                await new Promise(resolve => setTimeout(resolve, 300));
+            } else {
+                await Promise.race([
+                    clickCheck(),
+                    new Promise(resolve => setTimeout(resolve, 500))
+                ]);
+            }
         } else if (challengeType) {
+            dlpLog("[ListenMatch] solve() type:", challengeType, "| sol.type:", window.sol && window.sol.type);
             if (debug) console.log("Challenge Type: " + challengeType);
 
             let playerFooter1 = document.getElementById("session/PlayerFooter");
@@ -13663,6 +14028,11 @@ function One() {
                 await new Promise(resolve => setTimeout(resolve, 50));
             } else if (challengeType === 'Math Match Madness') {
                 await handleChallenge(challengeType, mathMatchMadnessRunContext);
+            } else if (challengeType === 'Listen Match') {
+                await handleChallenge(challengeType);
+            } else if (window.sol && typeof window.sol.type === 'string' && window.sol.type.startsWith('radio') && challengeType === 'Challenge Choice') {
+                await handleChallenge(challengeType);
+                await new Promise(r => setTimeout(r, 300));
             } else if ((playerFooter1 && playerFooter1.matches("._3rB4d._1VTif._2HXQ9")) || (!playerFooter1 && document.querySelector('._2i9lj'))) { // id="session/PlayerFooter", "._3rB4d._1VTif._2HXQ9" - Neutral
                 const challengeReady = await Promise.race([
                     handleChallenge(challengeType, chessLessonRunContext),
@@ -13714,10 +14084,18 @@ function One() {
                 ]);
             }
         } else {
-            await Promise.race([
-                clickCheck(),
-                new Promise(resolve => setTimeout(resolve, 500))
-            ]);
+            // Unknown screen (e.g. a radio story intro): press the Continue button if there is one
+            const contBtn = dlpFindContinueButton();
+            if (contBtn) {
+                dlpLog('[ListenMatch] unknown screen, Continue button:', contBtn.outerHTML.slice(0, 250));
+                contBtn.click();
+                await new Promise(resolve => setTimeout(resolve, 300));
+            } else {
+                await Promise.race([
+                    clickCheck(),
+                    new Promise(resolve => setTimeout(resolve, 500))
+                ]);
+            }
         }
         } finally {
             isSolveBusy = false;
@@ -13848,6 +14226,8 @@ function One() {
                     return "Story Point to Phrase"
                 } else if (window.sol.type === "match") {
                     return "Story Pairs"
+                } else if (window.sol.type === "gap-fill") {
+                    return "Story Gap Fill"
                 }
             } else {
                 // Lesson
@@ -13914,6 +14294,15 @@ function One() {
                     } else {
                         return 'Challenge Choice'
                     }
+                } else if ((() => {
+                    const toks = Array.from(document.querySelectorAll('[data-test*="challenge-tap-token"]:not(span)'));
+                    const noText = toks.filter(b => !b.querySelector('[data-test="challenge-tap-token-text"]'));
+                    const withText = toks.length - noText.length;
+                    const isLM = !document.querySelector('[data-test="word-bank"]') && noText.length >= 2 && withText >= 2;
+                    if (isLM) dlpLog('[ListenMatch] detected, sol.type =', window.sol && window.sol.type);
+                    return isLM;
+                })()) {
+                    return 'Listen Match';
                 } else if (document.querySelectorAll('[data-test$="challenge-tap-token"]').length > 0) {
                     if (window.sol.pairs !== undefined) {
                         return 'Pairs';
@@ -13948,6 +14337,116 @@ function One() {
         }
     }
 
+    function dlpDumpSol() {
+        try {
+            return JSON.stringify(window.sol, (k, v) => typeof v === 'function' ? undefined : (typeof v === 'string' && v.length > 120 ? v.slice(0, 120) + '…' : v), 1).slice(0, 3500);
+        } catch (e) { return 'dump error: ' + e; }
+    }
+
+    async function solveListenMatch(runContext = null) {
+        const sleep = (ms) => new Promise(r => setTimeout(r, ms));
+        const tag = '[ListenMatch]';
+        const getTokens = () => Array.from(document.querySelectorAll('[data-test*="challenge-tap-token"]:not(span)'))
+            .filter(b => b.tagName === 'BUTTON' || b.getAttribute('role') === 'button' || b.tagName === 'DIV');
+        const textOf = (b) => {
+            const t = b.querySelector('[data-test="challenge-tap-token-text"]');
+            return (t ? t.textContent : '').replace(/\s+/g, ' ').trim();
+        };
+        const isWord = (b) => { const t = textOf(b); return t !== '' && !/^\d+$/.test(t); };
+        const isDone = (b) => !b || !document.contains(b) || b.disabled || b.getAttribute('aria-disabled') === 'true' || getComputedStyle(b).visibility === 'hidden';
+        const live = (arr) => arr.filter(b => !isDone(b));
+        const audio = () => live(getTokens().filter(b => !isWord(b)));
+        const words = () => live(getTokens().filter(isWord));
+
+        dlpLog(tag, 'sol:', dlpDumpSol());
+        // Deterministic matching: find out which audio belongs to which word (from React data, or from the played audio URL)
+        const norm = (x) => String(x == null ? '' : x).replace(/\s+/g, ' ').trim().toLowerCase();
+        const pairs = Array.isArray(window.sol && window.sol.pairs) ? window.sol.pairs : [];
+        const fiberOf = (el) => { const k = Object.keys(el).find(k => k.startsWith('__reactFiber$')); return k ? el[k] : null; };
+        const pairFromValue = (v) => {
+            if (typeof v === 'string') return pairs.find(p => p.tts === v || norm(p.learningWord) === norm(v)) || null;
+            if (v && typeof v === 'object' && !Array.isArray(v)) {
+                for (const key of ['tts', 'learningWord', 'translation']) {
+                    if (typeof v[key] === 'string') { const p = pairs.find(q => q[key] === v[key]); if (p) return p; }
+                }
+            }
+            return null;
+        };
+        const pairFromFiber = (el) => {
+            let f = fiberOf(el);
+            for (let d = 0; f && d < 12; d++, f = f.return) {
+                const p = f.memoizedProps;
+                if (!p || typeof p !== 'object') continue;
+                for (const k of Object.keys(p)) { const hit = pairFromValue(p[k]); if (hit) return hit; }
+            }
+            return null;
+        };
+        const pairFromAudio = async (audioBtn) => {
+            const t0 = Date.now();
+            audioBtn.click();
+            await sleep(900);
+            const hits = DLP_AUDIO_LOG.filter(x => x.t >= t0 - 20);
+            for (let i = hits.length - 1; i >= 0; i--) {
+                const p = pairs.find(q => q.tts && (hits[i].u === q.tts || hits[i].u.includes(q.tts.split('/').pop())));
+                if (p) return p;
+            }
+            return null;
+        };
+        const audioAll = getTokens().filter(b => !isWord(b));
+        if (audioAll[0]) {
+            const f0 = fiberOf(audioAll[0]);
+            let dbg = [];
+            for (let f = f0, d = 0; f && d < 8; d++, f = f.return) {
+                if (f.memoizedProps && typeof f.memoizedProps === 'object') dbg.push(d + ':' + Object.keys(f.memoizedProps).join(','));
+            }
+            dlpLog(tag, 'audio tile React props:', dbg.join(' | '));
+        }
+        let deterministicOk = 0;
+        for (let i = 0; i < audioAll.length; i++) {
+            if (!isChessLessonRunContextActive(runContext)) return false;
+            const audioBtn = audioAll[i];
+            if (isDone(audioBtn)) continue;
+            let pair = pairFromFiber(audioBtn);
+            let how = 'react';
+            if (!pair) { pair = await pairFromAudio(audioBtn); how = 'audio-url'; }
+            if (!pair) { dlpLog(tag, i + '. audio: cannot identify', 'audio log:', JSON.stringify(DLP_AUDIO_LOG.slice(-3))); continue; }
+            const wordBtn = words().find(w => norm(textOf(w)) === norm(pair.translation));
+            if (!wordBtn) { dlpLog(tag, i + '. audio: no tile for:', pair.translation); continue; }
+            audioBtn.click();
+            await sleep(250);
+            wordBtn.click();
+            await sleep(700);
+            if (isDone(audioBtn)) deterministicOk++;
+            dlpLog(tag, i + '. audio →', pair.translation, '(' + how + ') done:', isDone(audioBtn));
+        }
+        dlpLog(tag, 'deterministic matches:', deterministicOk, '/', audioAll.length);
+        dlpLog(tag, 'start; audio:', audio().length, 'words:', words().length, 'all tokens:', getTokens().length);
+        if (audio().length === 0 || words().length === 0) {
+            dlpLog(tag, 'could not find audio/word tiles', getTokens().map(b => b.outerHTML.slice(0, 200)));
+            return false;
+        }
+
+        let guard = 0;
+        while (audio().length > 0 && guard++ < 40) {
+            if (!isChessLessonRunContextActive(runContext)) return false;
+            const audioBtn = audio()[0];
+            let matched = false;
+            const candidates = words();
+            for (const wordBtn of candidates) {
+                if (isDone(audioBtn)) { matched = true; break; }
+                if (isDone(wordBtn)) continue;
+                audioBtn.click();
+                await sleep(250);
+                wordBtn.click();
+                await sleep(700);
+                if (isDone(audioBtn)) { matched = true; break; }
+            }
+            dlpLog(tag, 'round finished, matched:', matched, 'remaining:', audio().length);
+            if (!matched) break;
+        }
+        return true;
+    }
+
     async function handleChallenge(challengeType, runContext = null) {
         const sleep = (ms) => new Promise(r => setTimeout(r, ms)); // Helper for awaiting UI updates/animations
 
@@ -13957,7 +14456,10 @@ function One() {
         } else if (challengeType === 'Math Select One' || challengeType === 'Math Type Fill' || challengeType === 'Math Match' || challengeType === 'Math Match Madness' || challengeType === 'Math Factor Tree' || challengeType === 'Math Interactive' || challengeType === 'Math Expression Build' || challengeType === 'Math Multi Step' || challengeType === 'Math Lesson') {
             return await handleMathLessonChallenge(window.sol.challengeBlob, runContext);
 
-        } else if (challengeType === 'Challenge Speak' || challengeType === 'Listen Match' || challengeType === 'Listen Speak') {
+        } else if (challengeType === 'Listen Match') {
+            await solveListenMatch(runContext);
+
+        } else if (challengeType === 'Challenge Speak' || challengeType === 'Listen Speak') {
             const buttonSkip = document.querySelector('button[data-test="player-skip"]');
             buttonSkip?.click();
 
@@ -13972,7 +14474,36 @@ function One() {
 
                 elm.dispatchEvent(inputEvent);
             } else if (challengeType === 'Challenge Choice') {
-                document.querySelectorAll("[data-test='challenge-choice']")[window.sol.correctIndex].click();
+                const sol = window.sol || {};
+                const choices = document.querySelectorAll("[data-test='challenge-choice']");
+                const isRadio = typeof sol.type === 'string' && sol.type.startsWith('radio');
+                if (!isRadio) {
+                    choices[sol.correctIndex]?.click();
+                } else {
+                    let idxs = [];
+                    if (Array.isArray(sol.correctIndices) && sol.correctIndices.length) idxs = sol.correctIndices;
+                    else if (typeof sol.isTrue === 'boolean') idxs = [sol.isTrue ? 0 : 1]; // 0 = ✓, 1 = ✗
+                    else if (typeof sol.correctIndex === 'number') idxs = [sol.correctIndex];
+                    else if (typeof sol.correct === 'boolean') idxs = [sol.correct ? 0 : 1];
+                    const key = sol.type + '|' + (sol.startTime || '');
+                    const clickNext = async () => {
+                        const nb = document.querySelector('[data-test="player-next"]');
+                        if (nb && nb.getAttribute('aria-disabled') !== 'true') { nb.click(); return true; }
+                        return false;
+                    };
+                    if (!idxs.length || idxs.some(i => !choices[i])) {
+                        dlpLog('[ListenMatch] radio: no known correct answer, sol:', dlpDumpSol());
+                    } else if (window.__dlpRadioKey === key) {
+                        await clickNext(); // already answered this question, just continue
+                    } else {
+                        window.__dlpRadioKey = key;
+                        dlpLog('[ListenMatch] radio click, idxs:', idxs, 'sol.type:', sol.type, 'sol:', dlpDumpSol());
+                        for (const i of idxs) { choices[i].click(); await sleep(300); }
+                        await sleep(300);
+                        const ok = await clickNext();
+                        dlpLog('[ListenMatch] player-next clicked:', ok);
+                    }
+                }
             }
 
         } else if (challengeType === 'Pairs') {
@@ -14419,6 +14950,27 @@ function One() {
             });
 
 
+        } else if (challengeType === 'Story Gap Fill') {
+            const gapChoices = window.sol.choices || [];
+            const gapIndices = window.sol.correctIndices || [];
+            const wordOf = (c) => (typeof c === 'string' ? c : (c && c.text) || '').trim();
+            const findGapButton = (word) => {
+                let list = Array.from(document.querySelectorAll('[data-test*="challenge-tap-token"]:not(span)'));
+                let hit = list.find(b => !b.disabled && b.getAttribute('aria-disabled') !== 'true' && getCleanButtonText(b) === word);
+                if (hit) return hit;
+                list = Array.from(document.querySelectorAll('button')).filter(b =>
+                    !/player-|stories-player|quit|skip/.test(b.getAttribute('data-test') || '')
+                );
+                return list.find(b => !b.disabled && b.getAttribute('aria-disabled') !== 'true' && (b.innerText || '').trim() === word);
+            };
+            dlpLog('[GapFill] words to click:', gapIndices.map(i => wordOf(gapChoices[i])));
+            for (const index of gapIndices) {
+                const word = wordOf(gapChoices[index]);
+                const button = findGapButton(word);
+                dlpLog('[GapFill] click', word, button ? 'found' : 'NOT FOUND');
+                if (button) button.click();
+                await sleep(250);
+            }
         } else if (challengeType === 'Session Complete') {
         } else if (challengeType === 'Story Arrange') {
             let choices = document.querySelectorAll('[data-test*="challenge-tap-token"]:not(span)');
