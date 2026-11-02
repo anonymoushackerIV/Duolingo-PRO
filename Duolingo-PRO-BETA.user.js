@@ -6255,7 +6255,7 @@ function One() {
                         fetchUserBioData();
                     }
 
-                    if (chatKeyValue) {
+                    if (chatKeyValue && storageLocal?.chatKey?.[0] === chatKeyValue) {
                         if (data.chats?.closed) {
                             console.log('CHAT CLOSED');
                             storageLocal.chatKey.shift();
@@ -10038,6 +10038,7 @@ function One() {
                         let response = await fetch(apiURL + "/chats/create", {
                             method: "POST",
                             headers: {
+								"Content-Type": "application/json",
                                 "Authorization": `Bearer ${document.cookie.split(';').find(cookie => cookie.includes('jwt_token')).split('=')[1]}`
                             },
                             body: JSON.stringify({
@@ -10451,38 +10452,35 @@ function One() {
 
         }
 
-        function setupCreateNewChatButton() {
-            let theButton = container.querySelector('#DLP_Inset_Group_2').querySelector('#DLP_Inset_Button_3_ID');
-            theButton.addEventListener('click', async () => {
-                theButton.style.opacity = "0.5";
-                theButton.style.pointerEvents = "none";
-                try {
-                    let response = await fetch(apiURL + "/chats/create", {
-                        method: "GET",
-                        headers: {
-                            "Authorization": `Bearer ${document.cookie.split(';').find(cookie => cookie.includes('jwt_token')).split('=')[1]}`
-                        }
-                    });
-
-                    let data = await response.json();
-                    storageLocal.chatKey = [data.chat_key];
-                    saveStorageLocal();
-
-                    chatBox.innerHTML = '';
-                    ensureChatSpacer(chatBox);
-
-                    container.querySelector('#DLP_Inset_Group_1').style.display = "";
-                    container.querySelector('#DLP_Inset_Group_2').style.display = "none";
-
-                    theButton.style.opacity = "";
-                    theButton.style.pointerEvents = "";
-                } catch (error) {
-                    console.error("Fetch error:", error);
-                    theButton.style.opacity = "";
-                    theButton.style.pointerEvents = "";
-                }
-            });
-        }
+		function setupCreateNewChatButton() {
+		    const theButton = container.querySelector('#DLP_Inset_Group_2').querySelector('#DLP_Inset_Button_3_ID');
+		    theButton.addEventListener('click', () => {
+		        delete storageLocal.chatKey;
+		        saveStorageLocal();
+		
+		        chatMemory = [];
+		        chatMemoryFingerprints = [];
+		        chatTempSendList = [];
+		        pendingTempMessages.clear();
+		        rebuildChatMessageLookup();
+		        resetSupportChatDomRegistry(chatBox);
+		        chatBox.innerHTML = '';
+		        ensureChatSpacer(chatBox);
+		        chatBox.style.display = 'none';
+		        container.querySelector('#DLP_Inset_Group_5').style.display = '';
+		        container.querySelector('#DLP_Inset_Group_1').style.display = '';
+		        container.querySelector('#DLP_Inset_Group_2').style.display = 'none';
+		        container.querySelector('#DLP_Inset_Group_3')?.remove();
+		        removeNewMessageIndicator();
+		        chatPinnedToBottom = true;
+		        lastTypingChat = 0;
+		        lastTypingSent = false;
+		        allAttachments[currentChatId] = [];
+		        attachmentInput.value = '';
+		        renderAttachmentsPreview();
+		        resetMessageInputState();
+		    });
+		}
         setupCreateNewChatButton();
 
         function checkSendButton() {
